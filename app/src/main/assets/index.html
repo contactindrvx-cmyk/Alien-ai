@@ -5,96 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ayesha AI Premium</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <style>
-        /* چیٹ ببلز کا ڈیزائن (آپ کا اپنا اوریجنل ڈیزائن) */
-        .chat-bubble { 
-            border-radius: 24px; 
-            padding: 14px 20px; 
-            max-width: 85%; 
-            width: fit-content;
-            line-height: 1.6;
-            position: relative;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .ayesha-bubble { 
-            background-color: #16243d; 
-            border-bottom-left-radius: 4px; 
-            margin-top: 15px; 
-        }
-
-        .user-bubble { 
-            background-color: #2f3037; 
-            margin-left: auto; 
-            color: #e0e0e0; 
-            border-bottom-right-radius: 4px; 
-        }
-
-        /* جمنائی گلو اثر */
+        .chat-bubble { border-radius: 24px; padding: 14px 20px; max-width: 85%; width: fit-content; line-height: 1.6; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .ayesha-bubble { background-color: #16243d; border-bottom-left-radius: 4px; margin-top: 15px; }
+        .user-bubble { background-color: #2f3037; margin-left: auto; color: #e0e0e0; border-bottom-right-radius: 4px; }
         .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.1); transition: all 0.3s ease; }
-        .gemini-glow:focus-within, .gemini-glow.active {
-            box-shadow: 0 0 25px rgba(58, 143, 247, 0.3);
-            border-color: #3a8ff7 !important;
-        }
-
-        /* فلوٹنگ اسپیکر */
-        .speaker-float {
-            background-color: #16243d;
-            color: #e0e0e0;
-            border: 1px solid #3a8ff7;
-            border-radius: 100px;
-            padding: 4px 12px;
-            font-size: 11px;
-            font-weight: bold;
-            position: absolute;
-            top: -14px; left: -10px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            z-index: 20;
-        }
+        .gemini-glow:focus-within, .gemini-glow.active { box-shadow: 0 0 25px rgba(58, 143, 247, 0.3); border-color: #3a8ff7 !important; }
+        .speaker-float { background-color: #16243d; color: #e0e0e0; border: 1px solid #3a8ff7; border-radius: 100px; padding: 4px 12px; font-size: 11px; font-weight: bold; position: absolute; top: -14px; left: -10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; gap: 6px; z-index: 20; }
     </style>
 </head>
 <body class="h-screen flex bg-black text-white font-sans w-full overflow-hidden relative">
-    
-    <audio id="audio-player" class="hidden"></audio>
-    <input type="file" id="hidden-file-input" class="hidden" accept="image/*, audio/*, video/*, .pdf">
-
+    <input type="file" id="hidden-file-input" class="hidden" accept="image/*">
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity cursor-pointer"></div>
 
     <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] p-4 flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
         <h2 class="text-2xl font-bold mb-6 text-center text-[#3a8ff7]">Select Assistant</h2>
         <div class="flex-1 space-y-4 overflow-y-auto" id="assistants-list">
-            
             <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
                 <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
                 <span class="font-semibold">Ayesha AI</span>
             </button>
-
-            <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="David Bot">
-                <span class="w-3 h-3 rounded-full bg-blue-500"></span> 
-                <span class="font-semibold text-gray-300">David Bot</span>
-            </button>
-
-            <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="Sara Assistant">
-                <span class="w-3 h-3 rounded-full bg-purple-500"></span> 
-                <span class="font-semibold text-gray-300">Sara Assistant</span>
-            </button>
-
-            <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="Raza Bot">
-                <span class="w-3 h-3 rounded-full bg-orange-500"></span> 
-                <span class="font-semibold text-gray-300">Raza Bot</span>
-            </button>
-
         </div>
         <div class="border-t border-[#2f3037] mt-2 pt-4 flex items-center gap-3 p-2">
             <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
@@ -128,7 +59,7 @@
                         <input type="text" id="user-input" class="flex-1 bg-transparent px-2 py-3 outline-none text-white text-base placeholder-gray-400 w-full" placeholder="Ask something..." autocomplete="off">
                         <button id="action-btn" class="p-3 text-[#3a8ff7] flex-shrink-0 mr-1 z-30 transition-colors hover:text-white">
                             <svg id="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                            <svg id="stop-icon" class="hidden text-red-500" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+                            <svg id="stop-icon" class="hidden text-[#3a8ff7]" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
                             <svg id="send-icon" class="hidden text-white" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                         </button>
                     </div>
@@ -150,22 +81,36 @@
             const chatBox = document.getElementById('chat-box');
             const thinkingIndicator = document.getElementById('thinking-indicator');
             const indicatorText = document.getElementById('indicator-text');
-            const audioPlayer = document.getElementById('audio-player');
 
-            // 1. گیلری سے فائل سلیکٹ کرنا
-            plusBtn.onclick = () => {
-                fileInput.click(); 
-            };
+            // عائشہ کی آواز (Text to Speech)
+            function speakAyesha(text) {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); // پرانی آواز بند کریں
+                    let speech = new SpeechSynthesisUtterance(text);
+                    speech.lang = 'ur-PK'; // اردو لہجہ
+                    speech.rate = 1.0;
+                    window.speechSynthesis.speak(speech);
+                }
+            }
 
-            fileInput.onchange = (e) => {
+            // فائل کو Base64 میں بدلنے کا فنکشن (تاکہ پائتھن اسے سمجھ سکے)
+            const fileToBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+
+            plusBtn.onclick = () => fileInput.click(); 
+
+            fileInput.onchange = async (e) => {
                 const file = e.target.files[0];
                 if(file) {
-                    addMessage(`📎 فائل اپلوڈ ہو رہی ہے: ${file.name}`, 'user');
-                    sendToHuggingFace(null, null, file); 
+                    addMessage(`📎 تصویر بھیجی جا رہی ہے...`, 'user');
+                    sendToHuggingFace("", null, file); 
                 }
             };
 
-            // 2. آڈیو ریکارڈنگ کا سسٹم
             let isRecording = false;
             let mediaRecorder;
             let audioChunks = [];
@@ -174,26 +119,20 @@
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     mediaRecorder = new MediaRecorder(stream);
-                    
-                    mediaRecorder.ondataavailable = event => {
-                        audioChunks.push(event.data);
-                    };
-
+                    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
                     mediaRecorder.onstop = () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                         audioChunks = [];
                         addMessage("🎤 وائس میسج بھیجا...", 'user');
-                        sendToHuggingFace(null, audioBlob, null);
+                        sendToHuggingFace("یہ میرا وائس میسج ہے، اس کا جواب دیں۔", audioBlob, null);
                     };
-
                     mediaRecorder.start();
                     isRecording = true;
                     updateUI();
                     indicatorText.innerText = `عائشہ سن رہی ہے...`;
                     thinkingIndicator.classList.replace('hidden', 'flex');
-
                 } catch (err) {
-                    alert("براہ کرم مائیکروفون کی اجازت دیں!");
+                    alert("مائیکروفون کی اجازت نہیں ملی!");
                 }
             }
 
@@ -206,23 +145,16 @@
                 }
             }
 
-            // 3. UI اور بٹنز کا کنٹرول
             function updateUI() {
                 const hasText = input.value.trim().length > 0;
                 const isActive = (document.activeElement === input) || hasText || isRecording;
-
                 if (isActive) {
                     plusBtn.classList.add('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
-                    inputPill.style.marginLeft = "64px";
-                    inputPill.style.paddingLeft = "10px";
-                    inputPill.classList.add('active');
+                    inputPill.style.marginLeft = "64px"; inputPill.style.paddingLeft = "10px"; inputPill.classList.add('active');
                 } else {
                     plusBtn.classList.remove('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
-                    inputPill.style.marginLeft = "0px";
-                    inputPill.style.paddingLeft = "56px";
-                    inputPill.classList.remove('active');
+                    inputPill.style.marginLeft = "0px"; inputPill.style.paddingLeft = "56px"; inputPill.classList.remove('active');
                 }
-
                 if (hasText) {
                     micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
                 } else if (isRecording) {
@@ -241,50 +173,33 @@
                 if (input.value.trim().length > 0) {
                     const text = input.value.trim();
                     addMessage(text, 'user');
-                    input.value = '';
-                    updateUI();
-                    sendToHuggingFace(text, null, null); 
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null); 
                 } else {
-                    if(isRecording) {
-                        stopRecording();
-                    } else {
-                        startRecording();
-                    }
+                    isRecording ? stopRecording() : startRecording();
                 }
             };
 
             input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && input.value.trim().length > 0) {
                     const text = input.value.trim();
-                    if(text.length > 0) {
-                        addMessage(text, 'user');
-                        input.value = '';
-                        updateUI();
-                        sendToHuggingFace(text, null, null);
-                    }
+                    addMessage(text, 'user');
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null);
                 }
             });
 
-            // 4. چیٹ میں میسج دکھانا
-            function addMessage(text, sender, audioUrl = null) {
+            function addMessage(text, sender) {
                 const msgDiv = document.createElement('div');
                 if (sender === 'user') {
                     msgDiv.className = 'chat-bubble user-bubble border border-[#3a8ff7]';
                     msgDiv.innerHTML = `<p>${text}</p>`;
                 } else {
                     msgDiv.className = 'relative group w-full mt-4';
-                    
-                    let audioBtnHTML = '';
-                    if (audioUrl) {
-                        audioBtnHTML = `
-                        <button class="speaker-float absolute z-20" onclick="document.getElementById('audio-player').src='${audioUrl}'; document.getElementById('audio-player').play();">
+                    // اب سنیں بٹن خودکار اینڈرائیڈ کی آواز چلائے گا
+                    msgDiv.innerHTML = `
+                        <button class="speaker-float absolute z-20" onclick="speakAyesha('${text.replace(/'/g, "\\'")}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                             Listen
-                        </button>`;
-                    }
-
-                    msgDiv.innerHTML = `
-                        ${audioBtnHTML}
+                        </button>
                         <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
                             <p>${text}</p>
                         </div>
@@ -294,71 +209,45 @@
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            // 5. ہگنگ فیس API کے ساتھ اصلی کنکشن (فاسٹ اے پی آئی)
-            function sendToHuggingFace(text, audioBlob, file) {
+            // فائنل کنکشن پائتھن کے ساتھ (JSON Format)
+            async function sendToHuggingFace(text, audioBlob, file) {
                 indicatorText.innerText = `عائشہ سوچ رہی ہے...`;
                 thinkingIndicator.classList.replace('hidden', 'flex');
 
-                // آپ کا اصلی ہگنگ فیس API لنک
-                // میں نے /api/predict اور /chat دونوں کے حساب سے اسے سیٹ کیا ہے تاکہ ایرر نہ آئے
-                const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/api/predict"; 
+                const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
 
-                let formData = new FormData();
-                if(text) formData.append("text", text);
-                if(audioBlob) formData.append("audio", audioBlob, "voice.wav");
-                if(file) formData.append("file", file);
+                let payload = {
+                    message: text || "",
+                    email: "alirazasabir007@gmail.com", // ماسٹر ای میل تاکہ وہ پہچان لے
+                    local_time: new Date().toLocaleTimeString()
+                };
+
+                if (file) payload.image = await fileToBase64(file);
+                if (audioBlob) payload.audio = await fileToBase64(audioBlob);
 
                 fetch(API_URL, {
                     method: "POST",
-                    body: formData
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('نیٹ ورک میں مسئلہ ہے');
-                    }
-                    return response.json();
-                })
+                .then(res => res.json())
                 .then(data => {
                     thinkingIndicator.classList.replace('flex', 'hidden');
-                    
-                    // سرور سے آنے والا جواب (ٹیکسٹ اور آڈیو)
-                    let replyText = data.text || data.response || data.message || data.answer || "میں آپ کی بات سمجھ نہیں سکی، براہ کرم دوبارہ کہیں۔";
-                    let audioUrl = data.audio_url || data.audio || null;
-                    
-                    addMessage(replyText, 'assistant', audioUrl);
+                    let replyText = data.response || "میں کچھ سمجھ نہیں پائی۔";
+                    addMessage(replyText, 'assistant');
+                    speakAyesha(replyText); // خودکار آواز چلے گی!
                 })
-                .catch(error => {
-                    console.error("API Error:", error);
+                .catch(err => {
+                    console.error("API Error:", err);
                     thinkingIndicator.classList.replace('flex', 'hidden');
-                    
-                    // اگر /api/predict کام نہ کرے تو فال بیک میسج
-                    addMessage("عائشہ کا سرور ابھی جواب نہیں دے رہا (API Error)۔ براہ کرم اپنی app.py کا راؤٹ چیک کریں۔", 'assistant');
+                    addMessage("عائشہ کا سرور ابھی آف لائن ہے۔", 'assistant');
                 });
             }
 
-            // سائیڈ بار مینیو کنٹرول
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            const menuBtn = document.getElementById('menu-btn');
-            const headerTitle = document.getElementById('header-title');
-
-            function toggleMenu() {
-                sidebar.classList.toggle('-translate-x-full');
-                overlay.classList.toggle('hidden');
-            }
-            menuBtn.onclick = toggleMenu;
-            overlay.onclick = toggleMenu;
-
-            document.querySelectorAll('.assistant-btn').forEach(btn => {
-                btn.onclick = () => {
-                    headerTitle.innerText = btn.getAttribute('data-name');
-                    document.querySelectorAll('.assistant-btn').forEach(b => {
-                        b.classList.remove('bg-[#16243d]', 'border', 'border-[#3a8ff7]');
-                    });
-                    btn.classList.add('bg-[#16243d]', 'border', 'border-[#3a8ff7]');
-                    toggleMenu();
-                };
-            });
+            // مینیو ٹوگل
+            const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('sidebar-overlay'), menuBtn = document.getElementById('menu-btn');
+            function toggleMenu() { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); }
+            menuBtn.onclick = toggleMenu; overlay.onclick = toggleMenu;
         });
     </script>
 </body>
