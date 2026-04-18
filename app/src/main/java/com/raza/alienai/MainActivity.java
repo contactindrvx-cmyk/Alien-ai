@@ -1,16 +1,18 @@
 package com.raza.alienai;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
-
-    private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -18,29 +20,30 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // ویب ویو کو سیٹ کرنا
-        webView = findViewById(R.id.webView);
+        // 1. مائیک کی پرمیشنز
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+        }
+
+        WebView webView = findViewById(R.id.webView);
         WebSettings webSettings = webView.getSettings();
         
-        // جاوا اسکرپٹ اور اسٹوریج کو آن کرنا تاکہ ڈیزائن صحیح چلے
+        // 2. ویب ویو کی ضروری سیٹنگز
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
 
-        webView.setWebViewClient(new WebViewClient());
-        webView.setWebChromeClient(new WebChromeClient());
+        // 3. مائیک کا برج (تاکہ ویب سائٹ مائیک یوز کر سکے)
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> request.grant(request.getResources()));
+            }
+        });
 
-        // آپ کا اصلی ہگنگ فیس لنک یہاں لگا دیا گیا ہے
-        webView.loadUrl("https://huggingface.co/spaces/aigrowthbox/ayesha-ai");
-    }
-
-    // بیک بٹن دبانے پر ایپ بند ہونے کے بجائے پیچھے والے پیج پر جائے گی
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+        // 4. اب انٹرنیٹ نہیں، اپنی لوکل فائل لوڈ کرو!
+        webView.loadUrl("file:///android_asset/index.html");
     }
 }
