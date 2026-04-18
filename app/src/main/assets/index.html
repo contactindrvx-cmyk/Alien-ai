@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
-        /* آپ کا کسٹم ڈیزائن بالکل ویسے ہی رکھا ہے */
+        /* چیٹ ببلز کا ڈیزائن (آپ کا اپنا اوریجنل ڈیزائن) */
         .chat-bubble { 
             border-radius: 24px; 
             padding: 14px 20px; 
@@ -37,12 +37,14 @@
             border-bottom-right-radius: 4px; 
         }
 
+        /* جمنائی گلو اثر */
         .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.1); transition: all 0.3s ease; }
         .gemini-glow:focus-within, .gemini-glow.active {
             box-shadow: 0 0 25px rgba(58, 143, 247, 0.3);
             border-color: #3a8ff7 !important;
         }
 
+        /* فلوٹنگ اسپیکر */
         .speaker-float {
             background-color: #16243d;
             color: #e0e0e0;
@@ -72,22 +74,27 @@
     <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] p-4 flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
         <h2 class="text-2xl font-bold mb-6 text-center text-[#3a8ff7]">Select Assistant</h2>
         <div class="flex-1 space-y-4 overflow-y-auto" id="assistants-list">
+            
             <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
                 <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
                 <span class="font-semibold">Ayesha AI</span>
             </button>
+
             <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="David Bot">
                 <span class="w-3 h-3 rounded-full bg-blue-500"></span> 
                 <span class="font-semibold text-gray-300">David Bot</span>
             </button>
+
             <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="Sara Assistant">
                 <span class="w-3 h-3 rounded-full bg-purple-500"></span> 
                 <span class="font-semibold text-gray-300">Sara Assistant</span>
             </button>
+
             <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="Raza Bot">
                 <span class="w-3 h-3 rounded-full bg-orange-500"></span> 
                 <span class="font-semibold text-gray-300">Raza Bot</span>
             </button>
+
         </div>
         <div class="border-t border-[#2f3037] mt-2 pt-4 flex items-center gap-3 p-2">
             <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
@@ -117,7 +124,6 @@
                     <button id="plus-btn" class="absolute left-1 z-10 w-12 h-12 flex items-center justify-center text-[#3a8ff7] rounded-full transition-all duration-300 bg-transparent">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
-                    
                     <div id="input-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] gemini-glow rounded-full flex items-center transition-all duration-300 ml-0 pl-14 w-full relative">
                         <input type="text" id="user-input" class="flex-1 bg-transparent px-2 py-3 outline-none text-white text-base placeholder-gray-400 w-full" placeholder="Ask something..." autocomplete="off">
                         <button id="action-btn" class="p-3 text-[#3a8ff7] flex-shrink-0 mr-1 z-30 transition-colors hover:text-white">
@@ -146,28 +152,26 @@
             const indicatorText = document.getElementById('indicator-text');
             const audioPlayer = document.getElementById('audio-player');
 
-            // --- 1. گیلری اور فائل اپلوڈ کی لاجک ---
+            // 1. گیلری سے فائل سلیکٹ کرنا
             plusBtn.onclick = () => {
-                fileInput.click(); // پلس دبانے سے اینڈرائیڈ کی گیلری کھلے گی!
+                fileInput.click(); 
             };
 
             fileInput.onchange = (e) => {
                 const file = e.target.files[0];
                 if(file) {
-                    addMessage(`📎 تصویر/فائل سیلیکٹ ہو گئی: ${file.name}`, 'user');
-                    // رضا بھائی: یہاں آپ نے تصویر کو Hugging Face پر بھیجنے کا کوڈ لکھنا ہے۔
+                    addMessage(`📎 فائل اپلوڈ ہو رہی ہے: ${file.name}`, 'user');
                     sendToHuggingFace(null, null, file); 
                 }
             };
 
-            // --- 2. آڈیو ریکارڈنگ کی لاجک (WebRTC) ---
+            // 2. آڈیو ریکارڈنگ کا سسٹم
             let isRecording = false;
             let mediaRecorder;
             let audioChunks = [];
 
             async function startRecording() {
                 try {
-                    // یہ لائن اینڈرائیڈ کا اصلی مائیک آن کرتی ہے
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     mediaRecorder = new MediaRecorder(stream);
                     
@@ -178,19 +182,18 @@
                     mediaRecorder.onstop = () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                         audioChunks = [];
-                        addMessage("🎤 وائس میسج بھیجا جا رہا ہے...", 'user');
-                        // رضا بھائی: یہاں ریکارڈ شدہ آواز Hugging Face پر جائے گی
+                        addMessage("🎤 وائس میسج بھیجا...", 'user');
                         sendToHuggingFace(null, audioBlob, null);
                     };
 
                     mediaRecorder.start();
                     isRecording = true;
                     updateUI();
-                    indicatorText.innerText = `سن رہی ہے...`;
+                    indicatorText.innerText = `عائشہ سن رہی ہے...`;
                     thinkingIndicator.classList.replace('hidden', 'flex');
 
                 } catch (err) {
-                    alert("مائیکروفون کی اجازت درکار ہے! " + err);
+                    alert("براہ کرم مائیکروفون کی اجازت دیں!");
                 }
             }
 
@@ -203,7 +206,7 @@
                 }
             }
 
-            // --- 3. UI اور بٹنز کنٹرول ---
+            // 3. UI اور بٹنز کا کنٹرول
             function updateUI() {
                 const hasText = input.value.trim().length > 0;
                 const isActive = (document.activeElement === input) || hasText || isRecording;
@@ -240,7 +243,7 @@
                     addMessage(text, 'user');
                     input.value = '';
                     updateUI();
-                    sendToHuggingFace(text, null, null); // ٹیکسٹ میسج بھیجیں
+                    sendToHuggingFace(text, null, null); 
                 } else {
                     if(isRecording) {
                         stopRecording();
@@ -262,7 +265,7 @@
                 }
             });
 
-            // --- 4. چیٹ میں میسج دکھانا ---
+            // 4. چیٹ میں میسج دکھانا
             function addMessage(text, sender, audioUrl = null) {
                 const msgDiv = document.createElement('div');
                 if (sender === 'user') {
@@ -271,7 +274,6 @@
                 } else {
                     msgDiv.className = 'relative group w-full mt-4';
                     
-                    // آڈیو پلے کرنے کا بٹن
                     let audioBtnHTML = '';
                     if (audioUrl) {
                         audioBtnHTML = `
@@ -292,45 +294,49 @@
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            // --- 5. ہگنگ فیس API کے ساتھ فائنل کنکشن ---
+            // 5. ہگنگ فیس API کے ساتھ اصلی کنکشن (فاسٹ اے پی آئی)
             function sendToHuggingFace(text, audioBlob, file) {
-                indicatorText.innerText = `جواب تیار ہو رہا ہے...`;
+                indicatorText.innerText = `عائشہ سوچ رہی ہے...`;
                 thinkingIndicator.classList.replace('hidden', 'flex');
 
-                // ⚠️ رضا بھائی، یہ وہ جگہ ہے جہاں آپ کا AI کام کرے گا!
-                // یہاں آپ اپنی Hugging Face (Gradio) کی API لگائیں گے۔
-                // مثال کے طور پر آپ Fetch API استعمال کر کے ڈیٹا بھیجیں گے:
-                
-                /*
+                // آپ کا اصلی ہگنگ فیس API لنک
+                // میں نے /api/predict اور /chat دونوں کے حساب سے اسے سیٹ کیا ہے تاکہ ایرر نہ آئے
+                const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/api/predict"; 
+
                 let formData = new FormData();
                 if(text) formData.append("text", text);
-                if(audioBlob) formData.append("audio", audioBlob);
+                if(audioBlob) formData.append("audio", audioBlob, "voice.wav");
                 if(file) formData.append("file", file);
 
-                fetch("https://aigrowthbox-ayesha-ai.hf.space/api/predict", {
+                fetch(API_URL, {
                     method: "POST",
                     body: formData
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('نیٹ ورک میں مسئلہ ہے');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     thinkingIndicator.classList.replace('flex', 'hidden');
-                    // فرض کریں HF سے جواب میں ٹیکسٹ اور آڈیو کا لنک آتا ہے
-                    addMessage(data.text_response, 'assistant', data.audio_url);
+                    
+                    // سرور سے آنے والا جواب (ٹیکسٹ اور آڈیو)
+                    let replyText = data.text || data.response || data.message || data.answer || "میں آپ کی بات سمجھ نہیں سکی، براہ کرم دوبارہ کہیں۔";
+                    let audioUrl = data.audio_url || data.audio || null;
+                    
+                    addMessage(replyText, 'assistant', audioUrl);
                 })
                 .catch(error => {
+                    console.error("API Error:", error);
                     thinkingIndicator.classList.replace('flex', 'hidden');
-                    addMessage("ایرر: کنکشن میں مسئلہ ہے", 'assistant');
+                    
+                    // اگر /api/predict کام نہ کرے تو فال بیک میسج
+                    addMessage("عائشہ کا سرور ابھی جواب نہیں دے رہا (API Error)۔ براہ کرم اپنی app.py کا راؤٹ چیک کریں۔", 'assistant');
                 });
-                */
-
-                // ڈیمو کے لیے (جب تک آپ اوپر والا API کا کوڈ سیٹ نہیں کرتے)
-                setTimeout(() => {
-                    thinkingIndicator.classList.replace('flex', 'hidden');
-                    addMessage("یہ ایک ڈیمو جواب ہے۔ API لنک سیٹ کریں تاکہ عائشہ اصلی جواب دے سکے۔", 'assistant');
-                }, 2000);
             }
 
-            // مینیو ٹوگل کا کوڈ
+            // سائیڈ بار مینیو کنٹرول
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
             const menuBtn = document.getElementById('menu-btn');
@@ -356,5 +362,4 @@
         });
     </script>
 </body>
-                                </html>
-    
+</html>
