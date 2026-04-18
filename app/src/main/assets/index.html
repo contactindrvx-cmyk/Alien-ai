@@ -8,40 +8,28 @@
     <style>
         .chat-bubble { border-radius: 24px; padding: 14px 20px; max-width: 85%; width: fit-content; line-height: 1.6; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .ayesha-bubble { background-color: #16243d; border-bottom-left-radius: 4px; margin-top: 15px; padding-bottom: 35px; }
+        .ayesha-bubble { background-color: #16243d; border-bottom-left-radius: 4px; margin-top: 15px; }
         .user-bubble { background-color: #2f3037; margin-left: auto; color: #e0e0e0; border-bottom-right-radius: 4px; }
         .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.1); transition: all 0.3s ease; }
         .gemini-glow:focus-within, .gemini-glow.active { box-shadow: 0 0 25px rgba(58, 143, 247, 0.3); border-color: #3a8ff7 !important; }
-        
-        .smart-speaker-btn { position: absolute; bottom: 8px; right: 12px; background: transparent; border: none; color: #3a8ff7; cursor: pointer; transition: all 0.2s; padding: 4px; border-radius: 50%; z-index: 20;}
-        .smart-speaker-btn:hover { background-color: rgba(58, 143, 247, 0.1); }
-        .smart-speaker-btn.playing { color: #ef4444; }
+        .speaker-float { background-color: #16243d; color: #e0e0e0; border: 1px solid #3a8ff7; border-radius: 100px; padding: 4px 12px; font-size: 11px; font-weight: bold; position: absolute; top: -14px; left: -10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; gap: 6px; z-index: 20; }
     </style>
 </head>
 <body class="h-screen flex bg-black text-white font-sans w-full overflow-hidden relative">
     <input type="file" id="hidden-file-input" class="hidden" accept="image/*">
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity cursor-pointer"></div>
 
-    <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
-        <div class="p-4 flex-1 flex flex-col overflow-y-auto">
-            <h2 class="text-2xl font-bold mb-6 text-center text-[#3a8ff7]">Select Assistant</h2>
-            <div class="space-y-4" id="assistants-list">
-                <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
-                    <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
-                    <span class="font-semibold">Ayesha AI</span>
-                </button>
-            </div>
-        </div>
-        
-        <div class="p-4 border-t border-[#2f3037] bg-[#0a0a0a]">
-            <button class="w-full mb-4 py-2.5 bg-gradient-to-r from-[#3a8ff7] to-purple-600 rounded-xl font-bold text-white shadow-[0_0_15px_rgba(58,143,247,0.4)] transition-transform active:scale-95 flex items-center justify-center gap-2">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                Upgrade Premium
+    <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] p-4 flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
+        <h2 class="text-2xl font-bold mb-6 text-center text-[#3a8ff7]">Select Assistant</h2>
+        <div class="flex-1 space-y-4 overflow-y-auto" id="assistants-list">
+            <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
+                <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
+                <span class="font-semibold">Ayesha AI</span>
             </button>
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
-                <span class="font-medium text-sm">Ali Raza</span>
-            </div>
+        </div>
+        <div class="border-t border-[#2f3037] mt-2 pt-4 flex items-center gap-3 p-2">
+            <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
+            <span class="font-medium text-sm">Ali Raza</span>
         </div>
     </aside>
 
@@ -57,7 +45,7 @@
         <main class="flex-1 flex flex-col relative overflow-hidden">
             <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-box">
                 <div id="thinking-indicator" class="hidden w-full mt-4">
-                    <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] flex items-center gap-3" style="padding-bottom: 14px;">
+                    <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] flex items-center gap-3">
                         <svg class="animate-spin w-5 h-5 text-[#3a8ff7]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                         <span id="indicator-text" class="animate-pulse text-[#3a8ff7] text-sm font-medium">Thinking...</span>
                     </div>
@@ -84,10 +72,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            
-            // ==========================================
-            // حصہ 1: 100% محفوظ UI اور بٹنز (یہ کبھی فیل نہیں ہوگا)
-            // ==========================================
             const input = document.getElementById('user-input');
             const inputPill = document.getElementById('input-pill');
             const plusBtn = document.getElementById('plus-btn');
@@ -99,22 +83,144 @@
             const chatBox = document.getElementById('chat-box');
             const thinkingIndicator = document.getElementById('thinking-indicator');
             const indicatorText = document.getElementById('indicator-text');
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            const menuBtn = document.getElementById('menu-btn');
 
-            let messageCounter = 0;
+            // انڈیکیٹر کو دکھانے کا طریقہ تھوڑا سا بدلا ہے تاکہ یہ ببل کی طرح نظر آئے
+            function showThinking(text) {
+                indicatorText.innerText = text;
+                chatBox.appendChild(thinkingIndicator);
+                thinkingIndicator.classList.remove('hidden');
+                thinkingIndicator.classList.add('block');
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            function hideThinking() {
+                thinkingIndicator.classList.add('hidden');
+                thinkingIndicator.classList.remove('block');
+            }
+
+            function speakAyesha(text) {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); 
+                    
+                    let wakeUp = new SpeechSynthesisUtterance('');
+                    window.speechSynthesis.speak(wakeUp);
+
+                    const cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+                    let speech = new SpeechSynthesisUtterance(cleanText);
+                    
+                    speech.lang = navigator.language || 'en-US'; 
+                    speech.rate = 0.95; 
+                    window.speechSynthesis.speak(speech);
+                }
+            }
+
+            const fileToBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+
+            plusBtn.onclick = () => fileInput.click(); 
+
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        addMessage("Image attached...", 'user', event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                    sendToHuggingFace("Look at this image.", file, null); 
+                }
+            };
+
+            let recognition;
+            let mediaRecorder;
+            let audioChunks = [];
             let isRecording = false;
 
-            // مینیو ٹوگل
-            menuBtn.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
-            overlay.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                
+                recognition.lang = navigator.language || 'en-US'; 
 
-            // UI اپڈیٹ (ٹیکسٹ لکھنے پر آئیکون بدلنا)
+                recognition.onresult = function(event) {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    input.value = finalTranscript || interimTranscript;
+                    updateUI();
+                };
+
+                recognition.onend = function() {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop(); 
+                    }
+                };
+            }
+
+            async function startRecording() {
+                if (recognition) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        mediaRecorder = new MediaRecorder(stream);
+                        audioChunks = [];
+                        
+                        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                        
+                        mediaRecorder.onstop = () => {
+                            isRecording = false;
+                            hideThinking();
+                            input.placeholder = "Ask something...";
+                            
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                            const text = input.value.trim();
+                            
+                            if (text.length > 0 || audioChunks.length > 0) {
+                                addMessage(text || "🎤 Voice Message", 'user');
+                                input.value = '';
+                                updateUI();
+                                sendToHuggingFace(text, null, audioBlob);
+                            }
+                            
+                            stream.getTracks().forEach(track => track.stop());
+                        };
+
+                        input.value = ''; 
+                        recognition.start(); 
+                        mediaRecorder.start(); 
+                        
+                        isRecording = true;
+                        updateUI();
+                        input.placeholder = "Listening...";
+                        showThinking("Listening...");
+                        
+                    } catch (err) {
+                        alert("Microphone permission required.");
+                    }
+                } else {
+                    alert("Voice typing not supported on this device.");
+                }
+            }
+
+            function stopRecording() {
+                if (recognition) {
+                    recognition.stop(); 
+                }
+            }
+
             function updateUI() {
                 const hasText = input.value.trim().length > 0;
                 const isActive = (document.activeElement === input) || hasText || isRecording;
-                
                 if (isActive) {
                     plusBtn.classList.add('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
                     inputPill.style.marginLeft = "64px"; inputPill.style.paddingLeft = "10px"; inputPill.classList.add('active');
@@ -122,7 +228,6 @@
                     plusBtn.classList.remove('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
                     inputPill.style.marginLeft = "0px"; inputPill.style.paddingLeft = "56px"; inputPill.classList.remove('active');
                 }
-                
                 if (hasText) {
                     micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
                 } else if (isRecording) {
@@ -136,31 +241,14 @@
             input.addEventListener('focus', updateUI);
             input.addEventListener('blur', updateUI);
 
-            // پلس بٹن (فائل اپلوڈ)
-            plusBtn.onclick = () => fileInput.click(); 
-
-            fileInput.onchange = (e) => {
-                const file = e.target.files[0];
-                if(file) {
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        addMessage("Image attached...", 'user', event.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                    sendToHuggingFace("اس تصویر کو دیکھو۔", file, null); 
-                }
-            };
-
-            // مین ایکشن بٹن (Send / Mic)
             actionBtn.onclick = (e) => {
                 e.preventDefault();
                 if (input.value.trim().length > 0) {
                     const text = input.value.trim();
                     addMessage(text, 'user');
-                    input.value = ''; updateUI(); 
-                    sendToHuggingFace(text, null, null); 
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null); 
                 } else {
-                    if (isRecording) { stopRecordingSafely(); } else { startRecordingSafely(); }
+                    isRecording ? stopRecording() : startRecording();
                 }
             };
 
@@ -168,12 +256,10 @@
                 if (e.key === 'Enter' && input.value.trim().length > 0) {
                     const text = input.value.trim();
                     addMessage(text, 'user');
-                    input.value = ''; updateUI(); 
-                    sendToHuggingFace(text, null, null);
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null);
                 }
             });
 
-            // میسج سکرین پر لانے کا فنکشن
             function addMessage(text, sender, imgSrc = null) {
                 const msgDiv = document.createElement('div');
                 let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
@@ -182,160 +268,61 @@
                     msgDiv.className = 'chat-bubble user-bubble border border-[#3a8ff7]';
                     msgDiv.innerHTML = `${imgHtml}<p>${text}</p>`;
                 } else {
-                    messageCounter++;
-                    const btnId = 'play-btn-' + messageCounter;
                     msgDiv.className = 'relative group w-full mt-4';
-                    
-                    const speakerSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
-                    
                     msgDiv.innerHTML = `
+                        <button class="speaker-float absolute z-20" onclick="speakAyesha('${text.replace(/'/g, "\\'")}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                            Listen
+                        </button>
                         <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
-                            ${imgHtml}<p style="white-space: pre-wrap;">${text}</p>
-                            <button id="${btnId}" class="smart-speaker-btn" title="Play Audio">
-                                ${speakerSVG}
-                            </button>
+                            ${imgHtml}<p>${text}</p>
                         </div>
                     `;
-                    
-                    // میسج کو سکرین پر دکھائیں
-                    chatBox.insertBefore(msgDiv, thinkingIndicator);
-                    
-                    // بٹن کو فنکشن کے ساتھ جوڑیں
-                    setTimeout(() => {
-                        const audioBtn = document.getElementById(btnId);
-                        if(audioBtn) {
-                            audioBtn.addEventListener('click', () => {
-                                if(typeof safePlayAudio === 'function') {
-                                    safePlayAudio(text, audioBtn);
-                                }
-                            });
-                        }
-                        if(typeof safePlayAudio === 'function') {
-                            safePlayAudio(text, audioBtn); // آٹو پلے
-                        }
-                    }, 300);
                 }
                 
-                if (sender === 'user') { chatBox.insertBefore(msgDiv, thinkingIndicator); }
+                chatBox.insertBefore(msgDiv, thinkingIndicator);
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            function showThinking(text) {
-                indicatorText.innerText = text;
-                thinkingIndicator.classList.remove('hidden');
-                thinkingIndicator.classList.add('block');
-                chatBox.appendChild(thinkingIndicator);
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-
-            function hideThinking() {
-                thinkingIndicator.classList.add('hidden');
-                thinkingIndicator.classList.remove('block');
-            }
-
-            const fileToBase64 = file => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-
-            // ہگنگ فیس کو ڈیٹا بھیجنے کا لاجک
             async function sendToHuggingFace(text, file, audioBlob) {
-                if(file) { showThinking("تصویر دیکھ رہی ہے..."); } 
-                else if(audioBlob) { showThinking("آواز سن رہی ہے..."); }
-                else { showThinking("ٹائپ کر رہی ہے..."); }
+                if(file) { showThinking("Looking at image..."); } 
+                else if(audioBlob) { showThinking("Listening to voice..."); }
+                else { showThinking("Thinking..."); }
 
                 const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
+
                 let payload = {
                     message: text || "",
                     email: "alirazasabir007@gmail.com", 
                     local_time: new Date().toLocaleTimeString()
                 };
 
-                try {
-                    if (file) payload.image = await fileToBase64(file);
-                    if (audioBlob) payload.audio = await fileToBase64(audioBlob);
+                if (file) payload.image = await fileToBase64(file);
+                if (audioBlob) payload.audio = await fileToBase64(audioBlob);
 
-                    const res = await fetch(API_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const data = await res.json();
+                fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
                     hideThinking();
-                    addMessage(data.response || "میں سمجھ نہیں سکی۔", 'assistant');
-                } catch (err) {
+                    let replyText = data.response || "No response.";
+                    addMessage(replyText, 'assistant');
+                    speakAyesha(replyText); 
+                })
+                .catch(err => {
+                    console.error("API Error:", err);
                     hideThinking();
-                    addMessage("سرور آف لائن ہے، براہ کرم انٹرنیٹ چیک کریں۔", 'assistant');
-                }
+                    addMessage("Server is offline.", 'assistant');
+                });
             }
 
-
-            // ==========================================
-            // حصہ 2: آڈیو اور وائس ریکگنیشن (اسے الگ تھلگ باکس میں رکھا گیا ہے)
-            // ==========================================
-            let recognition = null;
-            let mediaRecorder = null;
-            let audioChunks = [];
-            
-            // گلوبل آڈیو پلیئر
-            let currentSpeech = null;
-            let isSpeakingAudio = false;
-
-            window.safePlayAudio = function(text, btnElement) {
-                try {
-                    if (!('speechSynthesis' in window)) return;
-                    const speakerSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
-                    const stopSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
-                    
-                    const cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-
-                    // اگر چل رہا ہے تو روک دو
-                    if (isSpeakingAudio && currentSpeech && currentSpeech.text === cleanText) {
-                        window.speechSynthesis.cancel();
-                        isSpeakingAudio = false;
-                        if(btnElement) { btnElement.innerHTML = speakerSVG; btnElement.classList.remove('playing'); }
-                        return;
-                    }
-
-                    // نیا پلے کرنے سے پہلے ری سیٹ کرو
-                    window.speechSynthesis.cancel();
-                    document.querySelectorAll('.smart-speaker-btn').forEach(b => {
-                        b.innerHTML = speakerSVG; b.classList.remove('playing');
-                    });
-
-                    currentSpeech = new SpeechSynthesisUtterance(cleanText);
-                    currentSpeech.lang = navigator.language || 'ur-PK'; 
-                    currentSpeech.rate = 0.95;
-
-                    currentSpeech.onstart = () => { 
-                        isSpeakingAudio = true; 
-                        if(btnElement) { btnElement.innerHTML = stopSVG; btnElement.classList.add('playing'); }
-                    };
-                    currentSpeech.onend = () => { 
-                        isSpeakingAudio = false; 
-                        if(btnElement) { btnElement.innerHTML = speakerSVG; btnElement.classList.remove('playing'); }
-                    };
-                    currentSpeech.onerror = () => { 
-                        isSpeakingAudio = false; 
-                        if(btnElement) { btnElement.innerHTML = speakerSVG; btnElement.classList.remove('playing'); }
-                    };
-
-                    window.speechSynthesis.speak(currentSpeech);
-                } catch(e) {
-                    console.log("Audio Play Error: ", e);
-                }
-            };
-
-            try {
-                if ('webkitSpeechRecognition' in window) {
-                    recognition = new webkitSpeechRecognition();
-                    recognition.continuous = false;
-                    recognition.interimResults = true;
-                    recognition.lang = navigator.language || 'ur-PK'; 
-
-                    recognition.onresult = function(event) {
-                        let finalTranscript = '';
-                        for (let i = event.resultIndex; i 
+            const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('sidebar-overlay'), menuBtn = document.getElementById('menu-btn');
+            function toggleMenu() { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); }
+            menuBtn.onclick = toggleMenu; overlay.onclick = toggleMenu;
+        });
+    </script>
+</body>
+</html>
