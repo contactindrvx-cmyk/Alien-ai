@@ -5,35 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ayesha AI Premium</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .chat-bubble { border-radius: 24px; padding: 14px 20px; max-width: 85%; width: fit-content; line-height: 1.6; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .ayesha-bubble { background-color: #16243d; border-bottom-left-radius: 4px; margin-top: 15px; }
-        .user-bubble { background-color: #2f3037; margin-left: auto; color: #e0e0e0; border-bottom-right-radius: 4px; }
-        .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.1); transition: all 0.3s ease; }
-        .gemini-glow:focus-within, .gemini-glow.active { box-shadow: 0 0 25px rgba(58, 143, 247, 0.3); border-color: #3a8ff7 !important; }
-        
-        /* 🔊 عائشہ کے میسج کے اندر چھوٹا اور محفوظ پلے بٹن */
-        .inline-play-btn { display: inline-flex; align-items: center; justify-content: center; background: rgba(58,143,247,0.15); color: #3a8ff7; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; margin-top: 10px; transition: 0.2s; border: 1px solid #3a8ff7;}
-        .inline-play-btn:active { transform: scale(0.9); }
-        .inline-play-btn.playing { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,0.15); }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="h-screen flex bg-black text-white font-sans w-full overflow-hidden relative">
+    
     <input type="file" id="hidden-file-input" class="hidden" accept="image/*">
+    
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity cursor-pointer"></div>
 
-    <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] p-4 flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
-        <h2 class="text-2xl font-bold mb-6 text-center text-[#3a8ff7]">Select Assistant</h2>
-        <div class="flex-1 space-y-4 overflow-y-auto" id="assistants-list">
-            <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
-                <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
-                <span class="font-semibold">Ayesha AI</span>
-            </button>
+    <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
+        <div class="p-4 flex-1 flex flex-col overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-6 text-center text-[#3a8ff7]">Select Assistant</h2>
+            <div class="space-y-4" id="assistants-list">
+                <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
+                    <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
+                    <span class="font-semibold">Ayesha AI</span>
+                </button>
+            </div>
         </div>
-        <div class="border-t border-[#2f3037] mt-2 pt-4 flex items-center gap-3 p-2">
-            <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
-            <span class="font-medium text-sm">Ali Raza</span>
+        
+        <div class="p-4 border-t border-[#2f3037] bg-[#0a0a0a]">
+            <button class="w-full mb-4 py-2.5 bg-gradient-to-r from-[#3a8ff7] to-purple-600 rounded-xl font-bold text-white shadow-[0_0_15px_rgba(58,143,247,0.4)] transition-transform active:scale-95 flex items-center justify-center gap-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                Upgrade Premium
+            </button>
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
+                <span class="font-medium text-sm">Ali Raza</span>
+            </div>
         </div>
     </aside>
 
@@ -48,9 +47,11 @@
 
         <main class="flex-1 flex flex-col relative overflow-hidden">
             <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-box">
-                <div id="thinking-indicator" class="hidden items-center gap-2 text-[#3a8ff7] text-sm font-medium px-6 py-2 w-fit mb-2">
-                    <svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    <span id="indicator-text" class="animate-pulse">Thinking...</span>
+                <div id="thinking-indicator" class="hidden w-full mt-4">
+                    <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] flex items-center gap-3">
+                        <svg class="animate-spin w-5 h-5 text-[#3a8ff7]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span id="indicator-text" class="animate-pulse text-[#3a8ff7] text-sm font-medium">Thinking...</span>
+                    </div>
                 </div>
             </div>
 
@@ -72,276 +73,7 @@
         </main>
     </div>
 
-    <script>
-        // =========================================================================
-        // 1. نیا اور محفوظ آڈیو انجن (یہ کبھی کریش نہیں ہوگا)
-        // =========================================================================
-        window.playVoiceMessage = function(btnElement) {
-            if (!('speechSynthesis' in window)) {
-                alert("آپ کے فون میں سپیکر سپورٹ نہیں ہے۔");
-                return;
-            }
-
-            // آئیکونز
-            const playIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
-            const stopIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>`;
-
-            // اگر پہلے سے چل رہا ہے تو روک دیں (Pause/Stop)
-            if (btnElement.classList.contains('playing')) {
-                window.speechSynthesis.cancel();
-                btnElement.classList.remove('playing');
-                btnElement.innerHTML = playIcon;
-                return;
-            }
-
-            // سارا پرانا آڈیو بند کریں اور تمام بٹنوں کو ری سیٹ کریں
-            window.speechSynthesis.cancel();
-            document.querySelectorAll('.inline-play-btn').forEach(b => {
-                b.classList.remove('playing');
-                b.innerHTML = playIcon;
-            });
-
-            try {
-                // Encode کیے ہوئے ٹیکسٹ کو واپس نکالنا (اس سے نئی لائنوں والا کریش ختم ہو گیا)
-                let rawText = decodeURIComponent(btnElement.getAttribute('data-text'));
-                
-                // ایموجیز اور فالتو نشان ہٹانا تاکہ سپیکر پھنسے نہ
-                let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-                cleanText = cleanText.replace(/\n/g, ' . '); // نئی لائن کو وقفے میں بدل دیا
-
-                let speech = new SpeechSynthesisUtterance(cleanText);
-                
-                // 🌍 گلوبل سمارٹ لینگویج (آٹو ڈیٹیکٹ)
-                const isUrdu = /[\u0600-\u06FF]/.test(cleanText);
-                speech.lang = isUrdu ? 'ur-PK' : (navigator.language || 'en-US');
-                speech.rate = 0.95; 
-
-                // بٹن کو پلے موڈ میں لانا
-                btnElement.classList.add('playing');
-                btnElement.innerHTML = stopIcon;
-
-                speech.onend = () => { btnElement.classList.remove('playing'); btnElement.innerHTML = playIcon; };
-                speech.onerror = () => { btnElement.classList.remove('playing'); btnElement.innerHTML = playIcon; };
-
-                window.speechSynthesis.speak(speech);
-            } catch (e) {
-                console.error("Audio playback error:", e);
-            }
-        };
-
-        // آٹو پلے انجن (اگر اینڈرائیڈ اجازت دے)
-        window.autoPlayVoice = function(rawText) {
-            if (!('speechSynthesis' in window)) return;
-            try {
-                let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-                cleanText = cleanText.replace(/\n/g, ' . ');
-                let speech = new SpeechSynthesisUtterance(cleanText);
-                const isUrdu = /[\u0600-\u06FF]/.test(cleanText);
-                speech.lang = isUrdu ? 'ur-PK' : (navigator.language || 'en-US');
-                speech.rate = 0.95;
-                window.speechSynthesis.speak(speech);
-            } catch (e) {}
-        };
-
-        document.addEventListener('DOMContentLoaded', () => {
-
-            // =========================================================================
-            // 2. مین UI اور بٹنز (بالکل الگ اور محفوظ)
-            // =========================================================================
-            const input = document.getElementById('user-input');
-            const inputPill = document.getElementById('input-pill');
-            const plusBtn = document.getElementById('plus-btn');
-            const fileInput = document.getElementById('hidden-file-input');
-            const actionBtn = document.getElementById('action-btn');
-            const micIcon = document.getElementById('mic-icon');
-            const stopIcon = document.getElementById('stop-icon');
-            const sendIcon = document.getElementById('send-icon');
-            const chatBox = document.getElementById('chat-box');
-            const thinkingIndicator = document.getElementById('thinking-indicator');
-            const indicatorText = document.getElementById('indicator-text');
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            const menuBtn = document.getElementById('menu-btn');
-
-            let isRecording = false;
-
-            function showThinking(text) {
-                indicatorText.innerText = text;
-                thinkingIndicator.classList.remove('hidden');
-                thinkingIndicator.classList.add('flex');
-                chatBox.appendChild(thinkingIndicator);
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-
-            function hideThinking() {
-                thinkingIndicator.classList.add('hidden');
-                thinkingIndicator.classList.remove('flex');
-            }
-
-            function updateUI() {
-                const hasText = input.value.trim().length > 0;
-                const isActive = (document.activeElement === input) || hasText || isRecording;
-                
-                if (isActive) {
-                    plusBtn.classList.add('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
-                    inputPill.style.marginLeft = "64px"; inputPill.style.paddingLeft = "10px"; inputPill.classList.add('active');
-                } else {
-                    plusBtn.classList.remove('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
-                    inputPill.style.marginLeft = "0px"; inputPill.style.paddingLeft = "56px"; inputPill.classList.remove('active');
-                }
-                
-                if (hasText) {
-                    micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
-                } else if (isRecording) {
-                    micIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
-                } else {
-                    stopIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
-                }
-            }
-
-            input.addEventListener('input', updateUI);
-            input.addEventListener('focus', updateUI);
-            input.addEventListener('blur', updateUI);
-
-            plusBtn.onclick = () => fileInput.click(); 
-
-            const fileToBase64 = file => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-
-            fileInput.onchange = async (e) => {
-                const file = e.target.files[0];
-                if(file) {
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        addMessage("Image attached...", 'user', event.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                    sendToHuggingFace("اس تصویر کو دیکھو۔", file, null); 
-                }
-            };
-
-            menuBtn.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
-            overlay.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
-
-            // ⚠️ یہاں سب سے بڑا فکس ہے: بٹن اب کریش نہیں ہوں گے
-            function addMessage(text, sender, imgSrc = null) {
-                const msgDiv = document.createElement('div');
-                let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
-
-                if (sender === 'user') {
-                    msgDiv.className = 'chat-bubble user-bubble border border-[#3a8ff7]';
-                    msgDiv.innerHTML = `${imgHtml}<p>${text}</p>`;
-                } else {
-                    msgDiv.className = 'relative group w-full mt-4';
+    <script src="script.js"></script>
+</body>
+                    </html>
                     
-                    // ٹیکسٹ کو Encode کیا گیا ہے تاکہ نئی لائنیں HTML کو نہ توڑیں
-                    const encodedText = encodeURIComponent(text);
-                    const playIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
-                    
-                    msgDiv.innerHTML = `
-                        <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
-                            ${imgHtml}<p style="white-space: pre-wrap;">${text}</p>
-                            <button class="inline-play-btn" data-text="${encodedText}" onclick="window.playVoiceMessage(this)" title="Play Audio">
-                                ${playIcon}
-                            </button>
-                        </div>
-                    `;
-                }
-                
-                chatBox.insertBefore(msgDiv, thinkingIndicator);
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-
-            async function sendToHuggingFace(text, file, audioBlob) {
-                if(file) { showThinking("تصویر دیکھ رہی ہے..."); } 
-                else if(audioBlob) { showThinking("آواز سن رہی ہے..."); }
-                else { showThinking("ٹائپ کر رہی ہے..."); }
-
-                const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
-                let payload = {
-                    message: text || "",
-                    email: "alirazasabir007@gmail.com", 
-                    local_time: new Date().toLocaleTimeString()
-                };
-
-                try {
-                    if (file) payload.image = await fileToBase64(file);
-                    if (audioBlob) payload.audio = await fileToBase64(audioBlob);
-
-                    const res = await fetch(API_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const data = await res.json();
-                    hideThinking();
-                    
-                    const replyText = data.response || "میں سمجھ نہیں سکی۔";
-                    addMessage(replyText, 'assistant');
-                    
-                    // 🔊 عائشہ خودکار بولے گی (اگر اینڈرائیڈ نے بلاک نہ کیا ہو)
-                    window.autoPlayVoice(replyText);
-                    
-                } catch (err) {
-                    hideThinking();
-                    addMessage("سرور آف لائن ہے۔ انٹرنیٹ چیک کریں۔", 'assistant');
-                }
-            }
-
-
-            // =========================================================================
-            // 3. رئیل ٹائم گلوبل وائس ٹائپنگ 
-            // =========================================================================
-            let recognition = null;
-            let mediaRecorder = null;
-            let audioChunks = [];
-
-            if ('webkitSpeechRecognition' in window) {
-                try {
-                    recognition = new webkitSpeechRecognition();
-                    recognition.continuous = false;
-                    recognition.interimResults = true; 
-                    
-                    // 🌍 آٹو ڈیٹیکٹ زبان: انگلش، اردو، پنجابی جو بھی فون میں ہو
-                    recognition.lang = navigator.language || 'en-US';
-
-                    recognition.onresult = function(event) {
-                        let finalTranscript = '';
-                        let interimTranscript = '';
-                        for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) { finalTranscript += event.results[i][0].transcript; } 
-                            else { interimTranscript += event.results[i][0].transcript; }
-                        }
-                        input.value = finalTranscript || interimTranscript;
-                        updateUI();
-                    };
-
-                    recognition.onend = function() {
-                        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                            mediaRecorder.stop(); 
-                        }
-                    };
-                } catch (e) {
-                    console.log("Speech recognition failed to init.");
-                }
-            }
-
-            async function startRecordingSafely() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    
-                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                    
-                    mediaRecorder.onstop = () => {
-                        isRecording = false;
-                        hideThinking();
-                        input.placeholder = "Ask something...";
-                        
-                        const audioBlob = new Blo
