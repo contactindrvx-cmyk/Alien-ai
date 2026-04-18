@@ -83,7 +83,7 @@
     </div>
 
     <script>
-        // سمارٹ آڈیو انجن (بالکل محفوظ)
+        // 1. آڈیو کنٹرول سسٹم (گلوبل اور محفوظ)
         window.AyeshaAudio = {
             currentUtterance: null,
             isSpeaking: false,
@@ -128,68 +128,160 @@
             window.speechSynthesis.speak(window.AyeshaAudio.currentUtterance);
         };
 
+        // 2. مین لاجک (بٹنوں کو ہر حال میں ایکٹو رکھنے کے لیے الگ کیا گیا ہے)
         document.addEventListener('DOMContentLoaded', () => {
-            // سیکیورٹی: فون کا سپیکر ان لاک کرنا
-            document.body.addEventListener('click', () => {
-                if('speechSynthesis' in window) {
-                    window.speechSynthesis.resume();
-                }
-            }, {once:true});
+            const input = document.getElementById('user-input');
+            const inputPill = document.getElementById('input-pill');
+            const plusBtn = document.getElementById('plus-btn');
+            const fileInput = document.getElementById('hidden-file-input');
+            const actionBtn = document.getElementById('action-btn');
+            const micIcon = document.getElementById('mic-icon');
+            const stopIcon = document.getElementById('stop-icon');
+            const sendIcon = document.getElementById('send-icon');
+            const chatBox = document.getElementById('chat-box');
+            const thinkingIndicator = document.getElementById('thinking-indicator');
+            const indicatorText = document.getElementById('indicator-text');
+            
+            let messageCounter = 0;
+            let isRecording = false;
 
-            try {
-                const input = document.getElementById('user-input');
-                const inputPill = document.getElementById('input-pill');
-                const plusBtn = document.getElementById('plus-btn');
-                const fileInput = document.getElementById('hidden-file-input');
-                const actionBtn = document.getElementById('action-btn');
-                const micIcon = document.getElementById('mic-icon');
-                const stopIcon = document.getElementById('stop-icon');
-                const sendIcon = document.getElementById('send-icon');
-                const chatBox = document.getElementById('chat-box');
-                const thinkingIndicator = document.getElementById('thinking-indicator');
-                const indicatorText = document.getElementById('indicator-text');
+            // --- UI اور چیٹ کے محفوظ فنکشنز ---
+            function showThinking(text) {
+                indicatorText.innerText = text;
+                chatBox.appendChild(thinkingIndicator);
+                thinkingIndicator.classList.remove('hidden');
+                thinkingIndicator.classList.add('block');
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            function hideThinking() {
+                thinkingIndicator.classList.add('hidden');
+                thinkingIndicator.classList.remove('block');
+            }
+
+            function updateUI() {
+                const hasText = input.value.trim().length > 0;
+                const isActive = (document.activeElement === input) || hasText || isRecording;
                 
-                let messageCounter = 0;
-
-                function showThinking(text) {
-                    indicatorText.innerText = text;
-                    chatBox.appendChild(thinkingIndicator);
-                    thinkingIndicator.classList.remove('hidden');
-                    thinkingIndicator.classList.add('block');
-                    chatBox.scrollTop = chatBox.scrollHeight;
+                if (isActive) {
+                    plusBtn.classList.add('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
+                    inputPill.style.marginLeft = "64px"; inputPill.style.paddingLeft = "10px"; inputPill.classList.add('active');
+                } else {
+                    plusBtn.classList.remove('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
+                    inputPill.style.marginLeft = "0px"; inputPill.style.paddingLeft = "56px"; inputPill.classList.remove('active');
                 }
-
-                function hideThinking() {
-                    thinkingIndicator.classList.add('hidden');
-                    thinkingIndicator.classList.remove('block');
+                
+                if (hasText) {
+                    micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
+                } else if (isRecording) {
+                    micIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
+                } else {
+                    stopIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
                 }
+            }
 
-                const fileToBase64 = file => new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = error => reject(error);
-                });
+            function addMessage(text, sender, imgSrc = null) {
+                const msgDiv = document.createElement('div');
+                let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
 
-                plusBtn.onclick = () => fileInput.click(); 
+                if (sender === 'user') {
+                    msgDiv.className = 'chat-bubble user-bubble border border-[#3a8ff7]';
+                    msgDiv.innerHTML = `${imgHtml}<p>${text}</p>`;
+                } else {
+                    messageCounter++;
+                    const btnId = 'play-btn-' + messageCounter;
+                    const safeText = text.replace(/['"]/g, "");
 
-                fileInput.onchange = async (e) => {
-                    const file = e.target.files[0];
-                    if(file) {
-                        const reader = new FileReader();
-                        reader.onload = function(event) {
-                            addMessage("تصویر بھیجی جا رہی ہے...", 'user', event.target.result);
-                        };
-                        reader.readAsDataURL(file);
-                        sendToHuggingFace("اس تصویر کو دیکھو۔", file, null); 
+                    msgDiv.className = 'relative group w-full mt-4';
+                    msgDiv.innerHTML = `
+                        <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
+                            ${imgHtml}<p>${text}</p>
+                            <button id="${btnId}" class="smart-speaker-btn" title="Play/Stop Audio">
+                                ${window.AyeshaAudio.speakerSVG}
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                chatBox.insertBefore(msgDiv, thinkingIndicator);
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                if (sender !== 'user') {
+                    const btnId = 'play-btn-' + messageCounter;
+                    const btn = document.getElementById(btnId);
+                    const safeText = text.replace(/['"]/g, "");
+                    if(btn) {
+                        btn.onclick = () => window.toggleAyeshaAudio(safeText, btnId);
                     }
+                    setTimeout(() => window.toggleAyeshaAudio(safeText, btnId), 500);
+                }
+            }
+
+            const fileToBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+
+            async function sendToHuggingFace(text, file, audioBlob) {
+                if(file) { showThinking("تصویر دیکھ رہی ہے..."); } 
+                else if(audioBlob) { showThinking("آواز سن رہی ہے..."); }
+                else { showThinking("ٹائپ کر رہی ہے..."); }
+
+                const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
+
+                let payload = {
+                    message: text || "",
+                    email: "alirazasabir007@gmail.com", 
+                    local_time: new Date().toLocaleTimeString()
                 };
 
-                let recognition;
-                let mediaRecorder;
-                let audioChunks = [];
-                let isRecording = false;
+                try {
+                    if (file) payload.image = await fileToBase64(file);
+                    if (audioBlob) payload.audio = await fileToBase64(audioBlob);
 
+                    const res = await fetch(API_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const data = await res.json();
+                    hideThinking();
+                    addMessage(data.response || "معاف کیجیے، میں سمجھ نہیں سکی۔", 'assistant');
+                } catch (err) {
+                    console.error("API Error:", err);
+                    hideThinking();
+                    addMessage("سرور ابھی آف لائن ہے۔", 'assistant');
+                }
+            }
+
+            // --- ایونٹ لسنرز (جو اب کبھی کریش نہیں ہوں گے) ---
+            input.addEventListener('input', updateUI);
+            input.addEventListener('focus', updateUI);
+            input.addEventListener('blur', updateUI);
+
+            plusBtn.onclick = () => fileInput.click(); 
+
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        addMessage("تصویر بھیجی جا رہی ہے...", 'user', event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                    sendToHuggingFace("اس تصویر کو دیکھو۔", file, null); 
+                }
+            };
+
+            // --- وائس اور مائیک کا محفوظ سسٹم ---
+            let recognition;
+            let mediaRecorder;
+            let audioChunks = [];
+
+            try {
                 if ('webkitSpeechRecognition' in window) {
                     recognition = new webkitSpeechRecognition();
                     recognition.continuous = false;
@@ -216,127 +308,47 @@
                         }
                     };
                 }
+            } catch (e) {
+                console.log("Voice typing initialization skipped.");
+            }
 
-                async function startRecording() {
-                    if (recognition) {
-                        try {
-                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                            mediaRecorder = new MediaRecorder(stream);
-                            audioChunks = [];
-                            
-                            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                            
-                            mediaRecorder.onstop = () => {
-                                isRecording = false;
-                                hideThinking();
-                                input.placeholder = "Ask something...";
-                                
-                                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                                const text = input.value.trim();
-                                
-                                if (text.length > 0 || audioChunks.length > 0) {
-                                    addMessage(text || "🎤 Voice Message", 'user');
-                                    input.value = '';
-                                    updateUI();
-                                    sendToHuggingFace(text, null, audioBlob);
-                                }
-                                
-                                stream.getTracks().forEach(track => track.stop());
-                            };
-
-                            input.value = ''; 
-                            recognition.start(); 
-                            mediaRecorder.start(); 
-                            
-                            isRecording = true;
-                            updateUI();
-                            input.placeholder = "سن رہی ہوں...";
-                            showThinking("عائشہ سن رہی ہے...");
-                            
-                        } catch (err) {
-                            alert("مائیکروفون کی اجازت درکار ہے۔");
-                        }
-                    } else {
-                        alert("آپ کے فون میں وائس ٹائپنگ سپورٹ نہیں ہے۔");
-                    }
+            async function handleVoiceRecord() {
+                if (!recognition) {
+                    alert("آپ کے فون میں وائس ٹائپنگ سپورٹ نہیں ہے۔ آپ ٹائپ کر کے میسج بھیج سکتے ہیں۔");
+                    return;
                 }
-
-                function stopRecording() {
-                    if (recognition) {
-                        recognition.stop(); 
-                    }
-                }
-
-                function updateUI() {
-                    const hasText = input.value.trim().length > 0;
-                    const isActive = (document.activeElement === input) || hasText || isRecording;
-                    if (isActive) {
-                        plusBtn.classList.add('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
-                        inputPill.style.marginLeft = "64px"; inputPill.style.paddingLeft = "10px"; inputPill.classList.add('active');
-                    } else {
-                        plusBtn.classList.remove('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
-                        inputPill.style.marginLeft = "0px"; inputPill.style.paddingLeft = "56px"; inputPill.classList.remove('active');
-                    }
-                    if (hasText) {
-                        micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
-                    } else if (isRecording) {
-                        micIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
-                    } else {
-                        stopIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
-                    }
-                }
-
-                input.addEventListener('input', updateUI);
-                input.addEventListener('focus', updateUI);
-                input.addEventListener('blur', updateUI);
-
-                actionBtn.onclick = (e) => {
-                    e.preventDefault();
-                    if (input.value.trim().length > 0) {
-                        const text = input.value.trim();
-                        addMessage(text, 'user');
-                        input.value = ''; updateUI(); sendToHuggingFace(text, null, null); 
-                    } else {
-                        isRecording ? stopRecording() : startRecording();
-                    }
-                };
-
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter' && input.value.trim().length > 0) {
-                        const text = input.value.trim();
-                        addMessage(text, 'user');
-                        input.value = ''; updateUI(); sendToHuggingFace(text, null, null);
-                    }
-                });
-
-                function addMessage(text, sender, imgSrc = null) {
-                    const msgDiv = document.createElement('div');
-                    let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
-
-                    if (sender === 'user') {
-                        msgDiv.className = 'chat-bubble user-bubble border border-[#3a8ff7]';
-                        msgDiv.innerHTML = `${imgHtml}<p>${text}</p>`;
-                    } else {
-                        messageCounter++;
-                        const btnId = 'play-btn-' + messageCounter;
-
-                        msgDiv.className = 'relative group w-full mt-4';
-                        msgDiv.innerHTML = `
-                            <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
-                                ${imgHtml}<p>${text}</p>
-                                <button id="${btnId}" class="smart-speaker-btn" title="Play/Stop Audio">
-                                    ${window.AyeshaAudio.speakerSVG}
-                                </button>
-                            </div>
-                        `;
-                    }
+                
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
                     
-                    chatBox.insertBefore(msgDiv, thinkingIndicator);
-                    chatBox.scrollTop = chatBox.scrollHeight;
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    
+                    mediaRecorder.onstop = () => {
+                        isRecording = false;
+                        hideThinking();
+                        input.placeholder = "Ask something...";
+                        
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        const text = input.value.trim();
+                        
+                        if (text.length > 0 || audioChunks.length > 0) {
+                            addMessage(text || "🎤 Voice Message", 'user');
+                            input.value = '';
+                            updateUI();
+                            sendToHuggingFace(text, null, audioBlob);
+                        }
+                        
+                        stream.getTracks().forEach(track => track.stop());
+                    };
 
-                    // یہ طریقہ بالکل محفوظ ہے، اس سے بٹن کبھی کریش نہیں ہوں گے
-                    if (sender !== 'user') {
-                        const btnId = 'play-btn-' + messageCounter;
-                        const btn = document.getElementById(btnId);
-                        if(btn) {
-                            bt
+                    input.value = ''; 
+                    recognition.start(); 
+                    mediaRecorder.start(); 
+                    
+                    isRecording = true;
+                    updateUI();
+                    input.placeholder = "سن رہی ہوں...";
+                    showThinking("عائشہ سن رہی ہے...");
+         
