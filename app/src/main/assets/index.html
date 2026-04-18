@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
-        /* چیٹ ببلز کا ڈیزائن */
+        /* آپ کا کسٹم ڈیزائن بالکل ویسے ہی رکھا ہے */
         .chat-bubble { 
             border-radius: 24px; 
             padding: 14px 20px; 
@@ -37,14 +37,12 @@
             border-bottom-right-radius: 4px; 
         }
 
-        /* جمنائی گلو اثر */
         .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.1); transition: all 0.3s ease; }
         .gemini-glow:focus-within, .gemini-glow.active {
             box-shadow: 0 0 25px rgba(58, 143, 247, 0.3);
             border-color: #3a8ff7 !important;
         }
 
-        /* فلوٹنگ اسپیکر */
         .speaker-float {
             background-color: #16243d;
             color: #e0e0e0;
@@ -66,32 +64,30 @@
 </head>
 <body class="h-screen flex bg-black text-white font-sans w-full overflow-hidden relative">
     
+    <audio id="audio-player" class="hidden"></audio>
+    <input type="file" id="hidden-file-input" class="hidden" accept="image/*, audio/*, video/*, .pdf">
+
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity cursor-pointer"></div>
 
     <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] p-4 flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
         <h2 class="text-2xl font-bold mb-6 text-center text-[#3a8ff7]">Select Assistant</h2>
         <div class="flex-1 space-y-4 overflow-y-auto" id="assistants-list">
-            
             <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
                 <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
                 <span class="font-semibold">Ayesha AI</span>
             </button>
-
             <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="David Bot">
                 <span class="w-3 h-3 rounded-full bg-blue-500"></span> 
                 <span class="font-semibold text-gray-300">David Bot</span>
             </button>
-
             <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="Sara Assistant">
                 <span class="w-3 h-3 rounded-full bg-purple-500"></span> 
                 <span class="font-semibold text-gray-300">Sara Assistant</span>
             </button>
-
             <button class="assistant-btn w-full text-left p-3 hover:bg-[#2f3037] rounded-xl flex items-center gap-3 transition" data-name="Raza Bot">
                 <span class="w-3 h-3 rounded-full bg-orange-500"></span> 
                 <span class="font-semibold text-gray-300">Raza Bot</span>
             </button>
-
         </div>
         <div class="border-t border-[#2f3037] mt-2 pt-4 flex items-center gap-3 p-2">
             <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
@@ -109,8 +105,7 @@
         </header>
 
         <main class="flex-1 flex flex-col relative overflow-hidden">
-            <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-box">
-                </div>
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-box"></div>
 
             <div id="thinking-indicator" class="hidden items-center gap-2 text-[#3a8ff7] text-sm font-medium px-6 py-2 w-fit mb-2">
                 <svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -122,11 +117,12 @@
                     <button id="plus-btn" class="absolute left-1 z-10 w-12 h-12 flex items-center justify-center text-[#3a8ff7] rounded-full transition-all duration-300 bg-transparent">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
+                    
                     <div id="input-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] gemini-glow rounded-full flex items-center transition-all duration-300 ml-0 pl-14 w-full relative">
                         <input type="text" id="user-input" class="flex-1 bg-transparent px-2 py-3 outline-none text-white text-base placeholder-gray-400 w-full" placeholder="Ask something..." autocomplete="off">
                         <button id="action-btn" class="p-3 text-[#3a8ff7] flex-shrink-0 mr-1 z-30 transition-colors hover:text-white">
                             <svg id="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                            <svg id="stop-icon" class="hidden" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+                            <svg id="stop-icon" class="hidden text-red-500" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
                             <svg id="send-icon" class="hidden text-white" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                         </button>
                     </div>
@@ -140,49 +136,74 @@
             const input = document.getElementById('user-input');
             const inputPill = document.getElementById('input-pill');
             const plusBtn = document.getElementById('plus-btn');
+            const fileInput = document.getElementById('hidden-file-input');
             const actionBtn = document.getElementById('action-btn');
             const micIcon = document.getElementById('mic-icon');
             const stopIcon = document.getElementById('stop-icon');
             const sendIcon = document.getElementById('send-icon');
             const chatBox = document.getElementById('chat-box');
-            const menuBtn = document.getElementById('menu-btn');
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            const headerTitle = document.getElementById('header-title');
             const thinkingIndicator = document.getElementById('thinking-indicator');
             const indicatorText = document.getElementById('indicator-text');
+            const audioPlayer = document.getElementById('audio-player');
 
+            // --- 1. گیلری اور فائل اپلوڈ کی لاجک ---
+            plusBtn.onclick = () => {
+                fileInput.click(); // پلس دبانے سے اینڈرائیڈ کی گیلری کھلے گی!
+            };
+
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    addMessage(`📎 تصویر/فائل سیلیکٹ ہو گئی: ${file.name}`, 'user');
+                    // رضا بھائی: یہاں آپ نے تصویر کو Hugging Face پر بھیجنے کا کوڈ لکھنا ہے۔
+                    sendToHuggingFace(null, null, file); 
+                }
+            };
+
+            // --- 2. آڈیو ریکارڈنگ کی لاجک (WebRTC) ---
             let isRecording = false;
+            let mediaRecorder;
+            let audioChunks = [];
 
-            // 1. مینیو ٹوگل اور اسسٹنٹ سلیکشن
-            function toggleMenu() {
-                sidebar.classList.toggle('-translate-x-full');
-                overlay.classList.toggle('hidden');
+            async function startRecording() {
+                try {
+                    // یہ لائن اینڈرائیڈ کا اصلی مائیک آن کرتی ہے
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        audioChunks = [];
+                        addMessage("🎤 وائس میسج بھیجا جا رہا ہے...", 'user');
+                        // رضا بھائی: یہاں ریکارڈ شدہ آواز Hugging Face پر جائے گی
+                        sendToHuggingFace(null, audioBlob, null);
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    updateUI();
+                    indicatorText.innerText = `سن رہی ہے...`;
+                    thinkingIndicator.classList.replace('hidden', 'flex');
+
+                } catch (err) {
+                    alert("مائیکروفون کی اجازت درکار ہے! " + err);
+                }
             }
-            menuBtn.onclick = toggleMenu;
-            overlay.onclick = toggleMenu;
 
-            // اسسٹنٹ بدلنے کا جادو
-            document.querySelectorAll('.assistant-btn').forEach(btn => {
-                btn.onclick = () => {
-                    const selectedName = btn.getAttribute('data-name');
-                    headerTitle.innerText = selectedName; // ہیڈر کا نام بدلیں
-                    
-                    // ایکٹیو کلاس سیٹ کریں
-                    document.querySelectorAll('.assistant-btn').forEach(b => {
-                        b.classList.remove('bg-[#16243d]', 'border', 'border-[#3a8ff7]');
-                        b.querySelector('span:last-child').classList.add('text-gray-400');
-                        b.querySelector('span:last-child').classList.remove('text-white');
-                    });
-                    btn.classList.add('bg-[#16243d]', 'border', 'border-[#3a8ff7]');
-                    btn.querySelector('span:last-child').classList.remove('text-gray-400');
-                    btn.querySelector('span:last-child').classList.add('text-white');
-                    
-                    toggleMenu(); // مینیو بند کریں
-                };
-            });
+            function stopRecording() {
+                if (mediaRecorder && mediaRecorder.state === "recording") {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    thinkingIndicator.classList.replace('flex', 'hidden');
+                    updateUI();
+                }
+            }
 
-            // 2. ان پٹ UI کنٹرول
+            // --- 3. UI اور بٹنز کنٹرول ---
             function updateUI() {
                 const hasText = input.value.trim().length > 0;
                 const isActive = (document.activeElement === input) || hasText || isRecording;
@@ -212,19 +233,56 @@
             input.addEventListener('focus', updateUI);
             input.addEventListener('blur', updateUI);
 
-            // 3. چیٹ لاجک
-            function addMessage(text, sender) {
+            actionBtn.onclick = (e) => {
+                e.preventDefault();
+                if (input.value.trim().length > 0) {
+                    const text = input.value.trim();
+                    addMessage(text, 'user');
+                    input.value = '';
+                    updateUI();
+                    sendToHuggingFace(text, null, null); // ٹیکسٹ میسج بھیجیں
+                } else {
+                    if(isRecording) {
+                        stopRecording();
+                    } else {
+                        startRecording();
+                    }
+                }
+            };
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const text = input.value.trim();
+                    if(text.length > 0) {
+                        addMessage(text, 'user');
+                        input.value = '';
+                        updateUI();
+                        sendToHuggingFace(text, null, null);
+                    }
+                }
+            });
+
+            // --- 4. چیٹ میں میسج دکھانا ---
+            function addMessage(text, sender, audioUrl = null) {
                 const msgDiv = document.createElement('div');
                 if (sender === 'user') {
                     msgDiv.className = 'chat-bubble user-bubble border border-[#3a8ff7]';
                     msgDiv.innerHTML = `<p>${text}</p>`;
                 } else {
                     msgDiv.className = 'relative group w-full mt-4';
-                    msgDiv.innerHTML = `
-                        <button class="speaker-float absolute z-20" onclick="this.classList.toggle('playing')">
+                    
+                    // آڈیو پلے کرنے کا بٹن
+                    let audioBtnHTML = '';
+                    if (audioUrl) {
+                        audioBtnHTML = `
+                        <button class="speaker-float absolute z-20" onclick="document.getElementById('audio-player').src='${audioUrl}'; document.getElementById('audio-player').play();">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                             Listen
-                        </button>
+                        </button>`;
+                    }
+
+                    msgDiv.innerHTML = `
+                        ${audioBtnHTML}
                         <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
                             <p>${text}</p>
                         </div>
@@ -234,45 +292,69 @@
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            function handleSend() {
-                const text = input.value.trim();
-                const currentAssistant = headerTitle.innerText;
-                if (text.length > 0) {
-                    addMessage(text, 'user');
-                    input.value = '';
-                    updateUI();
-                    
-                    indicatorText.innerText = `${currentAssistant} سوچ رہا ہے...`;
-                    thinkingIndicator.classList.replace('hidden', 'flex');
+            // --- 5. ہگنگ فیس API کے ساتھ فائنل کنکشن ---
+            function sendToHuggingFace(text, audioBlob, file) {
+                indicatorText.innerText = `جواب تیار ہو رہا ہے...`;
+                thinkingIndicator.classList.replace('hidden', 'flex');
 
-                    setTimeout(() => {
-                        thinkingIndicator.classList.replace('flex', 'hidden');
-                        addMessage(`میں ${currentAssistant} ہوں، آپ کی مدد کے لیے حاضر ہوں!`, 'assistant');
-                    }, 2000);
-                }
+                // ⚠️ رضا بھائی، یہ وہ جگہ ہے جہاں آپ کا AI کام کرے گا!
+                // یہاں آپ اپنی Hugging Face (Gradio) کی API لگائیں گے۔
+                // مثال کے طور پر آپ Fetch API استعمال کر کے ڈیٹا بھیجیں گے:
+                
+                /*
+                let formData = new FormData();
+                if(text) formData.append("text", text);
+                if(audioBlob) formData.append("audio", audioBlob);
+                if(file) formData.append("file", file);
+
+                fetch("https://aigrowthbox-ayesha-ai.hf.space/api/predict", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    thinkingIndicator.classList.replace('flex', 'hidden');
+                    // فرض کریں HF سے جواب میں ٹیکسٹ اور آڈیو کا لنک آتا ہے
+                    addMessage(data.text_response, 'assistant', data.audio_url);
+                })
+                .catch(error => {
+                    thinkingIndicator.classList.replace('flex', 'hidden');
+                    addMessage("ایرر: کنکشن میں مسئلہ ہے", 'assistant');
+                });
+                */
+
+                // ڈیمو کے لیے (جب تک آپ اوپر والا API کا کوڈ سیٹ نہیں کرتے)
+                setTimeout(() => {
+                    thinkingIndicator.classList.replace('flex', 'hidden');
+                    addMessage("یہ ایک ڈیمو جواب ہے۔ API لنک سیٹ کریں تاکہ عائشہ اصلی جواب دے سکے۔", 'assistant');
+                }, 2000);
             }
 
-            actionBtn.onclick = (e) => {
-                e.preventDefault();
-                if (input.value.trim().length > 0) {
-                    handleSend();
-                } else {
-                    isRecording = !isRecording;
-                    if(isRecording) {
-                        indicatorText.innerText = `${headerTitle.innerText} سن رہا ہے...`;
-                        thinkingIndicator.classList.replace('hidden', 'flex');
-                    } else {
-                        thinkingIndicator.classList.replace('flex', 'hidden');
-                    }
-                    updateUI();
-                }
-            };
+            // مینیو ٹوگل کا کوڈ
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const menuBtn = document.getElementById('menu-btn');
+            const headerTitle = document.getElementById('header-title');
 
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleSend();
+            function toggleMenu() {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            }
+            menuBtn.onclick = toggleMenu;
+            overlay.onclick = toggleMenu;
+
+            document.querySelectorAll('.assistant-btn').forEach(btn => {
+                btn.onclick = () => {
+                    headerTitle.innerText = btn.getAttribute('data-name');
+                    document.querySelectorAll('.assistant-btn').forEach(b => {
+                        b.classList.remove('bg-[#16243d]', 'border', 'border-[#3a8ff7]');
+                    });
+                    btn.classList.add('bg-[#16243d]', 'border', 'border-[#3a8ff7]');
+                    toggleMenu();
+                };
             });
         });
     </script>
 </body>
-                                                                                                                                                                                 </html>
-  
+                                </html>
+    
