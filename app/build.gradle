@@ -4,24 +4,16 @@ plugins {
 
 android {
     namespace 'com.raza.alienai'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.raza.alienai"
         minSdk 24
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0"
     }
 
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-    
-    // یہ جاوا 17 کی سیٹنگ بہت ضروری ہے
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -30,5 +22,5 @@ android {
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'com.google.android.material:material:1.10.0'
 }
