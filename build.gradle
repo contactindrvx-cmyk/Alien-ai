@@ -4,8 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // یہ اینڈرائیڈ کا مین بلڈ ٹول ہے
-        classpath "com.android.tools.build:gradle:7.4.2"
+        classpath "com.android.tools.build:gradle:8.1.1"
     }
 }
 
