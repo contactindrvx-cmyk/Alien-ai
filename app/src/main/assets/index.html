@@ -83,7 +83,7 @@
     </div>
 
     <script>
-        // 1. آڈیو کنٹرول سسٹم (گلوبل اور محفوظ)
+        // --- 1. گلوبل آڈیو انجن (سکرین کے باہر محفوظ رکھا گیا ہے) ---
         window.AyeshaAudio = {
             currentUtterance: null,
             isSpeaking: false,
@@ -128,8 +128,10 @@
             window.speechSynthesis.speak(window.AyeshaAudio.currentUtterance);
         };
 
-        // 2. مین لاجک (بٹنوں کو ہر حال میں ایکٹو رکھنے کے لیے الگ کیا گیا ہے)
+        // --- 2. مین لاجک (بٹنوں کو سب سے پہلے ایکٹو کرنے کا طریقہ) ---
         document.addEventListener('DOMContentLoaded', () => {
+            
+            // الف: تمام عناصر (Elements) پکڑیں
             const input = document.getElementById('user-input');
             const inputPill = document.getElementById('input-pill');
             const plusBtn = document.getElementById('plus-btn');
@@ -145,20 +147,7 @@
             let messageCounter = 0;
             let isRecording = false;
 
-            // --- UI اور چیٹ کے محفوظ فنکشنز ---
-            function showThinking(text) {
-                indicatorText.innerText = text;
-                chatBox.appendChild(thinkingIndicator);
-                thinkingIndicator.classList.remove('hidden');
-                thinkingIndicator.classList.add('block');
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-
-            function hideThinking() {
-                thinkingIndicator.classList.add('hidden');
-                thinkingIndicator.classList.remove('block');
-            }
-
+            // ب: UI اپڈیٹ اور بٹن کلک فوراً ایکٹو کریں (کوئی کریش نہیں ہوگا)
             function updateUI() {
                 const hasText = input.value.trim().length > 0;
                 const isActive = (document.activeElement === input) || hasText || isRecording;
@@ -180,6 +169,67 @@
                 }
             }
 
+            input.addEventListener('input', updateUI);
+            input.addEventListener('focus', updateUI);
+            input.addEventListener('blur', updateUI);
+
+            // پلس بٹن اور فائل اپلوڈ فوراً ایکٹو کریں
+            plusBtn.onclick = () => fileInput.click(); 
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        addMessage("تصویر بھیجی جا رہی ہے...", 'user', event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                    sendToHuggingFace("اس تصویر کو دیکھو۔", file, null); 
+                }
+            };
+
+            // مینیو بٹن ایکٹو کریں
+            const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('sidebar-overlay'), menuBtn = document.getElementById('menu-btn');
+            function toggleMenu() { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); }
+            menuBtn.onclick = toggleMenu; overlay.onclick = toggleMenu;
+
+            // مین ایکشن (Send) بٹن
+            actionBtn.onclick = (e) => {
+                e.preventDefault();
+                if (input.value.trim().length > 0) {
+                    const text = input.value.trim();
+                    addMessage(text, 'user');
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null); 
+                } else {
+                    if (isRecording) {
+                        stopRecording();
+                    } else {
+                        startRecording();
+                    }
+                }
+            };
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && input.value.trim().length > 0) {
+                    const text = input.value.trim();
+                    addMessage(text, 'user');
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null);
+                }
+            });
+
+            // ج: چیٹ کے فنکشنز
+            function showThinking(text) {
+                indicatorText.innerText = text;
+                chatBox.appendChild(thinkingIndicator);
+                thinkingIndicator.classList.remove('hidden');
+                thinkingIndicator.classList.add('block');
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            function hideThinking() {
+                thinkingIndicator.classList.add('hidden');
+                thinkingIndicator.classList.remove('block');
+            }
+
             function addMessage(text, sender, imgSrc = null) {
                 const msgDiv = document.createElement('div');
                 let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
@@ -196,25 +246,16 @@
                     msgDiv.innerHTML = `
                         <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
                             ${imgHtml}<p>${text}</p>
-                            <button id="${btnId}" class="smart-speaker-btn" title="Play/Stop Audio">
+                            <button id="${btnId}" class="smart-speaker-btn" title="Play/Stop Audio" onclick="window.toggleAyeshaAudio('${safeText}', '${btnId}')">
                                 ${window.AyeshaAudio.speakerSVG}
                             </button>
                         </div>
                     `;
+                    setTimeout(() => window.toggleAyeshaAudio(safeText, btnId), 500);
                 }
                 
                 chatBox.insertBefore(msgDiv, thinkingIndicator);
                 chatBox.scrollTop = chatBox.scrollHeight;
-
-                if (sender !== 'user') {
-                    const btnId = 'play-btn-' + messageCounter;
-                    const btn = document.getElementById(btnId);
-                    const safeText = text.replace(/['"]/g, "");
-                    if(btn) {
-                        btn.onclick = () => window.toggleAyeshaAudio(safeText, btnId);
-                    }
-                    setTimeout(() => window.toggleAyeshaAudio(safeText, btnId), 500);
-                }
             }
 
             const fileToBase64 = file => new Promise((resolve, reject) => {
@@ -230,7 +271,6 @@
                 else { showThinking("ٹائپ کر رہی ہے..."); }
 
                 const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
-
                 let payload = {
                     message: text || "",
                     email: "alirazasabir007@gmail.com", 
@@ -257,32 +297,13 @@
                 }
             }
 
-            // --- ایونٹ لسنرز (جو اب کبھی کریش نہیں ہوں گے) ---
-            input.addEventListener('input', updateUI);
-            input.addEventListener('focus', updateUI);
-            input.addEventListener('blur', updateUI);
-
-            plusBtn.onclick = () => fileInput.click(); 
-
-            fileInput.onchange = (e) => {
-                const file = e.target.files[0];
-                if(file) {
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        addMessage("تصویر بھیجی جا رہی ہے...", 'user', event.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                    sendToHuggingFace("اس تصویر کو دیکھو۔", file, null); 
-                }
-            };
-
-            // --- وائس اور مائیک کا محفوظ سسٹم ---
-            let recognition;
-            let mediaRecorder;
+            // د: وائس ریکارڈنگ (سب سے آخر میں، تاکہ اس کا ایرر بٹنوں کو خراب نہ کرے)
+            let recognition = null;
+            let mediaRecorder = null;
             let audioChunks = [];
 
-            try {
-                if ('webkitSpeechRecognition' in window) {
+            if ('webkitSpeechRecognition' in window) {
+                try {
                     recognition = new webkitSpeechRecognition();
                     recognition.continuous = false;
                     recognition.interimResults = true;
@@ -292,11 +313,8 @@
                         let interimTranscript = '';
                         let finalTranscript = '';
                         for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) {
-                                finalTranscript += event.results[i][0].transcript;
-                            } else {
-                                interimTranscript += event.results[i][0].transcript;
-                            }
+                            if (event.results[i].isFinal) { finalTranscript += event.results[i][0].transcript; } 
+                            else { interimTranscript += event.results[i][0].transcript; }
                         }
                         input.value = finalTranscript || interimTranscript;
                         updateUI();
@@ -307,18 +325,16 @@
                             mediaRecorder.stop(); 
                         }
                     };
-                }
-            } catch (e) {
-                console.log("Voice typing initialization skipped.");
+                } catch (e) { console.log("Recognition setup failed safely."); }
             }
 
-            async function handleVoiceRecord() {
-                if (!recognition) {
-                    alert("آپ کے فون میں وائس ٹائپنگ سپورٹ نہیں ہے۔ آپ ٹائپ کر کے میسج بھیج سکتے ہیں۔");
-                    return;
-                }
-                
+            async function startRecording() {
                 try {
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        alert("آپ کے موبائل میں آڈیو ریکارڈنگ کی سہولت دستیاب نہیں ہے۔ براہ کرم ٹائپ کریں۔");
+                        return;
+                    }
+
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
@@ -326,29 +342,4 @@
                     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                     
                     mediaRecorder.onstop = () => {
-                        isRecording = false;
-                        hideThinking();
-                        input.placeholder = "Ask something...";
-                        
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        const text = input.value.trim();
-                        
-                        if (text.length > 0 || audioChunks.length > 0) {
-                            addMessage(text || "🎤 Voice Message", 'user');
-                            input.value = '';
-                            updateUI();
-                            sendToHuggingFace(text, null, audioBlob);
-                        }
-                        
-                        stream.getTracks().forEach(track => track.stop());
-                    };
-
-                    input.value = ''; 
-                    recognition.start(); 
-                    mediaRecorder.start(); 
-                    
-                    isRecording = true;
-                    updateUI();
-                    input.placeholder = "سن رہی ہوں...";
-                    showThinking("عائشہ سن رہی ہے...");
-         
+                        isRecording =
