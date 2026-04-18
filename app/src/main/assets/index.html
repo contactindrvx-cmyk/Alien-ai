@@ -47,7 +47,7 @@
 
             <div id="thinking-indicator" class="hidden items-center gap-2 text-[#3a8ff7] text-sm font-medium px-6 py-2 w-fit mb-2">
                 <svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span id="indicator-text" class="animate-pulse">سوچ رہی ہے...</span>
+                <span id="indicator-text" class="animate-pulse">Thinking...</span>
             </div>
 
             <div class="p-4 md:px-20 pb-6 w-full relative bg-black">
@@ -82,18 +82,24 @@
             const thinkingIndicator = document.getElementById('thinking-indicator');
             const indicatorText = document.getElementById('indicator-text');
 
-            // عائشہ کی آواز (Text to Speech)
+            // 🌍 گلوبل عائشہ کی آواز (TTS)
             function speakAyesha(text) {
                 if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel(); // پرانی آواز بند کریں
-                    let speech = new SpeechSynthesisUtterance(text);
-                    speech.lang = 'ur-PK'; // اردو لہجہ
-                    speech.rate = 1.0;
+                    window.speechSynthesis.cancel(); 
+                    window.speechSynthesis.resume(); 
+                    
+                    const cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+
+                    let speech = new SpeechSynthesisUtterance(cleanText);
+                    
+                    // یہ لائن خودکار طریقے سے یوزر کے فون کی زبان اٹھائے گی
+                    speech.lang = navigator.language || 'en-US'; 
+                    speech.rate = 0.95; 
+                    speech.pitch = 1.1; 
                     window.speechSynthesis.speak(speech);
                 }
             }
 
-            // فائل کو Base64 میں بدلنے کا فنکشن (تاکہ پائتھن اسے سمجھ سکے)
             const fileToBase64 = file => new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
@@ -101,47 +107,88 @@
                 reader.onerror = error => reject(error);
             });
 
+            // تصویر کا پریویو
             plusBtn.onclick = () => fileInput.click(); 
 
             fileInput.onchange = async (e) => {
                 const file = e.target.files[0];
                 if(file) {
-                    addMessage(`📎 تصویر بھیجی جا رہی ہے...`, 'user');
-                    sendToHuggingFace("", null, file); 
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        addMessage("Image uploaded...", 'user', event.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                    sendToHuggingFace("اس تصویر کو دیکھ کر بتائیں کہ اس میں کیا ہے؟", file); 
                 }
             };
 
+            // 🌍 گلوبل لائیو وائس ٹائپنگ اور آٹو سینڈ (STT)
+            let recognition;
             let isRecording = false;
-            let mediaRecorder;
-            let audioChunks = [];
 
-            async function startRecording() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
-                    mediaRecorder.onstop = () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        audioChunks = [];
-                        addMessage("🎤 وائس میسج بھیجا...", 'user');
-                        sendToHuggingFace("یہ میرا وائس میسج ہے، اس کا جواب دیں۔", audioBlob, null);
-                    };
-                    mediaRecorder.start();
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                
+                // یہ لائن جادو ہے! جاپانی فون پر جاپانی، انگلش پر انگلش سنے گی
+                recognition.lang = navigator.language || 'en-US'; 
+
+                recognition.onstart = function() {
                     isRecording = true;
                     updateUI();
-                    indicatorText.innerText = `عائشہ سن رہی ہے...`;
-                    thinkingIndicator.classList.replace('hidden', 'flex');
-                } catch (err) {
-                    alert("مائیکروفون کی اجازت نہیں ملی!");
+                    input.placeholder = "Listening...";
+                };
+
+                recognition.onresult = function(event) {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    input.value = finalTranscript || interimTranscript;
+                    updateUI();
+                };
+
+                recognition.onend = function() {
+                    isRecording = false;
+                    input.placeholder = "Ask something...";
+                    updateUI();
+                    
+                    // آٹو سینڈ لاجک
+                    if (input.value.trim().length > 0) {
+                        setTimeout(() => {
+                            const text = input.value.trim();
+                            addMessage(text, 'user');
+                            input.value = '';
+                            updateUI();
+                            sendToHuggingFace(text, null);
+                        }, 600); 
+                    }
+                };
+
+                recognition.onerror = function(event) {
+                    console.error("Speech Error: ", event.error);
+                    stopRecording();
+                };
+            }
+
+            function startRecording() {
+                if (recognition) {
+                    input.value = ''; 
+                    recognition.start();
+                } else {
+                    alert("Voice typing not supported on this device.");
                 }
             }
 
             function stopRecording() {
-                if (mediaRecorder && mediaRecorder.state === "recording") {
-                    mediaRecorder.stop();
-                    isRecording = false;
-                    thinkingIndicator.classList.replace('flex', 'hidden');
-                    updateUI();
+                if (recognition) {
+                    recognition.stop(); 
                 }
             }
 
@@ -173,7 +220,7 @@
                 if (input.value.trim().length > 0) {
                     const text = input.value.trim();
                     addMessage(text, 'user');
-                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null); 
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null); 
                 } else {
                     isRecording ? stopRecording() : startRecording();
                 }
@@ -183,25 +230,26 @@
                 if (e.key === 'Enter' && input.value.trim().length > 0) {
                     const text = input.value.trim();
                     addMessage(text, 'user');
-                    input.value = ''; updateUI(); sendToHuggingFace(text, null, null);
+                    input.value = ''; updateUI(); sendToHuggingFace(text, null);
                 }
             });
 
-            function addMessage(text, sender) {
+            function addMessage(text, sender, imgSrc = null) {
                 const msgDiv = document.createElement('div');
+                let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
+
                 if (sender === 'user') {
                     msgDiv.className = 'chat-bubble user-bubble border border-[#3a8ff7]';
-                    msgDiv.innerHTML = `<p>${text}</p>`;
+                    msgDiv.innerHTML = `${imgHtml}<p>${text}</p>`;
                 } else {
                     msgDiv.className = 'relative group w-full mt-4';
-                    // اب سنیں بٹن خودکار اینڈرائیڈ کی آواز چلائے گا
                     msgDiv.innerHTML = `
                         <button class="speaker-float absolute z-20" onclick="speakAyesha('${text.replace(/'/g, "\\'")}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                             Listen
                         </button>
                         <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
-                            <p>${text}</p>
+                            ${imgHtml}<p>${text}</p>
                         </div>
                     `;
                 }
@@ -209,21 +257,19 @@
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            // فائنل کنکشن پائتھن کے ساتھ (JSON Format)
-            async function sendToHuggingFace(text, audioBlob, file) {
-                indicatorText.innerText = `عائشہ سوچ رہی ہے...`;
+            async function sendToHuggingFace(text, file) {
+                indicatorText.innerText = `Thinking...`;
                 thinkingIndicator.classList.replace('hidden', 'flex');
 
                 const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
 
                 let payload = {
                     message: text || "",
-                    email: "alirazasabir007@gmail.com", // ماسٹر ای میل تاکہ وہ پہچان لے
+                    email: "alirazasabir007@gmail.com", 
                     local_time: new Date().toLocaleTimeString()
                 };
 
                 if (file) payload.image = await fileToBase64(file);
-                if (audioBlob) payload.audio = await fileToBase64(audioBlob);
 
                 fetch(API_URL, {
                     method: "POST",
@@ -233,18 +279,17 @@
                 .then(res => res.json())
                 .then(data => {
                     thinkingIndicator.classList.replace('flex', 'hidden');
-                    let replyText = data.response || "میں کچھ سمجھ نہیں پائی۔";
+                    let replyText = data.response || "No response received.";
                     addMessage(replyText, 'assistant');
-                    speakAyesha(replyText); // خودکار آواز چلے گی!
+                    speakAyesha(replyText); 
                 })
                 .catch(err => {
                     console.error("API Error:", err);
                     thinkingIndicator.classList.replace('flex', 'hidden');
-                    addMessage("عائشہ کا سرور ابھی آف لائن ہے۔", 'assistant');
+                    addMessage("Server is offline.", 'assistant');
                 });
             }
 
-            // مینیو ٹوگل
             const sidebar = document.getElementById('sidebar'), overlay = document.getElementById('sidebar-overlay'), menuBtn = document.getElementById('menu-btn');
             function toggleMenu() { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); }
             menuBtn.onclick = toggleMenu; overlay.onclick = toggleMenu;
