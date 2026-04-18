@@ -18,29 +18,29 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // ویب ویو کو لے آؤٹ سے کنیکٹ کرنا
+        // ویب ویو کو سیٹ کرنا
         webView = findViewById(R.id.webView);
         WebSettings webSettings = webView.getSettings();
         
-        // یہ سیٹنگز بہت ضروری ہیں تاکہ آپ کی HTML, CSS اور JS مکھن کی طرح چلیں
+        // جاوا اسکرپٹ اور اسٹوریج کو آن کرنا تاکہ ڈیزائن صحیح چلے
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
-        webSettings.setMediaPlaybackRequiresUserGesture(false); // آڈیو چلانے کے لیے
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
 
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
 
-        // ⚠️ یہاں نیچے اپنے ہگنگ فیس (Hugging Face) پروجیکٹ کا اصل لنک ڈالنا ہے ⚠️
-        webView.loadUrl("https://huggingface.co/spaces/YOUR_USERNAME/YOUR_SPACE_NAME");
+        // آپ کا اصلی ہگنگ فیس لنک یہاں لگا دیا گیا ہے
+        webView.loadUrl("https://huggingface.co/spaces/aigrowthbox/ayesha-ai");
     }
 
-    // موبائل کا بیک (Back) بٹن دبانے کی سیٹنگ
+    // بیک بٹن دبانے پر ایپ بند ہونے کے بجائے پیچھے والے پیج پر جائے گی
     @Override
     public void onBackPressed() {
         if (webView.canGoBack()) {
-            webView.goBack(); // اگر ایپ کے اندر پچھلا پیج ہے تو وہاں جائے
+            webView.goBack();
         } else {
-            super.onBackPressed(); // ورنہ ایپ بند کر دے
+            super.onBackPressed();
         }
     }
 }
