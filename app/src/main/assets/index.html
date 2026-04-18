@@ -72,6 +72,18 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            
+            // 🔴 نیا: سکرین پر پہلی کلک سے اینڈرائیڈ سپیکر کو ان لاک کرنا
+            let audioUnlocked = false;
+            document.body.addEventListener('click', () => {
+                if(!audioUnlocked && 'speechSynthesis' in window) {
+                    let msg = new SpeechSynthesisUtterance('');
+                    window.speechSynthesis.speak(msg);
+                    audioUnlocked = true;
+                }
+            }, {once:true});
+            // ----------------------------------------------------
+
             const input = document.getElementById('user-input');
             const inputPill = document.getElementById('input-pill');
             const plusBtn = document.getElementById('plus-btn');
@@ -84,7 +96,6 @@
             const thinkingIndicator = document.getElementById('thinking-indicator');
             const indicatorText = document.getElementById('indicator-text');
 
-            // انڈیکیٹر کو دکھانے کا طریقہ تھوڑا سا بدلا ہے تاکہ یہ ببل کی طرح نظر آئے
             function showThinking(text) {
                 indicatorText.innerText = text;
                 chatBox.appendChild(thinkingIndicator);
@@ -102,13 +113,11 @@
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel(); 
                     
-                    let wakeUp = new SpeechSynthesisUtterance('');
-                    window.speechSynthesis.speak(wakeUp);
-
                     const cleanText = text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
                     let speech = new SpeechSynthesisUtterance(cleanText);
                     
-                    speech.lang = navigator.language || 'en-US'; 
+                    // 🔴 یہاں خرابی تھی، جسے میں نے خالص اردو پر سیٹ کر دیا ہے
+                    speech.lang = 'ur-PK'; 
                     speech.rate = 0.95; 
                     window.speechSynthesis.speak(speech);
                 }
