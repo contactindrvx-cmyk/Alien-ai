@@ -34,10 +34,10 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private MediaPlayer mediaPlayer;
     private SpeechRecognizer speechRecognizer;
     private Intent speechIntent;
-    private TextToSpeech tts; // 🌟 عائشہ کی اپنی آواز 🌟
-    private boolean isListening = false;
+    private TextToSpeech tts;
     private Surface currentSurface;
     private Handler restartHandler = new Handler(Looper.getMainLooper());
+    private boolean isListeningNow = false;
 
     @Override
     public IBinder onBind(Intent intent) { return null; }
@@ -45,41 +45,32 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     @Override
     public void onCreate() {
         super.onCreate();
-
-        // 1. عائشہ کی آواز (TTS) تیار کریں
         tts = new TextToSpeech(this, this);
-
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
 
-        int layoutFlag = (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) ? 
-                         2038 : 2002;
-
+        int layoutFlag = (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) ? 2038 : 2002;
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
                 layoutFlag, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
-
         params.gravity = Gravity.TOP | Gravity.LEFT;
         params.x = 100; params.y = 100;
         windowManager.addView(bubbleView, params);
 
         setupVideoPlayer();
         setupMovement();
-        startWakeWordDetection();
+        
+        // تھوڑا سا وقفہ دے کر مائیک سٹارٹ کریں تاکہ مین ایپ مائیک چھوڑ دے
+        new Handler().postDelayed(this::startWakeWordDetection, 1000);
     }
 
-    // TTS سیٹ اپ
     @Override
     public void onInit(int status) {
-        if (status == TextToSpeech.SUCCESS) {
-            tts.setLanguage(new Locale("ur", "PK")); // اردو آواز
-        }
+        if (status == TextToSpeech.SUCCESS) { tts.setLanguage(new Locale("ur", "PK")); }
     }
 
     private void speak(String text) {
-        if (tts != null) {
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AyeshaReply");
-        }
+        if (tts != null) { tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AyeshaReply"); }
     }
 
     private void setupVideoPlayer() {
@@ -113,33 +104,44 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     }
 
     private void startWakeWordDetection() {
-        if (speechRecognizer != null) speechRecognizer.destroy();
-        
+        if (speechRecognizer != null) { speechRecognizer.destroy(); }
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
-        speechIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        speechIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onResults(Bundle results) {
+                isListeningNow = false;
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null) {
-                    for (String text : matches) {
-                        String speech = text.toLowerCase();
-                        if (speech.contains("ayesha") || speech.contains("عائشہ")) {
-                            activateAgent("ayesha", "جی رضا بھائی، میں سن رہی ہوں");
-                            return;
-                        }
+                if (matches != null && !matches.isEmpty()) {
+                    String heardText = matches.get(0).toLowerCase();
+                    
+                    // 🚨 ٹیسٹنگ کے لیے: ببل کو جو بھی سنائی دے گا، وہ سکرین پر لکھ کر دکھائے گا 🚨
+                    Toast.makeText(FloatingBubbleService.this, "سنا: " + heardText, Toast.LENGTH_SHORT).show();
+
+                    if (heardText.contains("ayesha") || heardText.contains("عائشہ") || heardText.contains("asha") || heardText.contains("آشا")) {
+                        activateAgent("ayesha", "جی رضا بھائی، فرمائیں!");
+                        return;
                     }
                 }
                 restartListening();
             }
 
-            @Override public void onError(int error) { restartListening(); }
+            @Override
+            public void onError(int error) {
+                isListeningNow = false;
+                // 🚨 اگر مائیک بزی ہے تو ایرر بتائے گا 🚨
+                if (error == SpeechRecognizer.ERROR_AUDIO_RECORD) {
+                    Toast.makeText(FloatingBubbleService.this, "مائیک مین ایپ نے پکڑا ہوا ہے!", Toast.LENGTH_SHORT).show();
+                }
+                restartListening();
+            }
+
             @Override public void onReadyForSpeech(Bundle params) {}
-            @Override public void onBeginningOfSpeech() {}
+            @Override public void onBeginningOfSpeech() { isListeningNow = true; }
             @Override public void onRmsChanged(float rmsdB) {}
             @Override public void onBufferReceived(byte[] buffer) {}
             @Override public void onEndOfSpeech() {}
@@ -147,30 +149,31 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
             @Override public void onEvent(int eventType, Bundle params) {}
         });
 
-        speechRecognizer.startListening(speechIntent);
+        try {
+            speechRecognizer.startListening(speechIntent);
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void restartListening() {
         restartHandler.removeCallbacksAndMessages(null);
         restartHandler.postDelayed(() -> {
-            try { speechRecognizer.startListening(speechIntent); } catch (Exception e) {}
-        }, 500);
+            if (!isListeningNow && speechRecognizer != null) {
+                try { speechRecognizer.startListening(speechIntent); } catch (Exception e) {}
+            }
+        }, 800);
     }
 
     private void activateAgent(String agentName, String greeting) {
-        speak(greeting); // 🌟 اب عائشہ خود بولے گی 🌟
-        
+        speak(greeting);
         if (mediaPlayer != null) {
             mediaPlayer.start();
             new Handler().postDelayed(() -> {
-                if (mediaPlayer != null) {
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                     mediaPlayer.pause();
                     mediaPlayer.seekTo(100);
                 }
-            }, 3000); // 3 سیکنڈ ویڈیو چلا کر روک دو
+            }, 3000);
         }
-        
-        // یہاں ہم فیوچر میں ہگنگ فیس کا براہ راست جاوا لنک ڈالیں گے
         restartListening();
     }
 
@@ -178,17 +181,27 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener(new View.OnTouchListener() {
             private int initialX, initialY;
             private float initialTouchX, initialTouchY;
+            private boolean isMoving = false;
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         initialX = params.x; initialY = params.y;
                         initialTouchX = event.getRawX(); initialTouchY = event.getRawY();
-                        return true;
+                        isMoving = false; return true;
                     case MotionEvent.ACTION_MOVE:
-                        params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(bubbleView, params);
+                        if (Math.abs(event.getRawX() - initialTouchX) > 10 || Math.abs(event.getRawY() - initialTouchY) > 10) {
+                            isMoving = true;
+                            params.x = initialX + (int) (event.getRawX() - initialTouchX);
+                            params.y = initialY + (int) (event.getRawY() - initialTouchY);
+                            windowManager.updateViewLayout(bubbleView, params);
+                        }
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        if (!isMoving) {
+                            // اگر آپ ببل پر کلک کریں تو ٹیسٹ کے طور پر ویڈیو پلے ہو جائے گی
+                            if (mediaPlayer != null) { mediaPlayer.start(); }
+                        }
                         return true;
                 }
                 return false;
@@ -204,4 +217,4 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-}
+    }
