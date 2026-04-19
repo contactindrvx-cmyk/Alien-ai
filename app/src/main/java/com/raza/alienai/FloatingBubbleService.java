@@ -11,7 +11,9 @@ import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -35,11 +37,11 @@ public class FloatingBubbleService extends Service {
     private Intent speechIntent;
     private boolean isListening = false;
     private Surface currentSurface;
+    private Handler restartHandler = new Handler(Looper.getMainLooper()); // 🌟 مائیک کو پاگل ہونے سے بچانے کے لیے 🌟
 
     @Override
     public IBinder onBind(Intent intent) { return null; }
 
-    // 🌟 جاوا سکرپٹ سے آنے والے سگنلز 🌟
     private BroadcastReceiver videoControlReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -59,7 +61,6 @@ public class FloatingBubbleService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        // ریسیور رجسٹر کریں
         IntentFilter filter = new IntentFilter();
         filter.addAction("com.raza.alienai.PLAY_VIDEO");
         filter.addAction("com.raza.alienai.PAUSE_VIDEO");
@@ -87,7 +88,6 @@ public class FloatingBubbleService extends Service {
         setupVideoPlayer();
         setupMovement();
         
-        // 🎤 چاروں اسسٹنٹس کی آواز سننے والا ریڈار آن 🎤
         startWakeWordDetection();
     }
 
@@ -99,11 +99,8 @@ public class FloatingBubbleService extends Service {
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
                 currentSurface = new Surface(surface);
                 mediaPlayer = new MediaPlayer();
-                
-                // شروع میں وہ ایجنٹ لوڈ کرو جو آخری بار سلیکٹ ہوا تھا (بائی ڈیفالٹ ayesha)
                 SharedPreferences prefs = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
-                String defaultAgent = prefs.getString("selectedAgent", "ayesha");
-                loadAgentVideo(defaultAgent);
+                loadAgentVideo(prefs.getString("selectedAgent", "ayesha"));
             }
             @Override public void onSurfaceTextureSizeChanged(SurfaceTexture s, int w, int h) {}
             @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture s) { return true; }
@@ -111,7 +108,6 @@ public class FloatingBubbleService extends Service {
         });
     }
 
-    // 🚀 نام پکارنے پر ویڈیو تبدیل کرنے والا جادوئی فنکشن 🚀
     private void loadAgentVideo(String agentName) {
         if (mediaPlayer == null || currentSurface == null) return;
         try {
@@ -121,13 +117,8 @@ public class FloatingBubbleService extends Service {
             mediaPlayer.setSurface(currentSurface);
             mediaPlayer.setLooping(true);
             mediaPlayer.prepareAsync();
-            mediaPlayer.setOnPreparedListener(mp -> {
-                mp.seekTo(100); // کالے پن سے بچنے کے لیے
-                // جب ہم آواز دے کر بلائیں گے تو ہم اسے پلے کروا دیں گے
-            });
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            mediaPlayer.setOnPreparedListener(mp -> mp.seekTo(100));
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void startWakeWordDetection() {
@@ -140,37 +131,29 @@ public class FloatingBubbleService extends Service {
             @Override
             public void onResults(Bundle results) {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                boolean found = false;
                 if (matches != null) {
-                    boolean found = false;
                     for (String text : matches) {
                         String speech = text.toLowerCase();
-                        
-                        // 1. عائشہ
                         if (speech.contains("ayesha") || speech.contains("عائشہ")) {
                             activateAgent("ayesha", "جی رضا بھائی، عائشہ سن رہی ہے!");
                             found = true; break;
-                        } 
-                        // 2. ایلیکس (Alex)
-                        else if (speech.contains("alex") || speech.contains("ایلیکس")) {
+                        } else if (speech.contains("alex") || speech.contains("ایلیکس")) {
                             activateAgent("alex", "Hello Raza, Alex is active!");
                             found = true; break;
-                        } 
-                        // 3. رضا
-                        else if (speech.contains("raza") || speech.contains("رضا")) {
+                        } else if (speech.contains("raza") || speech.contains("رضا")) {
                             activateAgent("raza", "جی رضا، آپ کا پرسنل اسسٹنٹ حاضر ہے!");
                             found = true; break;
-                        } 
-                        // 4. سارہ
-                        else if (speech.contains("sara") || speech.contains("سارہ")) {
+                        } else if (speech.contains("sara") || speech.contains("سارہ")) {
                             activateAgent("sara", "جی، سارہ آپ کی خدمت میں حاضر ہے!");
                             found = true; break;
                         }
                     }
                 }
-                if (!isListening) speechRecognizer.startListening(speechIntent);
+                if (!found) restartListeningWithDelay(); // 🌟 اگر نام نہ ملے تو وقفے کے ساتھ ری سٹارٹ کرو
             }
 
-            @Override public void onError(int error) { speechRecognizer.startListening(speechIntent); }
+            @Override public void onError(int error) { restartListeningWithDelay(); }
             @Override public void onReadyForSpeech(Bundle params) {}
             @Override public void onBeginningOfSpeech() {}
             @Override public void onRmsChanged(float rmsdB) {}
@@ -183,19 +166,27 @@ public class FloatingBubbleService extends Service {
         speechRecognizer.startListening(speechIntent);
     }
 
-    // 🌟 جو ایجنٹ پکارا جائے، اسے ایکٹیو کرو 🌟
+    // 🌟 مائیک کو 1 سیکنڈ کے وقفے سے ری سٹارٹ کرنے کا لاجک تاکہ بیپ بیپ تنگ نہ کرے 🌟
+    private void restartListeningWithDelay() {
+        restartHandler.postDelayed(() -> {
+            if (speechRecognizer != null && !isListening) {
+                try { speechRecognizer.startListening(speechIntent); } catch (Exception e) {}
+            }
+        }, 1000);
+    }
+
     private void activateAgent(String agentName, String greetingMsg) {
         Toast.makeText(this, greetingMsg, Toast.LENGTH_SHORT).show();
+        getSharedPreferences("AyeshaPrefs", MODE_PRIVATE).edit().putString("selectedAgent", agentName).apply();
         
-        // ایپ کی میموری میں محفوظ کرو کہ اب کون سا ایجنٹ ایکٹیو ہے
-        SharedPreferences prefs = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
-        prefs.edit().putString("selectedAgent", agentName).apply();
-
-        // اس ایجنٹ کی ویڈیو لوڈ کرو اور پلے کر دو
         loadAgentVideo(agentName);
-        if (mediaPlayer != null) {
-            mediaPlayer.start();
-        }
+        if (mediaPlayer != null) mediaPlayer.start();
+
+        // 🚀 سب سے اہم جادو: ایپ کو فوراً سکرین پر لاؤ تاکہ دماغ (JS) کام کر سکے! 🚀
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra("WAKE_AGENT", agentName);
+        startActivity(intent);
     }
 
     private void setupMovement() {
@@ -240,5 +231,5 @@ public class FloatingBubbleService extends Service {
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-                    }
-                        
+    }
+                                                         
