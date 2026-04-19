@@ -29,7 +29,7 @@ async function toggleTorch(state) {
     } catch (e) { console.log("Torch not supported."); }
 }
 
-// 🎯 فرنٹ اینڈ ہارڈویئر کمانڈ ایگزیکیوٹر 
+// 🎯 فرنٹ اینڈ ہارڈویئر کمانڈز
 function executeHardwareCommandLocally(text) {
     let cmd = text.toLowerCase();
     if (cmd.includes("وائبریٹ") || cmd.includes("vibrate")) {
@@ -97,7 +97,7 @@ window.toggleVoiceMessage = function(btnElement) {
 };
 
 // =========================================================================
-// 2. مین UI، دی الٹیمیٹ بگ-فری وائس انجن 
+// 2. مین UI (بغیر آٹو ٹائمر کے، 100% مینول سینڈ اور گولڈن وائس انجن)
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -117,10 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isRecording = false;
     let pendingImageFile = null; 
-    let silenceTimer = null;
-
-    // 🔒 سب سے اہم لاک: یہ ٹیکسٹ کو غائب ہونے سے بچائے گا
-    let capturedTextForSending = ""; 
 
     function showThinking(text) {
         document.getElementById('indicator-text').innerText = text;
@@ -222,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             if (file) payload.image = await fileToBase64(file);
-            if (audioBlob) payload.audio = await fileToBase64(audioBlob);
+            if (audioBlob) payload.audio = await fileToBase64(audioBlob); // 🎯 آڈیو بھی جا رہی ہے!
             
             const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
             const data = await res.json();
@@ -246,10 +242,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // 🚀 گولڈن وائس ٹائپنگ انجن (رومن اردو + آل لینگویج)
+    // 🚀 گولڈن وائس ٹائپنگ انجن (رومن اردو + آل لینگویج) - بغیر کسی آٹو ٹائمر کے!
     let recognition = null;
-    let stableTranscript = ''; 
+    let finalTranscript = ''; 
     let mediaRecorder = null;
     let audioChunks = [];
 
@@ -258,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
             recognition = new webkitSpeechRecognition();
             recognition.continuous = true; 
             recognition.interimResults = true; 
-            recognition.lang = 'en-US'; // 🌟 یہ رومن اردو اور سب کچھ کیچ کرے گا
+            recognition.lang = 'en-US'; // 🌟 گولڈن سیٹنگ
 
             recognition.onresult = function(event) {
                 let currentInterim = '';
@@ -270,53 +265,35 @@ document.addEventListener('DOMContentLoaded', () => {
                         currentInterim += event.results[i][0].transcript;
                     }
                 }
-                if (finalStr) { stableTranscript += finalStr; }
+                if (finalStr) { finalTranscript += finalStr; }
                 
-                input.value = (stableTranscript + ' ' + currentInterim).replace(/\s+/g, ' ').trim();
+                // سکرین پر لائیو دکھاؤ
+                input.value = (finalTranscript + ' ' + currentInterim).replace(/\s+/g, ' ').trim();
                 updateUI();
-                
-                // ⏱️ 3.5 سیکنڈ خاموشی پر آٹو سینڈ
-                clearTimeout(silenceTimer);
-                silenceTimer = setTimeout(() => {
-                    if (isRecording) stopRecordingAndSend();
-                }, 3500); 
+                // ❌ آٹو ٹائمر کا کوڈ یہاں سے ہمیشہ کے لیے ڈیلیٹ کر دیا گیا ہے
             };
 
             recognition.onerror = function(e) { console.log("Speech Error:", e.error); };
             
-            recognition.onend = function() {
-                // 🚫 گلچ (بٹن بار بار لگنا) کا 100% علاج: 
-                // مائیک صرف تب ری سٹارٹ ہوگا جب ہم نے خود بند نہ کیا ہو، اور وہ بھی 500ms کے سکون کے بعد
-                if (isRecording) {
-                    setTimeout(() => {
-                        if(isRecording) { try { recognition.start(); } catch(e) {} }
-                    }, 500);
-                }
-            };
+            // ❌ آٹو ری سٹارٹ (گلچ کی وجہ) بھی ڈیلیٹ کر دیا ہے تاکہ ڈبلنگ نہ ہو
 
         } catch (e) { console.log("Speech recognition failed."); }
     }
 
-    // 🔴 100% فول پروف سینڈ فنکشن
+    // 🔴 100% مینول سینڈ فنکشن (صرف تب چلے گا جب آپ سٹاپ دبائیں گے)
     function stopRecordingAndSend() {
         if (!isRecording) return;
-        isRecording = false; // 🚫 سب سے پہلے ریکارڈنگ بند کرو تاکہ لوپ ٹوٹے
-        clearTimeout(silenceTimer);
-        
-        micActionBtn.classList.remove('recording-pulse');
+        isRecording = false; 
         input.placeholder = "پروسیس ہو رہا ہے...";
-
-        // 🔒 جادو کی چابی: جو بھی لکھا ہے اسے فوراََ ایک محفوظ ویری ایبل میں لاک کر لو
-        capturedTextForSending = input.value.trim() || stableTranscript.trim();
 
         if (recognition) { try { recognition.stop(); } catch(e){} }
         
-        // 500ms بعد آڈیو بھی سیو کر لو
+        // ہلکا سا ڈیلے تاکہ آخری لفظ سکرین پر آ جائے، پھر آڈیو بند کر کے سینڈ کرو
         setTimeout(() => {
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop(); 
             }
-        }, 500);
+        }, 300);
     }
 
     async function startRecording() {
@@ -326,29 +303,28 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
             
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
             
             mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 
-                // 🎯 محفوظ کیا ہوا ٹیکسٹ استعمال کرو!
-                let textToSend = capturedTextForSending || input.value.trim() || stableTranscript.trim();
+                // 🎯 100% گارنٹی: جو سکرین پر لکھا ہے، وہی جائے گا
+                const spokenText = input.value.trim();
                 const imageToSend = pendingImageFile;
                 
-                if (textToSend) {
-                    executeHardwareCommandLocally(textToSend);
-                    addMessage(textToSend, 'user', imageToSend ? previewImg.src : null);
-                    sendToHuggingFace(textToSend, imageToSend, audioBlob); 
-                } else {
-                    // اگر واقعی کچھ بھی نہیں بولا گیا تو پھر یہ جائے گا
-                    addMessage("🎤 آڈیو میسج", 'user', imageToSend ? previewImg.src : null);
+                if (spokenText) {
+                    executeHardwareCommandLocally(spokenText);
+                    addMessage(spokenText, 'user', imageToSend ? previewImg.src : null);
+                    sendToHuggingFace(spokenText, imageToSend, audioBlob); // آڈیو + ٹیکسٹ دونوں سینڈ!
+                } else if (audioChunks.length > 0) {
+                    // یہ صرف تب آئے گا جب آپ مائیک آن کر کے کچھ نہ بولیں اور سٹاپ دبا دیں
+                    addMessage("🎤 آڈیو موصول ہوئی", 'user', imageToSend ? previewImg.src : null);
                     sendToHuggingFace("", imageToSend, audioBlob);
                 }
                 
-                // سب کچھ بھیجنے کے بعد صاف کرو
+                // سب صاف کرو
                 input.value = ''; 
-                stableTranscript = '';
-                capturedTextForSending = '';
+                finalTranscript = '';
                 pendingImageFile = null; 
                 previewImg.src = "";
                 previewContainer.classList.add('hidden');
@@ -360,28 +336,22 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             input.value = ''; 
-            stableTranscript = '';
-            capturedTextForSending = '';
-            isRecording = true; // 🟢 مائیک آن مارک کرو
+            finalTranscript = '';
             
             if (recognition) { try { recognition.start(); } catch(e){} }
             mediaRecorder.start(); 
             
+            isRecording = true;
             updateUI();
-            input.placeholder = "آرام سے بولیں... (خاموش ہونے پر خود سینڈ ہو جائے گا)";
+            input.placeholder = "بولیں... (بھیجنے کے لیے سٹاپ کا بٹن دبائیں)";
             showThinking("عائشہ سن رہی ہے...");
-            
-            // پہلی بار بھی ٹائمر چلا دو
-            clearTimeout(silenceTimer);
-            silenceTimer = setTimeout(() => {
-                if (isRecording) stopRecordingAndSend();
-            }, 3500);
             
         } catch (err) {
             alert("مائیکروفون کی اجازت درکار ہے!");
         }
     }
 
+    // 🎯 نارمل ٹیکسٹ سینڈ کرنے کے لیے
     sendActionBtn.onclick = (e) => {
         e.preventDefault();
         window.stopAyeshaCompletely();
@@ -405,12 +375,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // 🎯 مائیک کا مینول کنٹرول (دبائیں تو چلے گا، دبائیں تو رکے گا اور سینڈ ہوگا)
     micActionBtn.onclick = (e) => {
         e.preventDefault();
         if (isRecording) {
-            stopRecordingAndSend(); // خود دبائیں گے تو بھی یہی سیف فنکشن چلے گا
+            stopRecordingAndSend(); // خود بند کریں اور سینڈ کریں
         } else {
-            startRecording();
+            startRecording(); // مائیک سٹارٹ کریں
         }
     };
 
@@ -426,3 +397,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {once:true});
 
 });
+                          
