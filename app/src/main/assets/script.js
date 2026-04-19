@@ -80,7 +80,7 @@ window.toggleVoiceMessage = function(btnElement) {
 };
 
 // =========================================================================
-// 2. مین UI، ٹائپنگ اور امیج کنٹرول
+// 2. مین UI، ٹائپنگ، آٹو سینڈ ٹائمر اور امیج کنٹرول
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -105,6 +105,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let isRecording = false;
     let pendingImageFile = null; 
 
+    // 🔴 آٹو سینڈ کے لیے ٹائمر ویری ایبل
+    let silenceTimer = null;
+
     function showThinking(text) {
         document.getElementById('indicator-text').innerText = text;
         thinkingIndicator.classList.remove('hidden');
@@ -118,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
         thinkingIndicator.classList.remove('flex');
     }
 
-    // 🎯 بٹن لاجک: جہاز صرف ٹیکسٹ پر آئے گا، تصویر پر صرف مائیک!
     function updateUI() {
         const hasText = input.value.trim().length > 0;
         const hasImage = pendingImageFile !== null;
@@ -143,12 +145,10 @@ document.addEventListener('DOMContentLoaded', () => {
             micIcon.classList.remove('hidden');
             micActionBtn.classList.remove('recording-pulse');
             
-            // اگر ٹیکسٹ لکھا ہے تو جہاز والا بٹن شو کرو
             if (hasText) {
                 sendActionBtn.classList.remove('hidden');
                 micActionBtn.classList.add('hidden');
             } else {
-                // اگر ٹیکسٹ خالی ہے (چاہے تصویر ہو یا نہ ہو)، صرف مائیک شو کرو!
                 sendActionBtn.classList.add('hidden');
                 micActionBtn.classList.remove('hidden');
             }
@@ -243,7 +243,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 🔴 ٹائپنگ اور ریکارڈنگ لاجک (اب میسج میں اصل الفاظ لکھے جائیں گے)
+    // 🔴 ریکارڈنگ کو محفوظ طریقے سے سٹاپ اور سینڈ کرنے کا فنکشن
+    function stopRecordingAndSend() {
+        if (!isRecording) return;
+        clearTimeout(silenceTimer);
+        if (recognition) { try { recognition.stop(); } catch(e){} }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    }
+
+    // 🔴 خاموشی کا ٹائمر ری سیٹ کرنے کا فنکشن (2.5 سیکنڈ)
+    function resetSilenceTimer() {
+        clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(() => {
+            if (isRecording) {
+                stopRecordingAndSend(); // 2.5 سیکنڈ خاموشی پر خود سینڈ کر دے گا
+            }
+        }, 2500);
+    }
+
     let recognition = null;
     let stableTranscript = ''; 
     let mediaRecorder = null;
@@ -258,14 +277,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             recognition.onresult = function(event) {
                 let finalStr = '';
+                let interimStr = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         finalStr += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimStr += event.results[i][0].transcript;
                     }
                 }
                 if (finalStr) { stableTranscript += finalStr; }
-                input.value = stableTranscript.replace(/\s+/g, ' ').trim();
+                
+                // کچے اور پکے الفاظ ملا کر فائنل ٹیکسٹ ان پٹ میں ڈالیں
+                input.value = (stableTranscript + interimStr).replace(/\s+/g, ' ').trim();
                 updateUI();
+                
+                // کچھ بھی بولیں تو ٹائمر ری سیٹ ہو جائے گا
+                resetSilenceTimer();
             };
 
             recognition.onerror = function(e) { console.log("Speech Error:", e.error); };
@@ -284,12 +311,12 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 
-                // 🎯 اصل ٹرانسکرپشن اٹھانا
-                const spokenText = input.value.trim() || stableTranscript.trim();
+                // 🎯 اصل ٹرانسکرپشن اٹھانا (اب کبھی مس نہیں ہوگا)
+                const spokenText = input.value.trim();
                 const imageToSend = pendingImageFile;
                 
                 if (spokenText || audioChunks.length > 0) {
-                    // اگر ٹیکسٹ مل گیا تو وہ دکھاؤ، ورنہ مجبوری میں مائیک آئیکون دکھاؤ
+                    // اگر واقعی ٹیکسٹ کیچ ہو گیا ہے تو وہ دکھائیں ورنہ مجبوری میں آڈیو میسج کا ٹیگ
                     const displayText = spokenText ? spokenText : "🎤 آڈیو میسج";
                     addMessage(displayText, 'user', imageToSend ? previewImg.src : null);
                     
@@ -313,12 +340,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             input.value = ''; 
             stableTranscript = '';
-            if (recognition) { try { recognition.start(); } catch(e){} }
+            if (recognition) { try { recognition.start(); resetSilenceTimer(); } catch(e){} }
             mediaRecorder.start(); 
             
             isRecording = true;
             updateUI();
-            input.placeholder = "سن رہی ہوں...";
+            input.placeholder = "سن رہی ہوں... (خاموش ہونے پر خود سینڈ ہو جائے گا)";
             showThinking("عائشہ سن رہی ہے...");
             
         } catch (err) {
@@ -326,7 +353,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 🎯 سینڈ بٹن صرف ٹائپ کیے گئے ٹیکسٹ کو بھیجے گا
     sendActionBtn.onclick = (e) => {
         e.preventDefault();
         window.stopAyeshaCompletely();
@@ -348,12 +374,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 🎯 مائیک بٹن ریکارڈنگ آن اور آف کرے گا
     micActionBtn.onclick = (e) => {
         e.preventDefault();
         if (isRecording) {
-            if (recognition) recognition.stop();
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+            stopRecordingAndSend(); // خود بھی دبا کر سینڈ کر سکتے ہیں
         } else {
             startRecording();
         }
@@ -370,4 +394,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {once:true});
 
 });
-                
+        
