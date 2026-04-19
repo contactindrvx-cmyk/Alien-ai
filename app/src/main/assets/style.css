@@ -18,7 +18,6 @@
     background-color: #16243d; 
     border-bottom-left-radius: 4px; 
     margin-top: 15px; 
-    /* سپیکر کو اندر تیرنے دینے کے لیے */
     display: flex;
     flex-direction: column;
 }
@@ -43,8 +42,8 @@
 /* 🔊 جمنائی سٹائل سٹکی (Sticky) فلوٹنگ سپیکر */
 .gemini-speaker-btn {
     position: sticky;
-    bottom: 0px; /* لمبی چیٹ میں یہ نیچے چپکا رہے گا */
-    align-self: flex-start; /* ببل کے اندر بائیں طرف */
+    bottom: 0px; 
+    align-self: flex-start; 
     margin-top: 12px;
     background: rgba(58, 143, 247, 0.15);
     border: 1px solid #3a8ff7;
@@ -57,7 +56,7 @@
     align-items: center;
     justify-content: center;
     z-index: 20;
-    backdrop-filter: blur(5px); /* پیچھے سے ٹیکسٹ گزرے گا تو دھندلا نظر آئے گا */
+    backdrop-filter: blur(5px);
 }
 
 .gemini-speaker-btn:active { 
