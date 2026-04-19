@@ -28,17 +28,13 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private SharedPreferences sharedPreferences;
-    
-    // 📸 تصویر اپلوڈ کرنے کے لیے 📸
     private ValueCallback<Uri[]> mFilePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1;
 
-    // 🌟 بیک گراؤنڈ سروس سے "نام پکارنے" کا سگنل پکڑنے والا ریسیور 🌟
     private BroadcastReceiver wakeWordReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String agentName = intent.getStringExtra("agentName");
-            // ویب ویو (JS) کو بتانا کہ ریکارڈنگ شروع کرو
             if (webView != null) {
                 webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
             }
@@ -62,10 +58,8 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false); 
 
-        // جاوا سکرپٹ برج
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 📸 مائیک اور گیلری کا کنٹرول 📸
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
@@ -75,14 +69,10 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
-
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (mFilePathCallback != null) {
-                    mFilePathCallback.onReceiveValue(null);
-                }
+                if (mFilePathCallback != null) mFilePathCallback.onReceiveValue(null);
                 mFilePathCallback = filePathCallback;
-
                 Intent intent = null;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     intent = fileChooserParams.createIntent();
@@ -91,7 +81,6 @@ public class MainActivity extends AppCompatActivity {
                     startActivityForResult(intent, FILECHOOSER_RESULTCODE);
                 } catch (ActivityNotFoundException e) {
                     mFilePathCallback = null;
-                    Toast.makeText(MainActivity.this, "Cannot open file chooser", Toast.LENGTH_SHORT).show();
                     return false;
                 }
                 return true;
@@ -101,7 +90,6 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("file:///android_asset/index.html"); 
 
-        // 🌟 ریسیور کو رجسٹر کریں 🌟
         IntentFilter filter = new IntentFilter("com.raza.alienai.WAKE_WORD_DETECTED");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(wakeWordReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -110,12 +98,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // 🚀 جب ببل پسِ پردہ ایپ کو جگائے گا، تو یہ فنکشن چلے گا! 🚀
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent != null && intent.hasExtra("WAKE_AGENT")) {
+            String agentName = intent.getStringExtra("WAKE_AGENT");
+            if (webView != null) {
+                // جاوا سکرپٹ کو بولو کہ جلدی سے مائیک آن کرے کیونکہ یوزر نے بلایا ہے
+                webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
+            }
+        }
+    }
+
     private void requestRuntimePermissions() {
-        String[] permissions = {
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.CAMERA,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-        };
+        String[] permissions = { Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE };
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, permissions, 100);
         }
@@ -137,34 +134,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean hasOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return Settings.canDrawOverlays(this);
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { return Settings.canDrawOverlays(this); }
         return true;
     }
 
     private void checkOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
             startActivityForResult(intent, 1000);
         }
     }
 
-    // 📸 یہ وہ فنکشن ہے جو پلس بٹن سے گیلری کھلوائے گا (جو مس ہو گیا تھا) 📸
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILECHOOSER_RESULTCODE) {
             if (mFilePathCallback == null) return;
             Uri[] results = null;
-            if (resultCode == RESULT_OK) {
-                if (data != null) {
-                    String dataString = data.getDataString();
-                    if (dataString != null) {
-                        results = new Uri[]{Uri.parse(dataString)};
-                    }
-                }
+            if (resultCode == RESULT_OK && data != null && data.getDataString() != null) {
+                results = new Uri[]{Uri.parse(data.getDataString())};
             }
             mFilePathCallback.onReceiveValue(results);
             mFilePathCallback = null;
@@ -182,37 +170,21 @@ public class MainActivity extends AppCompatActivity {
         public void toggleBubble(boolean isEnabled) {
             sharedPreferences.edit().putBoolean("bubbleEnabled", isEnabled).apply();
             runOnUiThread(() -> {
-                if (isEnabled) {
-                    checkOverlayPermission();
-                    Toast.makeText(MainActivity.this, "Floating Bubble: ON", Toast.LENGTH_SHORT).show();
-                } else {
-                    stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
-                    Toast.makeText(MainActivity.this, "Floating Bubble: OFF", Toast.LENGTH_SHORT).show();
-                }
+                if (isEnabled) checkOverlayPermission();
+                else stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
             });
         }
-
         @JavascriptInterface
         public void setAgent(String agentName) {
             sharedPreferences.edit().putString("selectedAgent", agentName).apply();
-            runOnUiThread(() -> {
-                Toast.makeText(MainActivity.this, "Agent " + agentName + " Selected", Toast.LENGTH_SHORT).show();
-            });
         }
-
         @JavascriptInterface
         public void startBubbleVideo() {
-            Intent intent = new Intent("com.raza.alienai.PLAY_VIDEO");
-            intent.setPackage(getPackageName());
-            sendBroadcast(intent);
+            sendBroadcast(new Intent("com.raza.alienai.PLAY_VIDEO"));
         }
-
         @JavascriptInterface
         public void stopBubbleVideo() {
-            Intent intent = new Intent("com.raza.alienai.PAUSE_VIDEO");
-            intent.setPackage(getPackageName());
-            sendBroadcast(intent);
+            sendBroadcast(new Intent("com.raza.alienai.PAUSE_VIDEO"));
         }
     }
-        }
-                          
+}
