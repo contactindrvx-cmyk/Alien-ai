@@ -53,14 +53,18 @@
                 </div>
             </div>
 
-            <div class="p-4 md:px-20 pb-6 w-full relative bg-black">
+            <div class="px-4 md:px-20 pb-6 w-full relative bg-black flex flex-col">
                 
-                <div id="image-preview-container" class="hidden absolute bottom-[80px] left-4 md:left-24 bg-[#16243d] p-2 rounded-xl border border-[#3a8ff7] shadow-lg flex items-center gap-3 z-40">
-                    <img id="preview-img" src="" class="h-12 w-12 object-cover rounded-md border border-gray-600">
-                    <span class="text-sm text-gray-300">تصویر شامل ہے</span>
-                    <button id="remove-img-btn" class="ml-2 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
+                <div id="image-preview-container" class="hidden w-full max-w-4xl mx-auto mb-2 z-40">
+                    <div class="bg-[#16243d] p-2 pr-4 rounded-xl border border-[#3a8ff7] shadow-lg flex items-center justify-between w-fit gap-4">
+                        <div class="flex items-center gap-3">
+                            <img id="preview-img" src="" class="h-10 w-10 object-cover rounded-md border border-[#3a8ff7]/50">
+                            <span class="text-sm text-[#e0e0e0] font-medium">تصویر شامل ہے</span>
+                        </div>
+                        <button id="remove-img-btn" class="bg-[#3a8ff7]/20 text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white rounded-full p-1.5 transition-colors">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="relative w-full flex items-center justify-center max-w-4xl mx-auto h-16">
@@ -69,11 +73,16 @@
                     </button>
                     <div id="input-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] gemini-glow rounded-full flex items-center transition-all duration-300 ml-0 pl-14 w-full relative">
                         <input type="text" id="user-input" class="flex-1 bg-transparent px-2 py-3 outline-none text-white text-base placeholder-gray-400 w-full" placeholder="Ask something..." autocomplete="off">
-                        <button id="action-btn" class="p-3 text-[#3a8ff7] flex-shrink-0 mr-1 z-30 transition-colors hover:text-white">
-                            <svg id="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                            <svg id="stop-icon" class="hidden text-[#3a8ff7]" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
-                            <svg id="send-icon" class="hidden text-[#3a8ff7]" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-                        </button>
+                        
+                        <div class="flex items-center">
+                            <button id="send-action-btn" class="hidden p-3 text-[#3a8ff7] flex-shrink-0 transition-colors hover:text-white">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                            </button>
+                            <button id="mic-action-btn" class="p-3 text-[#3a8ff7] flex-shrink-0 transition-colors hover:text-white mr-1 rounded-full">
+                                <svg id="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                                <svg id="stop-icon" class="hidden text-[#3a8ff7]" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
