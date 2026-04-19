@@ -2,7 +2,10 @@ package com.raza.alienai;
 
 import android.Manifest;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -26,8 +29,21 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SharedPreferences sharedPreferences;
     
+    // 📸 تصویر اپلوڈ کرنے کے لیے 📸
     private ValueCallback<Uri[]> mFilePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1;
+
+    // 🌟 بیک گراؤنڈ سروس سے "نام پکارنے" کا سگنل پکڑنے والا ریسیور 🌟
+    private BroadcastReceiver wakeWordReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String agentName = intent.getStringExtra("agentName");
+            // ویب ویو (JS) کو بتانا کہ ریکارڈنگ شروع کرو
+            if (webView != null) {
+                webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,9 +62,10 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false); 
 
-        // 🚀 جاوا سکرپٹ برج 🚀
+        // جاوا سکرپٹ برج
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
+        // 📸 مائیک اور گیلری کا کنٹرول 📸
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
@@ -83,6 +100,14 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("file:///android_asset/index.html"); 
+
+        // 🌟 ریسیور کو رجسٹر کریں 🌟
+        IntentFilter filter = new IntentFilter("com.raza.alienai.WAKE_WORD_DETECTED");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(wakeWordReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(wakeWordReceiver, filter);
+        }
     }
 
     private void requestRuntimePermissions() {
@@ -126,6 +151,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // 📸 یہ وہ فنکشن ہے جو پلس بٹن سے گیلری کھلوائے گا (جو مس ہو گیا تھا) 📸
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -145,6 +171,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(wakeWordReceiver); 
+    }
+
     public class WebAppInterface {
         @JavascriptInterface
         public void toggleBubble(boolean isEnabled) {
@@ -152,10 +184,10 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (isEnabled) {
                     checkOverlayPermission();
-                    Toast.makeText(MainActivity.this, "Ayesha Bubble: ON", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Floating Bubble: ON", Toast.LENGTH_SHORT).show();
                 } else {
                     stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
-                    Toast.makeText(MainActivity.this, "Ayesha Bubble: OFF", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Floating Bubble: OFF", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -168,7 +200,6 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 🌟 نیا سگنل: ویڈیو چلاؤ 🌟
         @JavascriptInterface
         public void startBubbleVideo() {
             Intent intent = new Intent("com.raza.alienai.PLAY_VIDEO");
@@ -176,7 +207,6 @@ public class MainActivity extends AppCompatActivity {
             sendBroadcast(intent);
         }
 
-        // 🌟 نیا سگنل: ویڈیو روکو 🌟
         @JavascriptInterface
         public void stopBubbleVideo() {
             Intent intent = new Intent("com.raza.alienai.PAUSE_VIDEO");
@@ -184,4 +214,5 @@ public class MainActivity extends AppCompatActivity {
             sendBroadcast(intent);
         }
     }
-}
+        }
+                          
