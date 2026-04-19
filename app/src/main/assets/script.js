@@ -1,5 +1,5 @@
 // =========================================================================
-// 1. آڈیو انجن (پاز/ریزیوم)
+// 1. آڈیو انجن (پاز/ریزیوم اور کلاؤڈ آڈیو)
 // =========================================================================
 window.AyeshaAudio = {
     audioObj: null,
@@ -80,7 +80,7 @@ window.toggleVoiceMessage = function(btnElement) {
 };
 
 // =========================================================================
-// 2. مین UI، اینٹی کٹ آف وائس انجن اور آٹو ٹائمر
+// 2. مین UI، اینٹی کٹ آف وائس اور ہارڈویئر کمانڈز
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isRecording = false;
     let pendingImageFile = null; 
     let silenceTimer = null;
-    let manuallyStopped = false; // 🔴 اینٹی کٹ آف کنٹرولر
+    let manuallyStopped = false; 
 
     function showThinking(text) {
         document.getElementById('indicator-text').innerText = text;
@@ -230,9 +230,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const replyText = data.response || "معاف کیجیے، میں سمجھ نہیں سکی۔";
             addMessage(replyText, 'assistant');
             
-            // ہارڈویئر کمانڈز (ٹارچ، وائبریٹ، سرچ)
+            // 🎯 ہارڈویئر کمانڈ ٹرگر (براہ راست وائبریٹ)
             if (replyText.includes("وائبریٹ") || replyText.toLowerCase().includes("vibrate") || data.vibrate) {
-                if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+                if (navigator.vibrate) {
+                    navigator.vibrate([200, 100, 300, 100, 400]); // فون کو اصل میں وائبریٹ کرے گا!
+                }
             }
 
             setTimeout(() => {
@@ -246,18 +248,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 🔴 آٹو سینڈ اور "ٹیکسٹ کیچنگ" کا 100% پکا حل
+    // 🔴 1. آٹو سینڈ کا محفوظ فنکشن
     function stopRecordingAndSend() {
         if (!isRecording) return;
         clearTimeout(silenceTimer);
-        manuallyStopped = true; // 🔴 ایپ کو بتاؤ کہ ہم نے خود بند کیا ہے
+        manuallyStopped = true; 
 
         micActionBtn.classList.remove('recording-pulse');
-        input.placeholder = "الفاظ کیچ کر رہی ہے...";
+        input.placeholder = "میسج بھیج رہی ہے...";
 
         if (recognition) { try { recognition.stop(); } catch(e){} }
 
-        // ⏳ 1000ms (1 سیکنڈ) کا پکا ڈیلے تاکہ کوئی لفظ مس نہ ہو
+        // ⏳ 1000ms کا ڈیلے تاکہ کوئی لفظ کٹے نہ
         setTimeout(() => {
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop(); 
@@ -267,16 +269,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetSilenceTimer() {
         clearTimeout(silenceTimer);
-        // 🔴 4 سیکنڈ (4000ms) کا لمبا ٹائمر، تاکہ آپ آرام سے سوچ کر بول سکیں
+        // 🔴 3.5 سیکنڈ کا پرفیکٹ ٹائمر تاکہ سانس لینے پر بات نہ کٹے
         silenceTimer = setTimeout(() => {
             if (isRecording) {
                 stopRecordingAndSend();
             }
-        }, 4000);
+        }, 3500); 
     }
 
     let recognition = null;
     let stableTranscript = ''; 
+    let currentInterim = ''; // 🔴 ہوا میں لٹکنے والے کچے الفاظ کو بچانے کے لیے
     let mediaRecorder = null;
     let audioChunks = [];
 
@@ -288,26 +291,32 @@ document.addEventListener('DOMContentLoaded', () => {
             recognition.lang = navigator.language || 'ur-PK';
 
             recognition.onresult = function(event) {
+                currentInterim = '';
                 let finalStr = '';
-                let interimStr = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         finalStr += event.results[i][0].transcript + ' ';
                     } else {
-                        interimStr += event.results[i][0].transcript;
+                        currentInterim += event.results[i][0].transcript;
                     }
                 }
                 if (finalStr) { stableTranscript += finalStr; }
                 
-                input.value = (stableTranscript + interimStr).replace(/\s+/g, ' ').trim();
+                input.value = (stableTranscript + ' ' + currentInterim).replace(/\s+/g, ' ').trim();
                 updateUI();
                 resetSilenceTimer(); 
             };
 
             recognition.onerror = function(e) { console.log("Speech Error:", e.error); };
 
-            // 🔴 اینٹی کٹ آف لاجک: اگر براؤزر سانس لینے پر مائیک کاٹے، تو زبردستی دوبارہ چلاؤ!
+            // 🔴 اینٹی کٹ آف لاجک: اگر براؤزر مائیک کاٹے تو زبردستی آن کرو اور کچے الفاظ پکے کر لو!
             recognition.onend = function() {
+                if (currentInterim) {
+                    stableTranscript += ' ' + currentInterim;
+                    currentInterim = '';
+                    input.value = stableTranscript.replace(/\s+/g, ' ').trim();
+                }
+
                 if (isRecording && !manuallyStopped) {
                     try { recognition.start(); } catch(e) {}
                 }
@@ -322,27 +331,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
-            manuallyStopped = false; // نیا سیشن شروع
+            manuallyStopped = false; 
             
             mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
             
             mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 
-                const spokenText = input.value.trim();
+                // 🎯 اصل ٹرانسکرپشن اٹھانا (اب کبھی بھی مس نہیں ہوگا)
+                let spokenText = input.value.trim();
+                
+                // بیک اپ: اگر input کی ویلیو خالی ہو لیکن میموری میں الفاظ ہوں
+                if (!spokenText && stableTranscript.trim()) {
+                    spokenText = stableTranscript.trim();
+                }
+
                 const imageToSend = pendingImageFile;
                 
                 if (spokenText) {
                     addMessage(spokenText, 'user', imageToSend ? previewImg.src : null);
                     sendToHuggingFace(spokenText, imageToSend, audioBlob);
                 } else if (audioChunks.length > 0) {
-                    // صرف تب آئے گا جب 4 سیکنڈ تک مکمل خاموشی ہو اور کچھ کیچ نہ ہو پائے
+                    // یہ صرف تب آئے گا جب 3.5 سیکنڈ تک سوئی گرنے جتنی خاموشی ہو!
                     addMessage("🎤 (کوئی آواز موصول نہیں ہوئی)", 'user', imageToSend ? previewImg.src : null);
                     sendToHuggingFace("", imageToSend, audioBlob);
                 }
                 
                 input.value = ''; 
                 stableTranscript = '';
+                currentInterim = '';
                 pendingImageFile = null; 
                 previewImg.src = "";
                 previewContainer.classList.add('hidden');
@@ -356,12 +373,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             input.value = ''; 
             stableTranscript = '';
+            currentInterim = '';
             if (recognition) { try { recognition.start(); resetSilenceTimer(); } catch(e){} }
             mediaRecorder.start(); 
             
             isRecording = true;
             updateUI();
-            input.placeholder = "آرام سے بولیں... (4 سیکنڈ خاموشی پر سینڈ ہوگا)";
+            input.placeholder = "آرام سے بولیں... (سانس لینے پر بات نہیں کٹے گی)";
             showThinking("عائشہ سن رہی ہے...");
             
         } catch (err) {
@@ -414,4 +432,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {once:true});
 
 });
-    
+                
