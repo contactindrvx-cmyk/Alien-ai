@@ -25,22 +25,16 @@ public class FloatingBubbleService extends Service {
     private MediaPlayer mediaPlayer;
 
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
+    public IBinder onBind(Intent intent) { return null; }
 
     @Override
     public void onCreate() {
         super.onCreate();
-
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
 
-        int layoutFlag;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            layoutFlag = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
-        } else {
-            layoutFlag = WindowManager.LayoutParams.TYPE_PHONE;
-        }
+        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 
+                         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
+                         WindowManager.LayoutParams.TYPE_PHONE;
 
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -50,8 +44,7 @@ public class FloatingBubbleService extends Service {
                 PixelFormat.TRANSLUCENT);
 
         params.gravity = Gravity.TOP | Gravity.LEFT;
-        params.x = 0;
-        params.y = 100;
+        params.x = 0; params.y = 100;
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         windowManager.addView(bubbleView, params);
@@ -63,61 +56,43 @@ public class FloatingBubbleService extends Service {
                 mediaPlayer = new MediaPlayer();
                 try {
                     SharedPreferences prefs = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
-                    String selectedAgent = prefs.getString("selectedAgent", "ayesha"); 
-                    String videoFile = selectedAgent + "_video.mp4";
+                    String agent = prefs.getString("selectedAgent", "ayesha");
+                    String videoFile = agent + "_video.mp4";
 
                     AssetFileDescriptor afd;
                     try {
-                        // پہلے چیک کرو کہ کیا سلیکٹ کیے گئے ایجنٹ کی ویڈیو موجود ہے؟
                         afd = getAssets().openFd(videoFile);
                     } catch (Exception e) {
-                        // اگر ویڈیو نہ ملے (یعنی ابھی ڈمی ہے)، تو چپ چاپ عائشہ کی ویڈیو لوڈ کر دو تاکہ ایپ کریش نہ ہو
-                        afd = getAssets().openFd("ayesha_video.mp4");
+                        afd = getAssets().openFd("ayesha_video.mp4"); // Fallback
                     }
 
                     mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
                     mediaPlayer.setSurface(new Surface(surface));
                     mediaPlayer.setLooping(true);
                     mediaPlayer.prepare();
-                    
                     mediaPlayer.seekTo(100); 
-                    mediaPlayer.pause();     
-                    
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                    mediaPlayer.pause();
+                } catch (Exception e) { e.printStackTrace(); }
             }
-
-            @Override
-            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
-
-            @Override
-            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-                if (mediaPlayer != null) {
-                    mediaPlayer.stop();
-                    mediaPlayer.release();
-                }
+            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture s, int w, int h) {}
+            @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture s) {
+                if (mediaPlayer != null) { mediaPlayer.release(); }
                 return true;
             }
-
-            @Override
-            public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
+            @Override public void onSurfaceTextureUpdated(SurfaceTexture s) {}
         });
 
+        // ببل کو ہلانے اور کلک کرنے کا لاجک
         bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener(new View.OnTouchListener() {
-            private int initialX;
-            private int initialY;
-            private float initialTouchX;
-            private float initialTouchY;
+            private int initialX, initialY;
+            private float initialTouchX, initialTouchY;
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        initialX = params.x;
-                        initialY = params.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
+                        initialX = params.x; initialY = params.y;
+                        initialTouchX = event.getRawX(); initialTouchY = event.getRawY();
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         params.x = initialX + (int) (event.getRawX() - initialTouchX);
@@ -125,13 +100,10 @@ public class FloatingBubbleService extends Service {
                         windowManager.updateViewLayout(bubbleView, params);
                         return true;
                     case MotionEvent.ACTION_UP:
-                        int Xdiff = (int) (event.getRawX() - initialTouchX);
-                        int Ydiff = (int) (event.getRawY() - initialTouchY);
-                        
-                        if (Math.abs(Xdiff) < 10 && Math.abs(Ydiff) < 10) {
-                            Intent openAppIntent = new Intent(FloatingBubbleService.this, MainActivity.class);
-                            openAppIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(openAppIntent);
+                        if (Math.abs(event.getRawX() - initialTouchX) < 10) {
+                            Intent i = new Intent(FloatingBubbleService.this, MainActivity.class);
+                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(i);
                         }
                         return true;
                 }
@@ -143,11 +115,7 @@ public class FloatingBubbleService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-        }
-        if (bubbleView != null) {
-            windowManager.removeView(bubbleView);
-        }
+        if (mediaPlayer != null) mediaPlayer.release();
+        if (bubbleView != null) windowManager.removeView(bubbleView);
     }
 }
