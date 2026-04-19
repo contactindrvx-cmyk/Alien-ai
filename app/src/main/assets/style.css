@@ -18,7 +18,6 @@
     background-color: #16243d; 
     border-bottom-left-radius: 4px; 
     margin-top: 15px; 
-    /* سپیکر کو اندر تیرنے دینے کے لیے */
     display: flex;
     flex-direction: column;
 }
@@ -32,7 +31,7 @@
 
 .gemini-glow { 
     box-shadow: 0 0 15px rgba(58, 143, 247, 0.1); 
-    transition: all 0.3s ease; 
+    transition: all 0.2s ease; 
 }
 
 .gemini-glow:focus-within, .gemini-glow.active { 
@@ -40,11 +39,11 @@
     border-color: #3a8ff7 !important; 
 }
 
-/* 🔊 جمنائی سٹائل سٹکی (Sticky) فلوٹنگ سپیکر */
+/* 🔊 جمنائی سٹائل سٹکی فلوٹنگ سپیکر */
 .gemini-speaker-btn {
     position: sticky;
-    bottom: 0px; /* لمبی چیٹ میں یہ نیچے چپکا رہے گا */
-    align-self: flex-start; /* ببل کے اندر بائیں طرف */
+    bottom: 0px; 
+    align-self: flex-start; 
     margin-top: 12px;
     background: rgba(58, 143, 247, 0.15);
     border: 1px solid #3a8ff7;
@@ -57,15 +56,27 @@
     align-items: center;
     justify-content: center;
     z-index: 20;
-    backdrop-filter: blur(5px); /* پیچھے سے ٹیکسٹ گزرے گا تو دھندلا نظر آئے گا */
+    backdrop-filter: blur(5px);
 }
 
 .gemini-speaker-btn:active { 
     transform: scale(0.9); 
 }
 
-.gemini-speaker-btn.paused {
-    border-color: #ef4444;
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.15);
+.gemini-speaker-btn.playing-audio {
+    background: #3a8ff7;
+    color: #fff;
+}
+
+/* 🔵 مائیک کی اینیمیشن کا لال رنگ بھی نیلے میں بدل دیا گیا ہے */
+.recording-pulse {
+    animation: micPulse 1.5s infinite;
+    background: rgba(58, 143, 247, 0.1);
+    border-radius: 50%;
+}
+
+@keyframes micPulse {
+    0% { box-shadow: 0 0 0 0 rgba(58, 143, 247, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(58, 143, 247, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(58, 143, 247, 0); }
 }
