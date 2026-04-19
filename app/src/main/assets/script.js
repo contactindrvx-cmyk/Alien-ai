@@ -1,5 +1,5 @@
 // =========================================================================
-// 1. کلاؤڈ آڈیو انجن (بغیر کسی ایرر کے پلے اور پاز)
+// 1. کلاؤڈ آڈیو انجن (عائشہ کی آواز)
 // =========================================================================
 window.AyeshaAudio = {
     audioObj: null,
@@ -14,10 +14,11 @@ window.stopAyeshaCompletely = function() {
     window.AyeshaAudio.queue = []; 
     if(window.AyeshaAudio.audioObj) {
         window.AyeshaAudio.audioObj.pause();
+        window.AyeshaAudio.audioObj = null;
     }
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => {
         b.innerHTML = window.AyeshaAudio.playIcon;
-        b.classList.remove('paused');
+        b.classList.remove('playing-audio');
     });
     window.AyeshaAudio.currentBtn = null;
 };
@@ -25,7 +26,7 @@ window.stopAyeshaCompletely = function() {
 function playCloudQueue(btnElement) {
     if (window.AyeshaAudio.queue.length === 0) {
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
-        btnElement.classList.remove('paused');
+        btnElement.classList.remove('playing-audio');
         window.AyeshaAudio.currentBtn = null;
         return;
     }
@@ -38,38 +39,25 @@ function playCloudQueue(btnElement) {
     window.AyeshaAudio.audioObj.onerror = () => playCloudQueue(btnElement);
     
     window.AyeshaAudio.audioObj.play().catch(e => {
-        console.log("Cloud Audio Error:", e);
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
-        btnElement.classList.remove('paused');
+        btnElement.classList.remove('playing-audio');
     });
 }
 
 window.toggleVoiceMessage = function(btnElement) {
-    let rawText = decodeURIComponent(btnElement.getAttribute('data-text'));
-    let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-
-    // اگر یہی بٹن پہلے سے چل رہا ہے تو پاز / ریزیوم کریں
-    if (window.AyeshaAudio.currentBtn === btnElement && window.AyeshaAudio.audioObj) {
-        if (!window.AyeshaAudio.audioObj.paused) {
-            window.AyeshaAudio.audioObj.pause();
-            btnElement.innerHTML = window.AyeshaAudio.playIcon;
-            btnElement.classList.remove('paused');
-        } else {
-            window.AyeshaAudio.audioObj.play();
-            btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
-            btnElement.classList.add('paused');
-        }
+    if (window.AyeshaAudio.currentBtn === btnElement) {
+        window.stopAyeshaCompletely();
         return;
     }
-
-    // نیا میسج چلائیں
     window.stopAyeshaCompletely();
     window.AyeshaAudio.currentBtn = btnElement;
+
+    let rawText = decodeURIComponent(btnElement.getAttribute('data-text'));
+    let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
 
     const isUrdu = /[\u0600-\u06FF]/.test(cleanText);
     window.AyeshaAudio.lang = isUrdu ? 'ur' : 'en';
 
-    // کلاؤڈ کے لیے لمبے میسج کو چھوٹے حصوں میں توڑنا
     let parts = cleanText.match(/[^.!?؟\n]+[.!?؟\n]+/g) || [cleanText];
     let safeParts = [];
     parts.forEach(p => {
@@ -81,14 +69,13 @@ window.toggleVoiceMessage = function(btnElement) {
 
     window.AyeshaAudio.queue = safeParts.filter(p => p.trim().length > 0);
     btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
-    btnElement.classList.add('paused');
-    
+    btnElement.classList.add('playing-audio');
     playCloudQueue(btnElement);
 };
 
 
 // =========================================================================
-// 2. مین UI، ڈبل ٹائپنگ کا خاتمہ اور میسج ہینڈلنگ
+// 2. مین UI اور اوپن لینگویج ٹائپنگ
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -133,17 +120,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (isRecording) {
-            micIcon.classList.add('hidden'); 
-            sendIcon.classList.add('hidden'); 
-            stopIcon.classList.remove('hidden');
+            micIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
         } else if (hasText) {
-            micIcon.classList.add('hidden'); 
-            stopIcon.classList.add('hidden'); 
-            sendIcon.classList.remove('hidden');
+            micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
         } else {
-            stopIcon.classList.add('hidden'); 
-            sendIcon.classList.add('hidden'); 
-            micIcon.classList.remove('hidden');
+            stopIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
         }
     }
 
@@ -164,11 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = e.target.files[0];
         if(file) {
             const reader = new FileReader();
-            reader.onload = function(event) {
-                addMessage("تصویر بھیجی جا رہی ہے...", 'user', event.target.result);
-            };
+            reader.onload = function(event) { addMessage("تصویر بھیجی جا رہی ہے...", 'user', event.target.result); };
             reader.readAsDataURL(file);
-            sendToHuggingFace("اس تصویر کو دیکھیں", file, null); 
+            sendToHuggingFace("اس تصویر کو دیکھیں", file); 
         }
     };
 
@@ -181,73 +160,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (sender === 'user') {
             msgDiv.className = 'w-full flex justify-end mt-4';
-            msgDiv.innerHTML = `
-                <div class="chat-bubble user-bubble border border-[#3a8ff7]">
-                    ${imgHtml}<p dir="auto" style="white-space: pre-wrap;">${text}</p>
-                </div>
-            `;
+            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]">${imgHtml}<p dir="auto" style="white-space: pre-wrap;">${text}</p></div>`;
         } else {
             const encodedText = encodeURIComponent(text);
             msgDiv.className = 'w-full flex justify-start mt-4';
-            msgDiv.innerHTML = `
-                <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10">
-                    ${imgHtml}<p dir="auto" style="white-space: pre-wrap;">${text}</p>
-                    <button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)" title="Play/Pause Audio">
-                        ${window.AyeshaAudio.playIcon}
-                    </button>
-                </div>
-            `;
+            msgDiv.innerHTML = `<div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10">${imgHtml}<p dir="auto" style="white-space: pre-wrap;">${text}</p><button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)">${window.AyeshaAudio.playIcon}</button></div>`;
         }
-        
         chatBox.insertBefore(msgDiv, thinkingIndicator);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    async function sendToHuggingFace(text, file, audioBlob) {
-        if(file) { showThinking("تصویر دیکھ رہی ہے..."); } 
-        else { showThinking("ٹائپ کر رہی ہے..."); }
-
+    async function sendToHuggingFace(text, file) {
+        showThinking(file ? "تصویر دیکھ رہی ہے..." : "ٹائپ کر رہی ہے...");
         const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
-        let payload = {
-            message: text || "",
-            email: "alirazasabir007@gmail.com", 
-            local_time: new Date().toLocaleTimeString()
-        };
-
+        let payload = { message: text || "", email: "alirazasabir007@gmail.com", local_time: new Date().toLocaleTimeString() };
         try {
             if (file) payload.image = await fileToBase64(file);
-
-            const res = await fetch(API_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            
+            const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
             const data = await res.json();
             hideThinking();
-            
             const replyText = data.response || "معاف کیجیے، میں سمجھ نہیں سکی۔";
             addMessage(replyText, 'assistant');
-            
-            // آٹو پلے کے لیے یوزر کے میسج والے بٹن کو ٹرگر کر دیں
             setTimeout(() => {
                 const allBtns = document.querySelectorAll('.gemini-speaker-btn');
-                if(allBtns.length > 0) {
-                    window.toggleVoiceMessage(allBtns[allBtns.length - 1]);
-                }
+                if(allBtns.length > 0) window.toggleVoiceMessage(allBtns[allBtns.length - 1]);
             }, 300);
-            
         } catch (err) {
             hideThinking();
             addMessage("سرور آف لائن ہے۔ انٹرنیٹ چیک کریں۔", 'assistant');
         }
     }
 
-    // 🔴 ڈبل ٹائپنگ کا پکا اور فائنل فکس
+    // 🔴 اوپن لینگویج اور سنگل ٹائپنگ فکس
     let recognition = null;
-    let mediaRecorder = null;
-    let audioChunks = [];
-
     if ('webkitSpeechRecognition' in window) {
         try {
             recognition = new webkitSpeechRecognition();
@@ -255,66 +200,39 @@ document.addEventListener('DOMContentLoaded', () => {
             recognition.interimResults = true; 
             recognition.lang = navigator.language || 'ur-PK';
 
-            recognition.onstart = function() {
-                isRecording = true;
-                input.value = '';
-                updateUI();
-                input.placeholder = "بولیں، رئیل ٹائم ٹائپ ہو رہا ہے...";
-            };
-
-            // یہ لوپ ہمیشہ زیرو (0) سے شروع ہوگا اور پرانے الفاظ دوبارہ نہیں لکھے گا
             recognition.onresult = function(event) {
                 let fullText = '';
                 for (let i = 0; i < event.results.length; ++i) {
-                    fullText += event.results[i][0].transcript;
+                    fullText += event.results[i][0].transcript + " "; 
                 }
-                input.value = fullText;
+                input.value = fullText.replace(/\s+/g, ' ').trim();
                 updateUI();
-            };
-
-            recognition.onerror = function(e) {
-                console.log("Speech Error:", e.error);
             };
 
             recognition.onend = function() {
                 if (isRecording) {
                     isRecording = false;
-                    input.placeholder = "Ask something...";
                     updateUI();
                     if (input.value.trim().length > 0) {
                         const text = input.value.trim();
                         addMessage(text, 'user');
-                        input.value = ''; updateUI(); 
-                        sendToHuggingFace(text, null);
+                        input.value = ''; updateUI(); sendToHuggingFace(text);
                     }
                 }
             };
-        } catch (e) {
-            console.log("Speech recognition failed.");
-        }
+        } catch (e) { console.log("Speech failed."); }
     }
 
     actionBtn.onclick = (e) => {
         e.preventDefault();
-        window.stopAyeshaCompletely(); // مائیک دباتے ہی عائشہ چپ
-
-        if (isRecording) {
-            // سٹاپ بٹن دبانے پر ٹائپنگ رکے گی اور خود سینڈ ہو جائے گی
-            if (recognition) recognition.stop();
-        } else if (input.value.trim().length > 0) {
-            // اگر کچھ ٹائپ کیا ہے تو سینڈ
+        window.stopAyeshaCompletely();
+        if (isRecording) { recognition.stop(); }
+        else if (input.value.trim().length > 0) {
             const text = input.value.trim();
             addMessage(text, 'user');
-            input.value = ''; updateUI(); 
-            sendToHuggingFace(text, null); 
+            input.value = ''; updateUI(); sendToHuggingFace(text);
         } else {
-            // مائیک آن کریں
-            if (recognition) {
-                try { recognition.start(); } 
-                catch(e){ alert("مائیکروفون کی اجازت نہیں ملی۔"); }
-            } else {
-                alert("آپ کے فون میں وائس ٹائپنگ سپورٹ نہیں ہے۔");
-            }
+            if (recognition) { try { recognition.start(); } catch(e){} }
         }
     };
 
@@ -323,10 +241,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.stopAyeshaCompletely(); 
             const text = input.value.trim();
             addMessage(text, 'user');
-            input.value = ''; updateUI(); 
-            sendToHuggingFace(text, null);
+            input.value = ''; updateUI(); sendToHuggingFace(text);
         }
     });
-
 });
-                          
+            
