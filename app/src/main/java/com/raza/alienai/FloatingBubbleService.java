@@ -24,16 +24,22 @@ public class FloatingBubbleService extends Service {
     private MediaPlayer mediaPlayer;
 
     @Override
-    public IBinder onBind(Intent intent) { return null; }
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
+
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
 
-        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 
-                         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
-                         WindowManager.LayoutParams.TYPE_PHONE;
+        int layoutFlag;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            layoutFlag = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+        } else {
+            layoutFlag = WindowManager.LayoutParams.TYPE_PHONE;
+        }
 
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -43,7 +49,8 @@ public class FloatingBubbleService extends Service {
                 PixelFormat.TRANSLUCENT);
 
         params.gravity = Gravity.TOP | Gravity.LEFT;
-        params.x = 0; params.y = 100;
+        params.x = 0;
+        params.y = 100;
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         windowManager.addView(bubbleView, params);
@@ -58,28 +65,45 @@ public class FloatingBubbleService extends Service {
                     mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
                     mediaPlayer.setSurface(new Surface(surface));
                     mediaPlayer.prepare();
+                    
+                    // ویڈیو کو لوڈ کر کے پوز کرنے کا لاجک
                     mediaPlayer.seekTo(100); 
                     mediaPlayer.pause();     
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
-            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture s, int w, int h) {}
-            @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture s) {
-                if (mediaPlayer != null) { mediaPlayer.release(); }
+
+            @Override
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
+
+            @Override
+            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+                if (mediaPlayer != null) {
+                    mediaPlayer.stop();
+                    mediaPlayer.release();
+                }
                 return true;
             }
-            @Override public void onSurfaceTextureUpdated(SurfaceTexture s) {}
+
+            @Override
+            public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
         });
 
         bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener(new View.OnTouchListener() {
-            private int initialX, initialY;
-            private float initialTouchX, initialTouchY;
+            private int initialX;
+            private int initialY;
+            private float initialTouchX;
+            private float initialTouchY;
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        initialX = params.x; initialY = params.y;
-                        initialTouchX = event.getRawX(); initialTouchY = event.getRawY();
+                        initialX = params.x;
+                        initialY = params.y;
+                        initialTouchX = event.getRawX();
+                        initialTouchY = event.getRawY();
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         params.x = initialX + (int) (event.getRawX() - initialTouchX);
@@ -87,10 +111,14 @@ public class FloatingBubbleService extends Service {
                         windowManager.updateViewLayout(bubbleView, params);
                         return true;
                     case MotionEvent.ACTION_UP:
-                        if (Math.abs(event.getRawX() - initialTouchX) < 10 && Math.abs(event.getRawY() - initialTouchY) < 10) {
-                            Intent intent = new Intent(FloatingBubbleService.this, MainActivity.class);
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(intent);
+                        int Xdiff = (int) (event.getRawX() - initialTouchX);
+                        int Ydiff = (int) (event.getRawY() - initialTouchY);
+                        
+                        // کلک ہونے پر مین ایپ اوپن کرو
+                        if (Math.abs(Xdiff) < 10 && Math.abs(Ydiff) < 10) {
+                            Intent openAppIntent = new Intent(FloatingBubbleService.this, MainActivity.class);
+                            openAppIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(openAppIntent);
                         }
                         return true;
                 }
@@ -102,7 +130,11 @@ public class FloatingBubbleService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (mediaPlayer != null) mediaPlayer.release();
-        if (bubbleView != null) windowManager.removeView(bubbleView);
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+        }
+        if (bubbleView != null) {
+            windowManager.removeView(bubbleView);
+        }
     }
 }
