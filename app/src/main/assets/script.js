@@ -1,5 +1,5 @@
 // =========================================================================
-// 1. آڈیو انجن (پاز کرنے پر وہیں سے چلے گا!)
+// 1. آڈیو انجن (پاز/ریزیوم اور نیلے تھیم کے ساتھ)
 // =========================================================================
 window.AyeshaAudio = {
     audioObj: null,
@@ -11,10 +11,10 @@ window.AyeshaAudio = {
 };
 
 window.stopAyeshaCompletely = function() {
+    window.AyeshaAudio.queue = []; 
     if(window.AyeshaAudio.audioObj) {
         window.AyeshaAudio.audioObj.pause();
     }
-    window.AyeshaAudio.queue = []; 
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => {
         b.innerHTML = window.AyeshaAudio.playIcon;
         b.classList.remove('playing-audio');
@@ -22,7 +22,6 @@ window.stopAyeshaCompletely = function() {
     window.AyeshaAudio.currentBtn = null;
 };
 
-// کلاؤڈ آڈیو کو پلے کرنے کا فنکشن
 function playCloudQueue(btnElement) {
     if (window.AyeshaAudio.queue.length === 0) {
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
@@ -36,29 +35,27 @@ function playCloudQueue(btnElement) {
     
     window.AyeshaAudio.audioObj = new Audio(url);
     window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btnElement);
+    window.AyeshaAudio.audioObj.onerror = () => playCloudQueue(btnElement);
     window.AyeshaAudio.audioObj.play().catch(e => {
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
         btnElement.classList.remove('playing-audio');
     });
 }
 
-// 🔴 جادو یہاں ہے: Pause کرنے کے بعد Play پر وہیں سے ریزیوم (Resume) ہوگا
 window.toggleVoiceMessage = function(btnElement) {
-    // اگر یہی بٹن دوبارہ دبایا گیا ہے
     if (window.AyeshaAudio.currentBtn === btnElement && window.AyeshaAudio.audioObj) {
         if (!window.AyeshaAudio.audioObj.paused) {
-            window.AyeshaAudio.audioObj.pause(); // ⏸ وہیں روکو
+            window.AyeshaAudio.audioObj.pause(); 
             btnElement.innerHTML = window.AyeshaAudio.playIcon;
             btnElement.classList.remove('playing-audio');
         } else {
-            window.AyeshaAudio.audioObj.play(); // ▶ وہیں سے چلاؤ
+            window.AyeshaAudio.audioObj.play(); 
             btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
             btnElement.classList.add('playing-audio');
         }
         return;
     }
 
-    // اگر نیا میسج چلانا ہے تو پرانا سب کینسل کرو
     window.stopAyeshaCompletely();
     window.AyeshaAudio.currentBtn = btnElement;
 
@@ -83,8 +80,9 @@ window.toggleVoiceMessage = function(btnElement) {
     playCloudQueue(btnElement);
 };
 
+
 // =========================================================================
-// 2. مین UI، ٹائپنگ اور امیج کنٹرول
+// 2. مین UI، تصویر پریویو، اور ڈبل ٹائپنگ کا خاتمہ
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -99,9 +97,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatBox = document.getElementById('chat-box');
     const thinkingIndicator = document.getElementById('thinking-indicator');
     const indicatorText = document.getElementById('indicator-text');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const menuBtn = document.getElementById('menu-btn');
     
+    // 📸 تصویر کے پریویو والے ایلیمنٹس
+    const previewContainer = document.getElementById('image-preview-container');
+    const previewImg = document.getElementById('preview-img');
+    const removeImgBtn = document.getElementById('remove-img-btn');
+
     let isRecording = false;
-    let pendingImageFile = null; // 🔴 تصویر کو روکنے کے لیے ویری ایبل
+    let pendingImageFile = null; 
 
     function showThinking(text) {
         indicatorText.innerText = text;
@@ -128,13 +134,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (isRecording) {
             micIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
-            actionBtn.classList.add('recording-pulse');
         } else if (hasText) {
             micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
-            actionBtn.classList.remove('recording-pulse');
         } else {
             stopIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
-            actionBtn.classList.remove('recording-pulse');
         }
     }
 
@@ -144,32 +147,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
     plusBtn.onclick = () => fileInput.click(); 
 
-    // 🔴 تصویر سلیکٹ ہوتے ہی خود نہیں جائے گی، بس یوزر کو نظر آئے گی
+    // 📸 1. تصویر سلیکٹ کرنے پر پریویو دکھانا
     fileInput.onchange = (e) => {
         const file = e.target.files[0];
         if(file) {
             pendingImageFile = file;
-            input.value = "[تصویر منسلک کر دی گئی ہے، سینڈ دبائیں]";
-            updateUI();
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                previewImg.src = event.target.result;
+                previewContainer.classList.remove('hidden'); // پریویو ڈبہ شو کریں
+                updateUI(); // سینڈ کا بٹن شو ہو جائے گا
+            };
+            reader.readAsDataURL(file);
         }
     };
+
+    // 📸 2. تصویر کو کینسل (Remove) کرنا
+    removeImgBtn.onclick = () => {
+        pendingImageFile = null;
+        previewImg.src = "";
+        previewContainer.classList.add('hidden');
+        fileInput.value = ""; // فائل ان پٹ خالی کر دیں
+        updateUI();
+    };
+
+    menuBtn.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
+    overlay.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
 
     function addMessage(text, sender, imgSrc = null) {
         const msgDiv = document.createElement('div');
         let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
+        let cleanText = text ? `<p dir="auto" style="white-space: pre-wrap;">${text}</p>` : '';
 
         if (sender === 'user') {
             msgDiv.className = 'w-full flex justify-end mt-4';
-            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]">${imgHtml}<p dir="auto" style="white-space: pre-wrap;">${text}</p></div>`;
+            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]">${imgHtml}${cleanText}</div>`;
         } else {
             const encodedText = encodeURIComponent(text);
-            msgDiv.className = 'w-full flex justify-start mt-4 relative';
+            msgDiv.className = 'w-full flex justify-start mt-4';
             msgDiv.innerHTML = `
                 <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10">
-                    ${imgHtml}<p dir="auto" style="white-space: pre-wrap;">${text}</p>
-                    <button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)">${window.AyeshaAudio.playIcon}</button>
-                </div>`;
+                    ${imgHtml}${cleanText}
+                    <button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)" title="Play/Pause Audio">
+                        ${window.AyeshaAudio.playIcon}
+                    </button>
+                </div>
+            `;
         }
+        
         chatBox.insertBefore(msgDiv, thinkingIndicator);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
@@ -185,11 +210,19 @@ document.addEventListener('DOMContentLoaded', () => {
         showThinking(file ? "تصویر دیکھ رہی ہے..." : "ٹائپ کر رہی ہے...");
         const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
         let payload = { message: text || "", email: "alirazasabir007@gmail.com", local_time: new Date().toLocaleTimeString() };
+        
         try {
             if (file) payload.image = await fileToBase64(file);
-            const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+
+            const res = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            
             const data = await res.json();
             hideThinking();
+            
             const replyText = data.response || "معاف کیجیے، میں سمجھ نہیں سکی۔";
             addMessage(replyText, 'assistant');
             
@@ -197,13 +230,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const allBtns = document.querySelectorAll('.gemini-speaker-btn');
                 if(allBtns.length > 0) window.toggleVoiceMessage(allBtns[allBtns.length - 1]);
             }, 300);
+            
         } catch (err) {
             hideThinking();
             addMessage("سرور آف لائن ہے۔ انٹرنیٹ چیک کریں۔", 'assistant');
         }
     }
 
+    // 🔴 ڈبل ٹائپنگ کا 100% پکا علاج
     let recognition = null;
+    let finalTranscript = ''; // گلوبل ویری ایبل جو ہسٹری یاد رکھے گا
+
     if ('webkitSpeechRecognition' in window) {
         try {
             recognition = new webkitSpeechRecognition();
@@ -213,55 +250,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
             recognition.onstart = function() {
                 isRecording = true;
+                finalTranscript = ''; 
                 input.value = '';
                 updateUI();
                 input.placeholder = "بولیں، رئیل ٹائم ٹائپ ہو رہا ہے...";
             };
 
+            // اب یہ بالکل ڈبل ٹائپ نہیں کرے گا
             recognition.onresult = function(event) {
-                let fullText = '';
-                for (let i = 0; i < event.results.length; ++i) {
-                    fullText += event.results[i][0].transcript + " "; 
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
                 }
-                input.value = fullText.replace(/\s+/g, ' ').trim();
+                input.value = finalTranscript + interimTranscript;
                 updateUI();
+            };
+
+            recognition.onerror = function(e) {
+                console.log("Speech Error:", e.error);
             };
 
             recognition.onend = function() {
                 if (isRecording) {
                     isRecording = false;
+                    input.placeholder = "Ask something...";
                     updateUI();
                     if (input.value.trim().length > 0) {
                         const text = input.value.trim();
                         addMessage(text, 'user');
-                        input.value = ''; updateUI(); sendToHuggingFace(text, null);
+                        input.value = ''; updateUI(); 
+                        sendToHuggingFace(text, null);
                     }
                 }
             };
-        } catch (e) {}
+        } catch (e) {
+            console.log("Speech recognition failed.");
+        }
     }
 
-    // 🔴 سینڈ بٹن (تصویر اور ٹیکسٹ کے لیے)
     actionBtn.onclick = (e) => {
         e.preventDefault();
         window.stopAyeshaCompletely();
-        if (isRecording) { 
-            recognition.stop(); 
+
+        if (isRecording) {
+            if (recognition) recognition.stop();
         } else if (input.value.trim().length > 0 || pendingImageFile) {
-            const text = input.value.replace('[تصویر منسلک کر دی گئی ہے، سینڈ دبائیں]', '').trim();
+            
+            // 📸 3. تصویر اور ٹیکسٹ ایک ساتھ سینڈ کرنا
+            const text = input.value.trim();
             const imageToSend = pendingImageFile;
             
             if(imageToSend) {
-                const reader = new FileReader();
-                reader.onload = function(event) { addMessage(text || "تصویر", 'user', event.target.result); };
-                reader.readAsDataURL(imageToSend);
+                addMessage(text, 'user', previewImg.src); // تصویر اور ٹیکسٹ چیٹ میں دکھائیں
             } else {
                 addMessage(text, 'user');
             }
 
+            // سینڈ کرنے کے بعد سب کچھ صاف کریں
             input.value = ''; 
-            pendingImageFile = null; // تصویر بھیجنے کے بعد صاف کریں
+            pendingImageFile = null; 
+            previewImg.src = "";
+            previewContainer.classList.add('hidden');
+            fileInput.value = "";
             updateUI(); 
+            
             sendToHuggingFace(text, imageToSend); 
         } else {
             if (recognition) { try { recognition.start(); } catch(e){} }
@@ -277,5 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', () => {
         try { if('speechSynthesis' in window) { window.speechSynthesis.resume(); } } catch(e){}
     }, {once:true});
+
 });
-        
+            
