@@ -75,7 +75,7 @@ window.toggleVoiceMessage = function(btnElement) {
 
 
 // =========================================================================
-// 2. مین UI اور اوپن لینگویج ٹائپنگ
+// 2. مین UI (اینٹی ہینگ سسٹم اور سنگل ٹائپنگ)
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuBtn = document.getElementById('menu-btn');
 
     let isRecording = false;
+    let currentUIState = ''; // 🚀 یہ ویری ایبل ایپ کو ہینگ ہونے سے بچائے گا
 
     function showThinking(text) {
         indicatorText.innerText = text;
@@ -107,10 +108,15 @@ document.addEventListener('DOMContentLoaded', () => {
         thinkingIndicator.classList.remove('flex');
     }
 
+    // 🚀 اینٹی ہینگ UI کنٹرولر (اب اینیمیشن جام نہیں ہوگی)
     function updateUI() {
         const hasText = input.value.trim().length > 0;
         const isActive = (document.activeElement === input) || hasText || isRecording;
         
+        const newState = `${isActive}_${isRecording}_${hasText}`;
+        if (currentUIState === newState) return; // اگر حالت نہیں بدلی تو براؤزر کو تنگ مت کرو
+        currentUIState = newState;
+
         if (isActive) {
             plusBtn.classList.add('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
             inputPill.style.marginLeft = "64px"; inputPill.style.paddingLeft = "10px"; inputPill.classList.add('active');
@@ -120,11 +126,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (isRecording) {
-            micIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
+            micIcon.classList.add('hidden'); 
+            sendIcon.classList.add('hidden'); 
+            stopIcon.classList.remove('hidden');
+            actionBtn.classList.add('recording-pulse'); // مائیک پلس ایفیکٹ
         } else if (hasText) {
-            micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
+            micIcon.classList.add('hidden'); 
+            stopIcon.classList.add('hidden'); 
+            sendIcon.classList.remove('hidden');
+            actionBtn.classList.remove('recording-pulse');
         } else {
-            stopIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
+            stopIcon.classList.add('hidden'); 
+            sendIcon.classList.add('hidden'); 
+            micIcon.classList.remove('hidden');
+            actionBtn.classList.remove('recording-pulse');
         }
     }
 
@@ -191,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 🔴 اوپن لینگویج اور سنگل ٹائپنگ فکس
+    // 🔴 ڈبل ٹائپنگ کا پکا علاج (اب ہسٹری ریپیٹ نہیں ہوگی)
     let recognition = null;
     if ('webkitSpeechRecognition' in window) {
         try {
@@ -200,12 +215,28 @@ document.addEventListener('DOMContentLoaded', () => {
             recognition.interimResults = true; 
             recognition.lang = navigator.language || 'ur-PK';
 
+            recognition.onstart = function() {
+                isRecording = true;
+                input.value = '';
+                updateUI();
+                input.placeholder = "بولیں، رئیل ٹائم ٹائپ ہو رہا ہے...";
+            };
+
+            // جادو: ہر بار پرانے الفاظ کو صاف کر کے صرف نئے الفاظ لکھے گا
             recognition.onresult = function(event) {
-                let fullText = '';
+                let finalTranscript = '';
+                let interimTranscript = '';
+                
                 for (let i = 0; i < event.results.length; ++i) {
-                    fullText += event.results[i][0].transcript + " "; 
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
                 }
-                input.value = fullText.replace(/\s+/g, ' ').trim();
+                
+                let combined = (finalTranscript + interimTranscript).replace(/\s+/g, ' ').trim();
+                input.value = combined;
                 updateUI();
             };
 
@@ -226,8 +257,9 @@ document.addEventListener('DOMContentLoaded', () => {
     actionBtn.onclick = (e) => {
         e.preventDefault();
         window.stopAyeshaCompletely();
-        if (isRecording) { recognition.stop(); }
-        else if (input.value.trim().length > 0) {
+        if (isRecording) { 
+            recognition.stop(); 
+        } else if (input.value.trim().length > 0) {
             const text = input.value.trim();
             addMessage(text, 'user');
             input.value = ''; updateUI(); sendToHuggingFace(text);
@@ -245,4 +277,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-            
+                
