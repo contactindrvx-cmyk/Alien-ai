@@ -1,7 +1,10 @@
 package com.raza.alienai;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.PixelFormat;
@@ -24,12 +27,39 @@ public class FloatingBubbleService extends Service {
     private WindowManager.LayoutParams params;
     private MediaPlayer mediaPlayer;
 
+    // 🌟 جاوا سکرپٹ سے آنے والے آرڈرز کو سننے والا ایجنٹ 🌟
+    private BroadcastReceiver videoControlReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (mediaPlayer == null) return;
+            if ("com.raza.alienai.PLAY_VIDEO".equals(intent.getAction())) {
+                if (!mediaPlayer.isPlaying()) mediaPlayer.start();
+            } else if ("com.raza.alienai.PAUSE_VIDEO".equals(intent.getAction())) {
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.pause();
+                    mediaPlayer.seekTo(100); // کالے فریم سے بچنے کے لیے
+                }
+            }
+        }
+    };
+
     @Override
     public IBinder onBind(Intent intent) { return null; }
 
     @Override
     public void onCreate() {
         super.onCreate();
+        
+        // Broadcast Receiver رجسٹر کرو
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("com.raza.alienai.PLAY_VIDEO");
+        filter.addAction("com.raza.alienai.PAUSE_VIDEO");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(videoControlReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(videoControlReceiver, filter);
+        }
+
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
 
         int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 
@@ -50,6 +80,8 @@ public class FloatingBubbleService extends Service {
         windowManager.addView(bubbleView, params);
 
         TextureView textureView = bubbleView.findViewById(R.id.bubbleVideoView);
+        textureView.setOpaque(false); // 💡 کالے بیک گراؤنڈ کو ختم کرنے کی ٹرک
+
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
@@ -63,26 +95,30 @@ public class FloatingBubbleService extends Service {
                     try {
                         afd = getAssets().openFd(videoFile);
                     } catch (Exception e) {
-                        afd = getAssets().openFd("ayesha_video.mp4"); // Fallback
+                        afd = getAssets().openFd("ayesha_video.mp4");
                     }
 
                     mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
                     mediaPlayer.setSurface(new Surface(surface));
                     mediaPlayer.setLooping(true);
-                    mediaPlayer.prepare();
-                    mediaPlayer.seekTo(100); 
-                    mediaPlayer.pause();
+                    
+                    // 💡 کالا سکرین فکس: Async طریقہ استعمال کریں
+                    mediaPlayer.setOnPreparedListener(mp -> {
+                        mp.seekTo(100); 
+                        // یہاں ویڈیو سٹارٹ نہیں کرنی، وہ جاوا سکرپٹ خود کروائے گی
+                    });
+                    mediaPlayer.prepareAsync(); 
+                    
                 } catch (Exception e) { e.printStackTrace(); }
             }
             @Override public void onSurfaceTextureSizeChanged(SurfaceTexture s, int w, int h) {}
             @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture s) {
-                if (mediaPlayer != null) { mediaPlayer.release(); }
+                if (mediaPlayer != null) { mediaPlayer.release(); mediaPlayer = null; }
                 return true;
             }
             @Override public void onSurfaceTextureUpdated(SurfaceTexture s) {}
         });
 
-        // ببل کو ہلانے اور کلک کرنے کا لاجک
         bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener(new View.OnTouchListener() {
             private int initialX, initialY;
             private float initialTouchX, initialTouchY;
@@ -115,6 +151,7 @@ public class FloatingBubbleService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        unregisterReceiver(videoControlReceiver);
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
