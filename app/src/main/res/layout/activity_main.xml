@@ -1,40 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center">
 
-    <WebView
-        android:id="@+id/webView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <LinearLayout
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentRight="true"
-        android:layout_margin="15dp"
-        android:background="#16243d"
-        android:padding="8dp"
-        android:gravity="center"
-        android:orientation="horizontal">
-        
-        <TextView
+        android:text="Ayesha AI Settings"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="30dp"/>
+
+    <Switch
+        android:id="@+id/bubbleSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Floating Bubble On/Off"
+        android:textSize="18sp"
+        android:layout_marginBottom="30dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Select Your Agent:"
+        android:textSize="18sp"
+        android:layout_marginBottom="10dp"/>
+
+    <RadioGroup
+        android:id="@+id/agentGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/radioAyesha"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Ayesha 24/7"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:layout_marginRight="8dp"/>
+            android:text="Ayesha"
+            android:textSize="16sp"/>
 
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/ayesha_toggle"
+        <RadioButton
+            android:id="@+id/radioRaza"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:thumbTint="#3a8ff7"
-            app:trackTint="#2f3037"/>
-    </LinearLayout>
+            android:text="Raza"
+            android:textSize="16sp"
+            android:visibility="gone"/>
 
-</RelativeLayout>
+        <RadioButton
+            android:id="@+id/radioDavid"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="David"
+            android:textSize="16sp"
+            android:visibility="gone"/>
+
+        <RadioButton
+            android:id="@+id/radioSara"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sara"
+            android:textSize="16sp"
+            android:visibility="gone"/>
+    </RadioGroup>
+
+</LinearLayout>
