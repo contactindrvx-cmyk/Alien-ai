@@ -60,7 +60,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         setupVideoPlayer();
         setupMovement();
         
-        // تھوڑا سا وقفہ دے کر مائیک سٹارٹ کریں تاکہ مین ایپ مائیک چھوڑ دے
         new Handler().postDelayed(this::startWakeWordDetection, 1000);
     }
 
@@ -119,7 +118,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 if (matches != null && !matches.isEmpty()) {
                     String heardText = matches.get(0).toLowerCase();
                     
-                    // 🚨 ٹیسٹنگ کے لیے: ببل کو جو بھی سنائی دے گا، وہ سکرین پر لکھ کر دکھائے گا 🚨
                     Toast.makeText(FloatingBubbleService.this, "سنا: " + heardText, Toast.LENGTH_SHORT).show();
 
                     if (heardText.contains("ayesha") || heardText.contains("عائشہ") || heardText.contains("asha") || heardText.contains("آشا")) {
@@ -133,8 +131,8 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
             @Override
             public void onError(int error) {
                 isListeningNow = false;
-                // 🚨 اگر مائیک بزی ہے تو ایرر بتائے گا 🚨
-                if (error == SpeechRecognizer.ERROR_AUDIO_RECORD) {
+                // 🚨 میں نے یہاں ایرر کا نام ٹھیک کر دیا ہے 🚨
+                if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_AUDIO) {
                     Toast.makeText(FloatingBubbleService.this, "مائیک مین ایپ نے پکڑا ہوا ہے!", Toast.LENGTH_SHORT).show();
                 }
                 restartListening();
@@ -199,7 +197,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                         return true;
                     case MotionEvent.ACTION_UP:
                         if (!isMoving) {
-                            // اگر آپ ببل پر کلک کریں تو ٹیسٹ کے طور پر ویڈیو پلے ہو جائے گی
                             if (mediaPlayer != null) { mediaPlayer.start(); }
                         }
                         return true;
@@ -217,4 +214,4 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-    }
+                                   }
