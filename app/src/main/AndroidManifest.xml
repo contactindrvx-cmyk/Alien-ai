@@ -11,8 +11,8 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/app_icon"
-        android:roundIcon="@drawable/app_icon"
+        android:icon="@drawable/app_logo"
+        android:roundIcon="@drawable/app_logo"
         android:label="Alien AI Chat &amp; Assistant"
         android:theme="@style/Theme.AppCompat.NoActionBar"
         android:usesCleartextTraffic="true">
