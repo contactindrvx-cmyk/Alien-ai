@@ -14,19 +14,30 @@
     to { opacity: 1; transform: translateY(0); } 
 }
 
-/* سپیکر کے لیے ببل کے نیچے تھوڑی سی جگہ (padding-bottom: 35px) رکھی گئی ہے */
+/* ببل کا نارمل ڈیزائن (اب اس کے اندر کوئی فالتو جگہ نہیں) */
 .ayesha-bubble { 
     background-color: #16243d; 
     border-bottom-left-radius: 4px; 
-    margin-top: 15px; 
-    padding-bottom: 35px; 
 }
 
 .user-bubble { 
     background-color: #2f3037; 
-    margin-left: auto; 
     color: #e0e0e0; 
     border-bottom-right-radius: 4px; 
+}
+
+/* نیا: میسج کا کنٹینر (تاکہ سپیکر نیچے تیر سکے) */
+.message-container {
+    position: relative;
+    margin-bottom: 30px; /* سپیکر کے لیے نیچے جگہ */
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.user-container {
+    align-items: flex-end;
+    margin-bottom: 20px;
 }
 
 .gemini-glow { 
@@ -39,26 +50,32 @@
     border-color: #3a8ff7 !important; 
 }
 
-/* 🔊 سمارٹ فلوٹنگ سپیکر (جمنائی سٹائل) */
-.smart-speaker-btn { 
-    position: absolute; 
-    bottom: 8px; 
-    right: 12px; 
-    background: transparent; 
-    border: none; 
-    color: #3a8ff7; 
-    cursor: pointer; 
-    transition: all 0.2s; 
-    padding: 4px; 
-    border-radius: 50%; 
-    z-index: 20;
+/* 🔊 جمنائی سٹائل پروفیشنل فلوٹنگ سپیکر */
+.gemini-speaker-btn {
+    position: absolute;
+    bottom: -28px;
+    left: 8px;
+    background: transparent;
+    border: none;
+    color: #9ca3af; /* گرے کلر، پروفیشنل لک کے لیے */
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: color 0.2s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
 }
 
-.smart-speaker-btn:hover { 
-    background-color: rgba(58, 143, 247, 0.1); 
+.gemini-speaker-btn:active { 
+    transform: scale(0.9); 
 }
 
-/* جب آواز چل رہی ہو تو یہ لال چوکور بنے گا */
-.smart-speaker-btn.playing { 
-    color: #ef4444; 
+.gemini-speaker-btn:hover {
+    color: #e0e0e0;
+}
+
+.gemini-speaker-btn.playing { 
+    color: #3a8ff7; /* پلے ہوتے وقت نیلا ہو جائے گا */
 }
