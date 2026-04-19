@@ -6,16 +6,16 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
-import android.widget.Switch;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
-    private Switch bubbleSwitch;
-    private RadioGroup agentGroup;
+    private WebView webView;
     private SharedPreferences sharedPreferences;
 
     @Override
@@ -23,54 +23,34 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        bubbleSwitch = findViewById(R.id.bubbleSwitch);
-        agentGroup = findViewById(R.id.agentGroup);
         sharedPreferences = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
+        webView = findViewById(R.id.webView);
 
-        // 1. پرانی سیٹنگ لوڈ کریں (سوئچ کی)
-        boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true);
-        bubbleSwitch.setChecked(isEnabled);
+        // ویب ویو کی سیٹنگز
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
 
-        // 2. پرانا سلیکٹڈ ایجنٹ لوڈ کریں اور بٹن کو چیک کریں
-        String currentAgent = sharedPreferences.getString("selectedAgent", "ayesha");
-        if (currentAgent.equals("ayesha")) ((RadioButton) findViewById(R.id.radioAyesha)).setChecked(true);
-        else if (currentAgent.equals("raza")) ((RadioButton) findViewById(R.id.radioRaza)).setChecked(true);
-        else if (currentAgent.equals("david")) ((RadioButton) findViewById(R.id.radioDavid)).setChecked(true);
-        else if (currentAgent.equals("sara")) ((RadioButton) findViewById(R.id.radioSara)).setChecked(true);
+        // 🚀 یہ ہے وہ "پل" جو HTML کو Android سے جوڑے گا 🚀
+        webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 3. سوئچ (On/Off) کے لیے لسنر
-        bubbleSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            sharedPreferences.edit().putBoolean("bubbleEnabled", isChecked).apply();
-            if (isChecked) {
-                checkOverlayPermission();
-            } else {
-                stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
-            }
-        });
-
-        // 4. ایجنٹ (Ayesha/Raza وغیرہ) تبدیل کرنے کے لیے لسنر
-        agentGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            String agentName = "ayesha"; // ڈیفالٹ
-            if (checkedId == R.id.radioRaza) agentName = "raza";
-            else if (checkedId == R.id.radioDavid) agentName = "david";
-            else if (checkedId == R.id.radioSara) agentName = "sara";
-
-            sharedPreferences.edit().putString("selectedAgent", agentName).apply();
-            Toast.makeText(this, "Agent " + agentName + " Selected", Toast.LENGTH_SHORT).show();
-        });
+        webView.setWebViewClient(new WebViewClient());
+        
+        // 🔴 یہاں اپنی HTML فائل کا لنک دیں (اگر assets میں index.html ہے تو ایسے لکھیں)
+        webView.loadUrl("file:///android_asset/index.html"); 
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        // جب آپ ایپ کے اندر ہوں گے، تو ببل غائب ہو جائے گا
+        // ایپ کے اندر ببل غائب
         stopService(new Intent(this, FloatingBubbleService.class));
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        // جب آپ ایپ سے باہر نکلیں گے، تو سیٹنگ کے مطابق ببل خود بخود آ جائے گا
+        // ایپ سے باہر نکلنے پر سیٹنگ کے مطابق ببل دکھائیں
         boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true);
         if (isEnabled && hasOverlayPermission()) {
             startService(new Intent(this, FloatingBubbleService.class));
@@ -89,6 +69,36 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName()));
             startActivityForResult(intent, 1000);
+        }
+    }
+
+    // ========================================================
+    // یہ کلاس HTML سے آرڈر لے کر جاوا میں کام کرے گی
+    // ========================================================
+    public class WebAppInterface {
+
+        // HTML سے ببل آن/آف کرنے کا سگنل
+        @JavascriptInterface
+        public void toggleBubble(boolean isEnabled) {
+            sharedPreferences.edit().putBoolean("bubbleEnabled", isEnabled).apply();
+            runOnUiThread(() -> {
+                if (isEnabled) {
+                    checkOverlayPermission();
+                    Toast.makeText(MainActivity.this, "Bubble Enabled", Toast.LENGTH_SHORT).show();
+                } else {
+                    stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
+                    Toast.makeText(MainActivity.this, "Bubble Disabled", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        // HTML سے ایجنٹ (عائشہ، رضا، ڈیوڈ) بدلنے کا سگنل
+        @JavascriptInterface
+        public void setAgent(String agentName) {
+            sharedPreferences.edit().putString("selectedAgent", agentName).apply();
+            runOnUiThread(() -> {
+                Toast.makeText(MainActivity.this, agentName + " Selected", Toast.LENGTH_SHORT).show();
+            });
         }
     }
 }
