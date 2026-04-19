@@ -1,16 +1,19 @@
 // =========================================================================
-// 1. ایڈوانسڈ آڈیو انجن (Pause / Resume فیچر کے ساتھ)
+// 1. کلاؤڈ آڈیو انجن (بغیر کسی ایرر کے پلے اور پاز)
 // =========================================================================
 window.AyeshaAudio = {
+    audioObj: null,
+    queue: [],
+    lang: 'ur',
     playIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`,
     pauseIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
     currentBtn: null
 };
 
-// جب کوئی نیا میسج آئے یا مائیک دبے تو پرانی آواز کاٹ دے
 window.stopAyeshaCompletely = function() {
-    if('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+    window.AyeshaAudio.queue = []; 
+    if(window.AyeshaAudio.audioObj) {
+        window.AyeshaAudio.audioObj.pause();
     }
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => {
         b.innerHTML = window.AyeshaAudio.playIcon;
@@ -19,58 +22,73 @@ window.stopAyeshaCompletely = function() {
     window.AyeshaAudio.currentBtn = null;
 };
 
-// پلے، پاز اور ریزیوم کا مین لاجک
-window.toggleVoiceMessage = function(btnElement) {
-    if (!('speechSynthesis' in window)) {
-        alert("سپیکر سپورٹ نہیں ہے۔");
+function playCloudQueue(btnElement) {
+    if (window.AyeshaAudio.queue.length === 0) {
+        btnElement.innerHTML = window.AyeshaAudio.playIcon;
+        btnElement.classList.remove('paused');
+        window.AyeshaAudio.currentBtn = null;
         return;
     }
 
+    let textChunk = window.AyeshaAudio.queue.shift();
+    let url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textChunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`;
+    
+    window.AyeshaAudio.audioObj = new Audio(url);
+    window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btnElement);
+    window.AyeshaAudio.audioObj.onerror = () => playCloudQueue(btnElement);
+    
+    window.AyeshaAudio.audioObj.play().catch(e => {
+        console.log("Cloud Audio Error:", e);
+        btnElement.innerHTML = window.AyeshaAudio.playIcon;
+        btnElement.classList.remove('paused');
+    });
+}
+
+window.toggleVoiceMessage = function(btnElement) {
     let rawText = decodeURIComponent(btnElement.getAttribute('data-text'));
     let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
 
-    // اگر یہی بٹن پہلے سے چل رہا ہے تو اسے Pause یا Resume کریں
-    if (window.AyeshaAudio.currentBtn === btnElement) {
-        if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-            window.speechSynthesis.pause(); // ⏸ آواز روک دو
+    // اگر یہی بٹن پہلے سے چل رہا ہے تو پاز / ریزیوم کریں
+    if (window.AyeshaAudio.currentBtn === btnElement && window.AyeshaAudio.audioObj) {
+        if (!window.AyeshaAudio.audioObj.paused) {
+            window.AyeshaAudio.audioObj.pause();
             btnElement.innerHTML = window.AyeshaAudio.playIcon;
-            btnElement.classList.add('paused');
-        } else if (window.speechSynthesis.paused) {
-            window.speechSynthesis.resume(); // ▶ وہیں سے دوبارہ شروع کرو
-            btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
             btnElement.classList.remove('paused');
+        } else {
+            window.AyeshaAudio.audioObj.play();
+            btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
+            btnElement.classList.add('paused');
         }
         return;
     }
 
-    // اگر کوئی نیا میسج پلے کیا ہے تو پرانا بند کرو
+    // نیا میسج چلائیں
     window.stopAyeshaCompletely();
     window.AyeshaAudio.currentBtn = btnElement;
 
-    let speech = new SpeechSynthesisUtterance(cleanText);
     const isUrdu = /[\u0600-\u06FF]/.test(cleanText);
-    speech.lang = isUrdu ? 'ur-PK' : (navigator.language || 'en-US');
-    speech.rate = 0.95; 
+    window.AyeshaAudio.lang = isUrdu ? 'ur' : 'en';
 
-    speech.onstart = () => { 
-        btnElement.innerHTML = window.AyeshaAudio.pauseIcon; 
-        btnElement.classList.remove('paused');
-    };
-    speech.onend = () => { 
-        window.AyeshaAudio.currentBtn = null;
-        btnElement.innerHTML = window.AyeshaAudio.playIcon; 
-    };
-    speech.onerror = () => { 
-        window.AyeshaAudio.currentBtn = null;
-        btnElement.innerHTML = window.AyeshaAudio.playIcon; 
-    };
+    // کلاؤڈ کے لیے لمبے میسج کو چھوٹے حصوں میں توڑنا
+    let parts = cleanText.match(/[^.!?؟\n]+[.!?؟\n]+/g) || [cleanText];
+    let safeParts = [];
+    parts.forEach(p => {
+        if(p.length > 150) {
+            let subParts = p.match(/.{1,150}(\s|$)/g) || [p];
+            safeParts = safeParts.concat(subParts);
+        } else { safeParts.push(p); }
+    });
 
-    window.speechSynthesis.speak(speech);
+    window.AyeshaAudio.queue = safeParts.filter(p => p.trim().length > 0);
+    btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
+    btnElement.classList.add('paused');
+    
+    playCloudQueue(btnElement);
 };
 
 
 // =========================================================================
-// 2. مین UI، سنگل ٹائپنگ اور میسج ہینڈلنگ
+// 2. مین UI، ڈبل ٹائپنگ کا خاتمہ اور میسج ہینڈلنگ
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -95,8 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
         indicatorText.innerText = text;
         thinkingIndicator.classList.remove('hidden');
         thinkingIndicator.classList.add('flex');
-        chatBox.appendChild(thinkingIndicator);
-        chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     function hideThinking() {
@@ -159,14 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
     menuBtn.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
     overlay.onclick = () => { sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden'); };
 
-    // 🔴 یہ رہا رائٹ الائن (dir="auto") اور سٹکی سپیکر والا میسج فنکشن
     function addMessage(text, sender, imgSrc = null) {
         const msgDiv = document.createElement('div');
         let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7] shadow-lg">` : '';
 
         if (sender === 'user') {
             msgDiv.className = 'w-full flex justify-end mt-4';
-            // dir="auto" خود چیک کرے گا کہ اردو ہے تو رائٹ سے شروع کرے
             msgDiv.innerHTML = `
                 <div class="chat-bubble user-bubble border border-[#3a8ff7]">
                     ${imgHtml}<p dir="auto" style="white-space: pre-wrap;">${text}</p>
@@ -216,10 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
             addMessage(replyText, 'assistant');
             
             // آٹو پلے کے لیے یوزر کے میسج والے بٹن کو ٹرگر کر دیں
-            const allBtns = document.querySelectorAll('.gemini-speaker-btn');
-            if(allBtns.length > 0) {
-                window.toggleVoiceMessage(allBtns[allBtns.length - 1]);
-            }
+            setTimeout(() => {
+                const allBtns = document.querySelectorAll('.gemini-speaker-btn');
+                if(allBtns.length > 0) {
+                    window.toggleVoiceMessage(allBtns[allBtns.length - 1]);
+                }
+            }, 300);
             
         } catch (err) {
             hideThinking();
@@ -227,8 +243,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 🔴 ڈبل ٹائپنگ فکس (اب الفاظ آپس میں نہیں جڑیں گے)
+    // 🔴 ڈبل ٹائپنگ کا پکا اور فائنل فکس
     let recognition = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+
     if ('webkitSpeechRecognition' in window) {
         try {
             recognition = new webkitSpeechRecognition();
@@ -243,12 +262,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.placeholder = "بولیں، رئیل ٹائم ٹائپ ہو رہا ہے...";
             };
 
-            // یہ نیا لاجک 100% سنگل ٹائپنگ دے گا
+            // یہ لوپ ہمیشہ زیرو (0) سے شروع ہوگا اور پرانے الفاظ دوبارہ نہیں لکھے گا
             recognition.onresult = function(event) {
-                let fullTranscript = Array.from(event.results)
-                                          .map(result => result[0].transcript)
-                                          .join('');
-                input.value = fullTranscript;
+                let fullText = '';
+                for (let i = 0; i < event.results.length; ++i) {
+                    fullText += event.results[i][0].transcript;
+                }
+                input.value = fullText;
                 updateUI();
             };
 
@@ -307,10 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
             sendToHuggingFace(text, null);
         }
     });
-
-    document.body.addEventListener('click', () => {
-        try { if('speechSynthesis' in window) { window.speechSynthesis.resume(); } } catch(e){}
-    }, {once:true});
 
 });
                           
