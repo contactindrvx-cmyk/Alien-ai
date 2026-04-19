@@ -8,7 +8,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.view.View;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -57,7 +56,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // اگر پہلے سے آن ہے تو سروس چلاؤ
         if (isAyeshaActive) startAyeshaService();
     }
 
@@ -67,27 +65,22 @@ public class MainActivity extends AppCompatActivity {
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                // ⚡ کوئی ڈیلے نہیں، جیسے ہی پیج لوڈ ہوا اینیمیشن غائب
-                findViewById(R.id.lottieAnimationView).setVisibility(View.GONE);
-                webView.setVisibility(View.VISIBLE);
-            }
-        });
+        webView.setWebViewClient(new WebViewClient());
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(PermissionRequest r) {
-                r.grant(r.getResources());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    r.grant(r.getResources());
+                }
             }
             @Override
             public boolean onShowFileChooser(WebView wv, ValueCallback<Uri[]> cb, FileChooserParams p) {
                 filePathCallback = cb;
                 Intent i = new Intent(Intent.ACTION_GET_CONTENT);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
-                i.setType("image/*");
-                startActivityForResult(Intent.createChooser(i, "Select Image"), FILE_CHOOSER_REQUEST_CODE);
+                i.setType("*/*");
+                startActivityForResult(Intent.createChooser(i, "Select File"), FILE_CHOOSER_REQUEST_CODE);
                 return true;
             }
         });
@@ -118,4 +111,14 @@ public class MainActivity extends AppCompatActivity {
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
-}
+
+    @Override
+    public void onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
+    }
+        }
+            
