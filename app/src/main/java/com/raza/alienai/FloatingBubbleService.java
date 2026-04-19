@@ -2,6 +2,7 @@ package com.raza.alienai;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
@@ -61,14 +62,27 @@ public class FloatingBubbleService extends Service {
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
                 mediaPlayer = new MediaPlayer();
                 try {
-                    AssetFileDescriptor afd = getAssets().openFd("bubble_video.mp4");
+                    SharedPreferences prefs = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
+                    String selectedAgent = prefs.getString("selectedAgent", "ayesha"); 
+                    String videoFile = selectedAgent + "_video.mp4";
+
+                    AssetFileDescriptor afd;
+                    try {
+                        // پہلے چیک کرو کہ کیا سلیکٹ کیے گئے ایجنٹ کی ویڈیو موجود ہے؟
+                        afd = getAssets().openFd(videoFile);
+                    } catch (Exception e) {
+                        // اگر ویڈیو نہ ملے (یعنی ابھی ڈمی ہے)، تو چپ چاپ عائشہ کی ویڈیو لوڈ کر دو تاکہ ایپ کریش نہ ہو
+                        afd = getAssets().openFd("ayesha_video.mp4");
+                    }
+
                     mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
                     mediaPlayer.setSurface(new Surface(surface));
+                    mediaPlayer.setLooping(true);
                     mediaPlayer.prepare();
                     
-                    // ویڈیو کو لوڈ کر کے پوز کرنے کا لاجک
                     mediaPlayer.seekTo(100); 
                     mediaPlayer.pause();     
+                    
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -114,7 +128,6 @@ public class FloatingBubbleService extends Service {
                         int Xdiff = (int) (event.getRawX() - initialTouchX);
                         int Ydiff = (int) (event.getRawY() - initialTouchY);
                         
-                        // کلک ہونے پر مین ایپ اوپن کرو
                         if (Math.abs(Xdiff) < 10 && Math.abs(Ydiff) < 10) {
                             Intent openAppIntent = new Intent(FloatingBubbleService.this, MainActivity.class);
                             openAppIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
