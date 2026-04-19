@@ -1,5 +1,5 @@
 // =========================================================================
-// 1. آڈیو انجن اور ہارڈویئر کمانڈز
+// 1. آڈیو انجن، ہارڈویئر کمانڈز اور کلاؤڈ پلے بیک
 // =========================================================================
 window.AyeshaAudio = {
     audioObj: null,
@@ -29,7 +29,7 @@ async function toggleTorch(state) {
     } catch (e) { console.log("Torch not supported."); }
 }
 
-// 🎯 فرنٹ اینڈ ہارڈویئر کمانڈز
+// 🎯 فرنٹ اینڈ ہارڈویئر کمانڈ ایگزیکیوٹر
 function executeHardwareCommandLocally(text) {
     let cmd = text.toLowerCase();
     if (cmd.includes("وائبریٹ") || cmd.includes("vibrate")) {
@@ -97,7 +97,7 @@ window.toggleVoiceMessage = function(btnElement) {
 };
 
 // =========================================================================
-// 2. مین UI (بغیر کسی ٹائمر یا لوپ کے، 100% پرسکون مینول کنٹرول)
+// 2. مین UI (آپ کے دیے گئے پرانے اور کامیاب کوڈ پر مبنی)
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -114,22 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const removeImgBtn = document.getElementById('remove-img-btn');
     const chatBox = document.getElementById('chat-box');
     const thinkingIndicator = document.getElementById('thinking-indicator');
+    const indicatorText = document.getElementById('indicator-text');
 
-    let isRecording = false;
     let pendingImageFile = null; 
-
-    function showThinking(text) {
-        document.getElementById('indicator-text').innerText = text;
-        thinkingIndicator.classList.remove('hidden');
-        thinkingIndicator.classList.add('flex');
-        chatBox.appendChild(thinkingIndicator);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    function hideThinking() {
-        thinkingIndicator.classList.add('hidden');
-        thinkingIndicator.classList.remove('flex');
-    }
 
     function updateUI() {
         const hasText = input.value.trim().length > 0;
@@ -211,22 +198,25 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onerror = error => reject(error);
     });
 
-    async function sendToHuggingFace(text, file, audioBlob = null) {
-        showThinking(file ? "تصویر دیکھ رہی ہے..." : (audioBlob ? "آواز سن رہی ہے..." : "ٹائپ کر رہی ہے..."));
+    async function sendToHuggingFace(text, file) {
+        indicatorText.innerText = "سوچ رہی ہے...";
+        thinkingIndicator.classList.remove('hidden'); thinkingIndicator.classList.add('flex');
+
         const API_URL = "https://aigrowthbox-ayesha-ai.hf.space/chat"; 
         let payload = { message: text || "", email: "alirazasabir007@gmail.com", local_time: new Date().toLocaleTimeString() };
         
         try {
             if (file) payload.image = await fileToBase64(file);
-            if (audioBlob) payload.audio = await fileToBase64(audioBlob); 
             
             const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
             const data = await res.json();
-            hideThinking();
+            
+            thinkingIndicator.classList.add('hidden'); thinkingIndicator.classList.remove('flex');
             
             const replyText = data.response || "معاف کیجیے، میں سمجھ نہیں سکی۔";
             addMessage(replyText, 'assistant');
             
+            // 🎯 ہارڈویئر کمانڈز (عائشہ کی طرف سے)
             if (replyText.includes("وائبریٹ") || replyText.toLowerCase().includes("vibrate") || data.vibrate) {
                 if (navigator.vibrate) navigator.vibrate([200, 100, 300, 100, 400]); 
             }
@@ -237,128 +227,102 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 300);
             
         } catch (err) {
-            hideThinking();
+            thinkingIndicator.classList.add('hidden'); thinkingIndicator.classList.remove('flex');
             addMessage("سرور آف لائن ہے۔ انٹرنیٹ چیک کریں۔", 'assistant');
         }
     }
 
-    // 🚀 آل لینگویج وائس ٹائپنگ انجن (بغیر کسی ری سٹارٹ لوپ کے!)
-    let recognition = null;
-    let finalTranscript = ''; 
-    let mediaRecorder = null;
-    let audioChunks = [];
+
+    // 🚀 آپ کا بھیجا ہوا گولڈن وائس انجن (بغیر کسی کچرے کے)
+    let recognition;
+    let isRecording = false;
 
     if ('webkitSpeechRecognition' in window) {
-        try {
-            recognition = new webkitSpeechRecognition();
-            recognition.continuous = true; 
-            recognition.interimResults = true; 
-            recognition.lang = 'en-US'; // گولڈن سیٹنگ
-
-            recognition.onresult = function(event) {
-                let currentInterim = '';
-                let finalStr = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalStr += event.results[i][0].transcript + ' ';
-                    } else {
-                        currentInterim += event.results[i][0].transcript;
-                    }
-                }
-                if (finalStr) { finalTranscript += finalStr; }
-                
-                // سکرین پر لائیو دکھاؤ
-                input.value = (finalTranscript + ' ' + currentInterim).replace(/\s+/g, ' ').trim();
-                updateUI();
-            };
-
-            recognition.onerror = function(e) { console.log("Speech Error:", e.error); };
-            
-            // ❌ میں نے یہاں سے وہ ری سٹارٹ والا کوڈ اڑا دیا ہے جو ٹک-ٹک کی آواز کر رہا تھا۔ 
-            // اب یہ خاموشی سے سنتا رہے گا، اور آپ کے پاز لینے پر کوئی کلچ نہیں مارے گا!
-            recognition.onend = function() {
-               // Do nothing. No forced restarts!
-            };
-
-        } catch (e) { console.log("Speech recognition failed."); }
-    }
-
-    // 🔴 پرفیکٹ مینول سینڈ فنکشن
-    function stopRecordingAndSend() {
-        if (!isRecording) return;
-        isRecording = false; 
-        input.placeholder = "پروسیس ہو رہا ہے...";
-
-        if (recognition) { try { recognition.stop(); } catch(e){} }
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false; // 👈 یہی وہ لائن تھی جو آٹو سینڈ کو سموتھ بناتی تھی
+        recognition.interimResults = true;
         
-        // ہلکا سا ڈیلے تاکہ آڈیو فائل مکمل سیو ہو کر سینڈ ہو جائے
-        setTimeout(() => {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop(); 
+        // 🌍 یہ لائن جادو ہے! جاپانی فون پر جاپانی، انگلش پر انگلش، رومن اردو سنے گی
+        recognition.lang = navigator.language || 'en-US'; 
+
+        recognition.onstart = function() {
+            window.stopAyeshaCompletely();
+            isRecording = true;
+            input.value = '';
+            updateUI();
+            input.placeholder = "Listening...";
+        };
+
+        recognition.onresult = function(event) {
+            let interimTranscript = '';
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
+                }
             }
-        }, 300);
+            input.value = finalTranscript || interimTranscript;
+            updateUI();
+        };
+
+        // 🎯 100% پرفیکٹ آٹو سینڈ لاجک (جو آپ کے کوڈ میں تھا)
+        recognition.onend = function() {
+            isRecording = false;
+            input.placeholder = "Ask something...";
+            updateUI();
+            
+            // اگر کچھ لکھا گیا ہے، تو 600ms بعد سینڈ مار دو! (یہی تو پرفیکشن تھی)
+            if (input.value.trim().length > 0) {
+                setTimeout(() => {
+                    const text = input.value.trim();
+                    const imageToSend = pendingImageFile;
+
+                    executeHardwareCommandLocally(text); // ہارڈویئر کمانڈز
+                    
+                    addMessage(text, 'user', imageToSend ? previewImg.src : null);
+                    
+                    input.value = ''; 
+                    pendingImageFile = null; 
+                    previewImg.src = "";
+                    previewContainer.classList.add('hidden');
+                    fileInput.value = "";
+                    updateUI();
+                    
+                    sendToHuggingFace(text, imageToSend);
+                }, 600); 
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error("Speech Error: ", event.error);
+            stopRecording();
+        };
+    } else {
+        console.log("Voice typing not supported on this device.");
     }
 
-    async function startRecording() {
-        window.stopAyeshaCompletely();
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-            
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                
-                // 🎯 100% گارنٹی: جو سکرین پر موجود ہے، وہی جائے گا
-                const spokenText = input.value.trim();
-                const imageToSend = pendingImageFile;
-                
-                if (spokenText || audioChunks.length > 0) {
-                    if(spokenText) executeHardwareCommandLocally(spokenText);
-
-                    // اگر ٹیکسٹ ہے تو وہ دکھاؤ، ورنہ آڈیو میسج
-                    const displayText = spokenText ? spokenText : "🎤 آڈیو میسج";
-                    addMessage(displayText, 'user', imageToSend ? previewImg.src : null);
-                    
-                    sendToHuggingFace(spokenText, imageToSend, audioBlob); 
-                }
-                
-                // سب صاف کرو
-                input.value = ''; 
-                finalTranscript = '';
-                pendingImageFile = null; 
-                previewImg.src = "";
-                previewContainer.classList.add('hidden');
-                fileInput.value = "";
-                
-                stream.getTracks().forEach(track => track.stop());
-                updateUI();
-                input.placeholder = "Ask something...";
-            };
-
+    function startRecording() {
+        if (recognition) {
             input.value = ''; 
-            finalTranscript = '';
-            
-            if (recognition) { try { recognition.start(); } catch(e){} }
-            mediaRecorder.start(); 
-            
-            isRecording = true;
-            updateUI();
-            input.placeholder = "بولیں... (بھیجنے کے لیے سٹاپ کا بٹن دبائیں)";
-            showThinking("عائشہ سن رہی ہے...");
-            
-        } catch (err) {
-            alert("مائیکروفون کی اجازت درکار ہے!");
+            recognition.start();
+        } else {
+            alert("Voice typing not supported on this device.");
         }
     }
 
-    // 🎯 نارمل ٹیکسٹ سینڈ کرنے کے لیے
+    function stopRecording() {
+        if (recognition) {
+            recognition.stop(); 
+        }
+    }
+
+    // 🎯 بٹنز کے کلک ایونٹس
     sendActionBtn.onclick = (e) => {
         e.preventDefault();
         window.stopAyeshaCompletely();
-
+        
         const text = input.value.trim();
         const imageToSend = pendingImageFile;
         
@@ -374,24 +338,18 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.value = "";
             updateUI(); 
             
-            sendToHuggingFace(text, imageToSend, null); 
+            sendToHuggingFace(text, imageToSend); 
         }
     };
 
-    // 🎯 مائیک کا 100% مینول کنٹرول (دبائیں تو چلے گا، دبائیں تو رکے گا اور سینڈ ہوگا)
     micActionBtn.onclick = (e) => {
         e.preventDefault();
-        if (isRecording) {
-            stopRecordingAndSend(); 
-        } else {
-            startRecording(); 
-        }
+        isRecording ? stopRecording() : startRecording();
     };
 
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && (input.value.trim().length > 0 || pendingImageFile)) {
-            if (isRecording) stopRecordingAndSend();
-            else sendActionBtn.click();
+            sendActionBtn.click();
         }
     });
 
@@ -400,4 +358,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {once:true});
 
 });
-        
+    
