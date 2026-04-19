@@ -14,10 +14,11 @@ public class AyeshaAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // یہاں ہم اگلی سٹیج میں دماغ (Logic) ڈالیں گے
+        // یہ وہ جگہ ہے جہاں ہم عائشہ کا آٹو کلک والا ماسٹر پلان لکھیں گے
     }
 
     @Override
     public void onInterrupt() {
+        // جب سروس روکی جائے
     }
 }
