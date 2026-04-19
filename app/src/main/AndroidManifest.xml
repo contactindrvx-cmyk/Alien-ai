@@ -11,7 +11,9 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/app_logo"       android:roundIcon="@drawable/app_logo"  android:label="Ayesha AI"
+        android:icon="@drawable/app_logo"
+        android:roundIcon="@drawable/app_logo"
+        android:label="Alien AI Chat Assistant"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar"
         android:usesCleartextTraffic="true">
@@ -37,6 +39,9 @@
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
         </service>
 
     </application>
