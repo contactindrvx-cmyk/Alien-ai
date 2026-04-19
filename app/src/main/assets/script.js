@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isRecording = false;
     let pendingImageFile = null; 
 
-    // 🔴 آٹو سینڈ کے لیے ٹائمر ویری ایبل
+    // 🔴 آٹو سینڈ ٹائمر
     let silenceTimer = null;
 
     function showThinking(text) {
@@ -243,22 +243,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 🔴 ریکارڈنگ کو محفوظ طریقے سے سٹاپ اور سینڈ کرنے کا فنکشن
+    // 🔴 1. آٹو سینڈ اور "ٹیکسٹ کیچنگ" کا پکا حل (Delay Fix)
     function stopRecordingAndSend() {
         if (!isRecording) return;
         clearTimeout(silenceTimer);
+
+        // یوزر کو فوراً بتاؤ کہ پراسیس ہو رہا ہے
+        micActionBtn.classList.remove('recording-pulse');
+        input.placeholder = "الفاظ کیچ کر رہی ہے...";
+
+        // ٹائپنگ انجن کو بولو کہ بس اب آخری لفظ دو!
         if (recognition) { try { recognition.stop(); } catch(e){} }
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
-        }
+
+        // ⏳ جادو: آدھا سیکنڈ (500ms) رکو تاکہ آخری لفظ سکرین پر آ جائے، پھر سینڈ کرو!
+        setTimeout(() => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop(); 
+            }
+        }, 500);
     }
 
-    // 🔴 خاموشی کا ٹائمر ری سیٹ کرنے کا فنکشن (2.5 سیکنڈ)
     function resetSilenceTimer() {
         clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
             if (isRecording) {
-                stopRecordingAndSend(); // 2.5 سیکنڈ خاموشی پر خود سینڈ کر دے گا
+                stopRecordingAndSend(); // 2.5 سیکنڈ خاموشی پر خود سینڈ
             }
         }, 2500);
     }
@@ -287,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (finalStr) { stableTranscript += finalStr; }
                 
-                // کچے اور پکے الفاظ ملا کر فائنل ٹیکسٹ ان پٹ میں ڈالیں
                 input.value = (stableTranscript + interimStr).replace(/\s+/g, ' ').trim();
                 updateUI();
                 
@@ -311,26 +319,26 @@ document.addEventListener('DOMContentLoaded', () => {
             mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 
-                // 🎯 اصل ٹرانسکرپشن اٹھانا (اب کبھی مس نہیں ہوگا)
+                // 🎯 2. اب یہاں 100% پکا اور فائنل ٹیکسٹ ملے گا (کوئی آڈیو میسج کا ٹیگ نہیں)
                 const spokenText = input.value.trim();
                 const imageToSend = pendingImageFile;
                 
-                if (spokenText || audioChunks.length > 0) {
-                    // اگر واقعی ٹیکسٹ کیچ ہو گیا ہے تو وہ دکھائیں ورنہ مجبوری میں آڈیو میسج کا ٹیگ
-                    const displayText = spokenText ? spokenText : "🎤 آڈیو میسج";
-                    addMessage(displayText, 'user', imageToSend ? previewImg.src : null);
-                    
+                if (spokenText) {
+                    // اگر آپ نے کچھ بولا ہے تو وہی ٹیکسٹ ببل میں شو ہوگا!
+                    addMessage(spokenText, 'user', imageToSend ? previewImg.src : null);
                     sendToHuggingFace(spokenText, imageToSend, audioBlob);
-                    
-                    // سب صاف کرو
-                    input.value = ''; 
-                    stableTranscript = '';
-                    pendingImageFile = null; 
-                    previewImg.src = "";
-                    previewContainer.classList.add('hidden');
-                    fileInput.value = "";
-                    updateUI();
+                } else if (audioChunks.length > 0) {
+                    // اگر سچ میں کوئی لفظ کیچ نہیں ہوا (مثلاً صرف شور تھا یا ہوا کی آواز)
+                    addMessage("🎤 (آواز صاف نہیں تھی)", 'user', imageToSend ? previewImg.src : null);
+                    sendToHuggingFace("", imageToSend, audioBlob);
                 }
+                
+                input.value = ''; 
+                stableTranscript = '';
+                pendingImageFile = null; 
+                previewImg.src = "";
+                previewContainer.classList.add('hidden');
+                fileInput.value = "";
                 
                 stream.getTracks().forEach(track => track.stop());
                 isRecording = false;
@@ -385,7 +393,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && input.value.trim().length > 0) {
-            sendActionBtn.click();
+            if (isRecording) {
+                stopRecordingAndSend();
+            } else {
+                sendActionBtn.click();
+            }
         }
     });
 
@@ -394,4 +406,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {once:true});
 
 });
-        
+                                                                                                                                                            
