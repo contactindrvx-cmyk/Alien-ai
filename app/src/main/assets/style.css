@@ -14,10 +14,12 @@
     to { opacity: 1; transform: translateY(0); } 
 }
 
+/* سپیکر کے لیے ببل کے نیچے تھوڑی سی جگہ (padding-bottom: 35px) رکھی گئی ہے */
 .ayesha-bubble { 
     background-color: #16243d; 
     border-bottom-left-radius: 4px; 
     margin-top: 15px; 
+    padding-bottom: 35px; 
 }
 
 .user-bubble { 
@@ -37,28 +39,26 @@
     border-color: #3a8ff7 !important; 
 }
 
-/* 🔊 عائشہ کے میسج کے اندر پلے بٹن */
-.inline-play-btn { 
-    display: inline-flex; 
-    align-items: center; 
-    justify-content: center; 
-    background: rgba(58,143,247,0.15); 
+/* 🔊 سمارٹ فلوٹنگ سپیکر (جمنائی سٹائل) */
+.smart-speaker-btn { 
+    position: absolute; 
+    bottom: 8px; 
+    right: 12px; 
+    background: transparent; 
+    border: none; 
     color: #3a8ff7; 
-    border-radius: 50%; 
-    width: 32px; 
-    height: 32px; 
     cursor: pointer; 
-    margin-top: 10px; 
-    transition: 0.2s; 
-    border: 1px solid #3a8ff7;
+    transition: all 0.2s; 
+    padding: 4px; 
+    border-radius: 50%; 
+    z-index: 20;
 }
 
-.inline-play-btn:active { 
-    transform: scale(0.9); 
+.smart-speaker-btn:hover { 
+    background-color: rgba(58, 143, 247, 0.1); 
 }
 
-.inline-play-btn.playing { 
+/* جب آواز چل رہی ہو تو یہ لال چوکور بنے گا */
+.smart-speaker-btn.playing { 
     color: #ef4444; 
-    border-color: #ef4444; 
-    background: rgba(239,68,68,0.15); 
 }
