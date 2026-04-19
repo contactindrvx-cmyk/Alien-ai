@@ -1,10 +1,7 @@
 package com.raza.alienai;
 
 import android.app.Service;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.PixelFormat;
@@ -17,6 +14,7 @@ import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -26,8 +24,9 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Toast;
 import java.util.ArrayList;
+import java.util.Locale;
 
-public class FloatingBubbleService extends Service {
+public class FloatingBubbleService extends Service implements TextToSpeech.OnInitListener {
 
     private WindowManager windowManager;
     private View bubbleView;
@@ -35,47 +34,26 @@ public class FloatingBubbleService extends Service {
     private MediaPlayer mediaPlayer;
     private SpeechRecognizer speechRecognizer;
     private Intent speechIntent;
+    private TextToSpeech tts; // 🌟 عائشہ کی اپنی آواز 🌟
     private boolean isListening = false;
     private Surface currentSurface;
-    private Handler restartHandler = new Handler(Looper.getMainLooper()); // 🌟 مائیک کو پاگل ہونے سے بچانے کے لیے 🌟
+    private Handler restartHandler = new Handler(Looper.getMainLooper());
 
     @Override
     public IBinder onBind(Intent intent) { return null; }
-
-    private BroadcastReceiver videoControlReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (mediaPlayer == null) return;
-            if ("com.raza.alienai.PLAY_VIDEO".equals(intent.getAction())) {
-                if (!mediaPlayer.isPlaying()) mediaPlayer.start();
-            } else if ("com.raza.alienai.PAUSE_VIDEO".equals(intent.getAction())) {
-                if (mediaPlayer.isPlaying()) {
-                    mediaPlayer.pause();
-                    mediaPlayer.seekTo(100);
-                }
-            }
-        }
-    };
 
     @Override
     public void onCreate() {
         super.onCreate();
 
-        IntentFilter filter = new IntentFilter();
-        filter.addAction("com.raza.alienai.PLAY_VIDEO");
-        filter.addAction("com.raza.alienai.PAUSE_VIDEO");
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(videoControlReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(videoControlReceiver, filter);
-        }
+        // 1. عائشہ کی آواز (TTS) تیار کریں
+        tts = new TextToSpeech(this, this);
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
 
         int layoutFlag = (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) ? 
-                         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
-                         WindowManager.LayoutParams.TYPE_PHONE;
+                         2038 : 2002;
 
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
@@ -87,8 +65,21 @@ public class FloatingBubbleService extends Service {
 
         setupVideoPlayer();
         setupMovement();
-        
         startWakeWordDetection();
+    }
+
+    // TTS سیٹ اپ
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts.setLanguage(new Locale("ur", "PK")); // اردو آواز
+        }
+    }
+
+    private void speak(String text) {
+        if (tts != null) {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AyeshaReply");
+        }
     }
 
     private void setupVideoPlayer() {
@@ -122,38 +113,31 @@ public class FloatingBubbleService extends Service {
     }
 
     private void startWakeWordDetection() {
+        if (speechRecognizer != null) speechRecognizer.destroy();
+        
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
+        speechIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onResults(Bundle results) {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                boolean found = false;
                 if (matches != null) {
                     for (String text : matches) {
                         String speech = text.toLowerCase();
                         if (speech.contains("ayesha") || speech.contains("عائشہ")) {
-                            activateAgent("ayesha", "جی رضا بھائی، عائشہ سن رہی ہے!");
-                            found = true; break;
-                        } else if (speech.contains("alex") || speech.contains("ایلیکس")) {
-                            activateAgent("alex", "Hello Raza, Alex is active!");
-                            found = true; break;
-                        } else if (speech.contains("raza") || speech.contains("رضا")) {
-                            activateAgent("raza", "جی رضا، آپ کا پرسنل اسسٹنٹ حاضر ہے!");
-                            found = true; break;
-                        } else if (speech.contains("sara") || speech.contains("سارہ")) {
-                            activateAgent("sara", "جی، سارہ آپ کی خدمت میں حاضر ہے!");
-                            found = true; break;
+                            activateAgent("ayesha", "جی رضا بھائی، میں سن رہی ہوں");
+                            return;
                         }
                     }
                 }
-                if (!found) restartListeningWithDelay(); // 🌟 اگر نام نہ ملے تو وقفے کے ساتھ ری سٹارٹ کرو
+                restartListening();
             }
 
-            @Override public void onError(int error) { restartListeningWithDelay(); }
+            @Override public void onError(int error) { restartListening(); }
             @Override public void onReadyForSpeech(Bundle params) {}
             @Override public void onBeginningOfSpeech() {}
             @Override public void onRmsChanged(float rmsdB) {}
@@ -166,57 +150,45 @@ public class FloatingBubbleService extends Service {
         speechRecognizer.startListening(speechIntent);
     }
 
-    // 🌟 مائیک کو 1 سیکنڈ کے وقفے سے ری سٹارٹ کرنے کا لاجک تاکہ بیپ بیپ تنگ نہ کرے 🌟
-    private void restartListeningWithDelay() {
+    private void restartListening() {
+        restartHandler.removeCallbacksAndMessages(null);
         restartHandler.postDelayed(() -> {
-            if (speechRecognizer != null && !isListening) {
-                try { speechRecognizer.startListening(speechIntent); } catch (Exception e) {}
-            }
-        }, 1000);
+            try { speechRecognizer.startListening(speechIntent); } catch (Exception e) {}
+        }, 500);
     }
 
-    private void activateAgent(String agentName, String greetingMsg) {
-        Toast.makeText(this, greetingMsg, Toast.LENGTH_SHORT).show();
-        getSharedPreferences("AyeshaPrefs", MODE_PRIVATE).edit().putString("selectedAgent", agentName).apply();
+    private void activateAgent(String agentName, String greeting) {
+        speak(greeting); // 🌟 اب عائشہ خود بولے گی 🌟
         
-        loadAgentVideo(agentName);
-        if (mediaPlayer != null) mediaPlayer.start();
-
-        // 🚀 سب سے اہم جادو: ایپ کو فوراً سکرین پر لاؤ تاکہ دماغ (JS) کام کر سکے! 🚀
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.putExtra("WAKE_AGENT", agentName);
-        startActivity(intent);
+        if (mediaPlayer != null) {
+            mediaPlayer.start();
+            new Handler().postDelayed(() -> {
+                if (mediaPlayer != null) {
+                    mediaPlayer.pause();
+                    mediaPlayer.seekTo(100);
+                }
+            }, 3000); // 3 سیکنڈ ویڈیو چلا کر روک دو
+        }
+        
+        // یہاں ہم فیوچر میں ہگنگ فیس کا براہ راست جاوا لنک ڈالیں گے
+        restartListening();
     }
 
     private void setupMovement() {
         bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener(new View.OnTouchListener() {
             private int initialX, initialY;
             private float initialTouchX, initialTouchY;
-            private boolean isMoving = false;
-
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         initialX = params.x; initialY = params.y;
                         initialTouchX = event.getRawX(); initialTouchY = event.getRawY();
-                        isMoving = false;
                         return true;
                     case MotionEvent.ACTION_MOVE:
-                        if (Math.abs(event.getRawX() - initialTouchX) > 10 || Math.abs(event.getRawY() - initialTouchY) > 10) {
-                            isMoving = true;
-                            params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                            params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                            windowManager.updateViewLayout(bubbleView, params);
-                        }
-                        return true;
-                    case MotionEvent.ACTION_UP:
-                        if (!isMoving) {
-                            Intent i = new Intent(FloatingBubbleService.this, MainActivity.class);
-                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(i);
-                        }
+                        params.x = initialX + (int) (event.getRawX() - initialTouchX);
+                        params.y = initialY + (int) (event.getRawY() - initialTouchY);
+                        windowManager.updateViewLayout(bubbleView, params);
                         return true;
                 }
                 return false;
@@ -227,9 +199,9 @@ public class FloatingBubbleService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (tts != null) { tts.stop(); tts.shutdown(); }
         if (speechRecognizer != null) speechRecognizer.destroy();
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-    }
-                                                         
+}
