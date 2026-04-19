@@ -1,70 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Ayesha AI Settings"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="30dp"/>
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
-    <Switch
-        android:id="@+id/bubbleSwitch"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Floating Bubble On/Off"
-        android:textSize="18sp"
-        android:layout_marginBottom="30dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Select Your Agent:"
-        android:textSize="18sp"
-        android:layout_marginBottom="10dp"/>
-
-    <RadioGroup
-        android:id="@+id/agentGroup"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <RadioButton
-            android:id="@+id/radioAyesha"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Ayesha"
-            android:textSize="16sp"/>
-
-        <RadioButton
-            android:id="@+id/radioRaza"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Raza"
-            android:textSize="16sp"
-            android:visibility="gone"/>
-
-        <RadioButton
-            android:id="@+id/radioDavid"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="David"
-            android:textSize="16sp"
-            android:visibility="gone"/>
-
-        <RadioButton
-            android:id="@+id/radioSara"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Sara"
-            android:textSize="16sp"
-            android:visibility="gone"/>
-    </RadioGroup>
-
-</LinearLayout>
+</RelativeLayout>
