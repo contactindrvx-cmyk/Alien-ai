@@ -14,30 +14,20 @@
     to { opacity: 1; transform: translateY(0); } 
 }
 
-/* ببل کا نارمل ڈیزائن (اب اس کے اندر کوئی فالتو جگہ نہیں) */
 .ayesha-bubble { 
     background-color: #16243d; 
     border-bottom-left-radius: 4px; 
-}
-
-.user-bubble { 
-    background-color: #2f3037; 
-    color: #e0e0e0; 
-    border-bottom-right-radius: 4px; 
-}
-
-/* نیا: میسج کا کنٹینر (تاکہ سپیکر نیچے تیر سکے) */
-.message-container {
-    position: relative;
-    margin-bottom: 30px; /* سپیکر کے لیے نیچے جگہ */
-    width: 100%;
+    margin-top: 15px; 
+    /* سپیکر کو اندر تیرنے دینے کے لیے */
     display: flex;
     flex-direction: column;
 }
 
-.user-container {
-    align-items: flex-end;
-    margin-bottom: 20px;
+.user-bubble { 
+    background-color: #2f3037; 
+    margin-left: auto; 
+    color: #e0e0e0; 
+    border-bottom-right-radius: 4px; 
 }
 
 .gemini-glow { 
@@ -50,32 +40,32 @@
     border-color: #3a8ff7 !important; 
 }
 
-/* 🔊 جمنائی سٹائل پروفیشنل فلوٹنگ سپیکر */
+/* 🔊 جمنائی سٹائل سٹکی (Sticky) فلوٹنگ سپیکر */
 .gemini-speaker-btn {
-    position: absolute;
-    bottom: -28px;
-    left: 8px;
-    background: transparent;
-    border: none;
-    color: #9ca3af; /* گرے کلر، پروفیشنل لک کے لیے */
+    position: sticky;
+    bottom: 0px; /* لمبی چیٹ میں یہ نیچے چپکا رہے گا */
+    align-self: flex-start; /* ببل کے اندر بائیں طرف */
+    margin-top: 12px;
+    background: rgba(58, 143, 247, 0.15);
+    border: 1px solid #3a8ff7;
+    color: #3a8ff7;
     cursor: pointer;
-    padding: 4px;
+    padding: 6px;
     border-radius: 50%;
-    transition: color 0.2s ease, transform 0.1s ease;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10;
+    z-index: 20;
+    backdrop-filter: blur(5px); /* پیچھے سے ٹیکسٹ گزرے گا تو دھندلا نظر آئے گا */
 }
 
 .gemini-speaker-btn:active { 
     transform: scale(0.9); 
 }
 
-.gemini-speaker-btn:hover {
-    color: #e0e0e0;
-}
-
-.gemini-speaker-btn.playing { 
-    color: #3a8ff7; /* پلے ہوتے وقت نیلا ہو جائے گا */
+.gemini-speaker-btn.paused {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
 }
