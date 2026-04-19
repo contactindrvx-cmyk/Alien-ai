@@ -2,6 +2,7 @@ package com.raza.alienai;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -14,42 +15,62 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
+import android.widget.CompoundButton;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
+    private SwitchCompat ayeshaToggle;
+    private SharedPreferences prefs;
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILE_CHOOSER_REQUEST_CODE = 1;
-    private final static int PERMISSION_REQUEST_CODE = 100;
-    private final static int OVERLAY_PERMISSION_REQ_CODE = 2084;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        checkAndRequestPermissions();
-
+        prefs = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
+        ayeshaToggle = findViewById(R.id.ayesha_toggle);
         webView = findViewById(R.id.webView);
-        WebSettings settings = webView.getSettings();
+        
+        setupWebView();
+        checkPermissions();
 
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setDatabaseEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setJavaScriptCanOpenWindowsAutomatically(true);
+        // 🚀 ببل کا آن/آف لاجک
+        boolean isAyeshaActive = prefs.getBoolean("is_active", false);
+        ayeshaToggle.setChecked(isAyeshaActive);
 
-        // 🚀 ویب ویو کلائنٹ: جب ویب سائٹ لوڈ ہو جائے تو اینیمیشن غائب کر دے
+        ayeshaToggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                prefs.edit().putBoolean("is_active", isChecked).apply();
+                if (isChecked) {
+                    startAyeshaService();
+                } else {
+                    stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
+                }
+            }
+        });
+
+        // اگر پہلے سے آن ہے تو سروس چلاؤ
+        if (isAyeshaActive) startAyeshaService();
+    }
+
+    private void setupWebView() {
+        WebSettings s = webView.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setMediaPlaybackRequiresUserGesture(false);
+        
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
+                // ⚡ کوئی ڈیلے نہیں، جیسے ہی پیج لوڈ ہوا اینیمیشن غائب
                 findViewById(R.id.lottieAnimationView).setVisibility(View.GONE);
                 webView.setVisibility(View.VISIBLE);
             }
@@ -57,93 +78,44 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
-            public void onPermissionRequest(final PermissionRequest request) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    request.grant(request.getResources());
-                }
+            public void onPermissionRequest(PermissionRequest r) {
+                r.grant(r.getResources());
             }
-
             @Override
-            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (MainActivity.this.filePathCallback != null) {
-                    MainActivity.this.filePathCallback.onReceiveValue(null);
-                }
-                MainActivity.this.filePathCallback = filePathCallback;
-
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("*/*"); 
-
-                startActivityForResult(Intent.createChooser(intent, "Select File"), FILE_CHOOSER_REQUEST_CODE);
+            public boolean onShowFileChooser(WebView wv, ValueCallback<Uri[]> cb, FileChooserParams p) {
+                filePathCallback = cb;
+                Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("image/*");
+                startActivityForResult(Intent.createChooser(i, "Select Image"), FILE_CHOOSER_REQUEST_CODE);
                 return true;
             }
         });
-
         webView.loadUrl("file:///android_asset/index.html");
-
-        startFloatingBubble();
     }
 
-    private void startFloatingBubble() {
+    private void startAyeshaService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, OVERLAY_PERMISSION_REQ_CODE);
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
         } else {
-            startService(new Intent(MainActivity.this, FloatingBubbleService.class));
+            startService(new Intent(this, FloatingBubbleService.class));
         }
     }
 
-    private void checkAndRequestPermissions() {
-        String[] permissions = {
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.MODIFY_AUDIO_SETTINGS,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? Manifest.permission.READ_MEDIA_IMAGES : Manifest.permission.READ_EXTERNAL_STORAGE
-        };
-
-        boolean allGranted = true;
-        for (String permission : permissions) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                allGranted = false;
-                break;
-            }
-        }
-
-        if (!allGranted) {
-            ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
+    private void checkPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 1);
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
-            if (filePathCallback == null) return;
-            Uri[] results = null;
-            if (resultCode == RESULT_OK && data != null) {
-                String dataString = data.getDataString();
-                if (dataString != null) {
-                    results = new Uri[]{Uri.parse(dataString)};
-                }
-            }
-            filePathCallback.onReceiveValue(results);
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE && filePathCallback != null) {
+            Uri[] result = (resultCode == RESULT_OK && data != null) ? new Uri[]{data.getData()} : null;
+            filePathCallback.onReceiveValue(result);
             filePathCallback = null;
-        } else if (requestCode == OVERLAY_PERMISSION_REQ_CODE) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-                startService(new Intent(MainActivity.this, FloatingBubbleService.class));
-            } else {
-                Toast.makeText(this, "Bubble permission denied!", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            super.onActivityResult(requestCode, resultCode, data);
         }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 }
