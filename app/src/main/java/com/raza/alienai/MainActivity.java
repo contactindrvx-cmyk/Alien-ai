@@ -26,7 +26,6 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SharedPreferences sharedPreferences;
     
-    // تصویر اور فائلز اپلوڈ کرنے کے لیے
     private ValueCallback<Uri[]> mFilePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1;
 
@@ -38,10 +37,8 @@ public class MainActivity extends AppCompatActivity {
         sharedPreferences = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
         webView = findViewById(R.id.webView);
 
-        // 🎤 ایپ اوپن ہوتے ہی یوزر سے مائیک اور کیمرے کی پرمیشن مانگو 🎤
         requestRuntimePermissions();
 
-        // ویب ویو کی ایڈوانسڈ سیٹنگز
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
@@ -49,13 +46,10 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false); 
 
-        // جاوا سکرپٹ برج (پل)
+        // 🚀 جاوا سکرپٹ برج 🚀
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // 🚀 مائیک اور گیلری کو کام کروانے والا کوڈ 🚀
         webView.setWebChromeClient(new WebChromeClient() {
-            
-            // HTML کو مائیک کی پرمیشن دینے کے لیے
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
@@ -65,7 +59,6 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
 
-            // HTML کے پلس (+) بٹن پر گیلری/فائل مینیجر کھولنے کے لیے
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (mFilePathCallback != null) {
@@ -92,7 +85,6 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("file:///android_asset/index.html"); 
     }
 
-    // پرمیشن مانگنے کا فنکشن
     private void requestRuntimePermissions() {
         String[] permissions = {
                 Manifest.permission.RECORD_AUDIO,
@@ -134,11 +126,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🚀 جب یوزر گیلری سے تصویر چن لے، تو اسے HTML میں بھیجنے کا کوڈ 🚀
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        
         if (requestCode == FILECHOOSER_RESULTCODE) {
             if (mFilePathCallback == null) return;
             Uri[] results = null;
@@ -162,10 +152,10 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (isEnabled) {
                     checkOverlayPermission();
-                    Toast.makeText(MainActivity.this, "Floating Bubble: ON", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Ayesha Bubble: ON", Toast.LENGTH_SHORT).show();
                 } else {
                     stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
-                    Toast.makeText(MainActivity.this, "Floating Bubble: OFF", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Ayesha Bubble: OFF", Toast.LENGTH_SHORT).show();
                 }
             });
         }
@@ -177,5 +167,21 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Agent " + agentName + " Selected", Toast.LENGTH_SHORT).show();
             });
         }
+
+        // 🌟 نیا سگنل: ویڈیو چلاؤ 🌟
+        @JavascriptInterface
+        public void startBubbleVideo() {
+            Intent intent = new Intent("com.raza.alienai.PLAY_VIDEO");
+            intent.setPackage(getPackageName());
+            sendBroadcast(intent);
+        }
+
+        // 🌟 نیا سگنل: ویڈیو روکو 🌟
+        @JavascriptInterface
+        public void stopBubbleVideo() {
+            Intent intent = new Intent("com.raza.alienai.PAUSE_VIDEO");
+            intent.setPackage(getPackageName());
+            sendBroadcast(intent);
+        }
     }
-                                   }
+}
