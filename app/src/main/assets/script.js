@@ -11,6 +11,15 @@ window.AyeshaAudio = {
     torchStream: null
 };
 
+// 🌟 نیا فیچر: بیک گراؤنڈ سے "نام" سن کر خود بخود ریکارڈنگ شروع کرنا 🌟
+window.isAyeshaRecording = false;
+window.onWakeWordDetected = function(agentName) {
+    console.log("Wake word detected for: " + agentName);
+    if (!window.isAyeshaRecording) {
+        window.startAutoListening();
+    }
+};
+
 // 🔦 ہارڈویئر کنٹرول: ٹارچ
 async function toggleTorch(state) {
     try {
@@ -29,7 +38,6 @@ async function toggleTorch(state) {
     } catch (e) { console.log("Torch not supported."); }
 }
 
-// 🎯 فرنٹ اینڈ ہارڈویئر کمانڈ ایگزیکیوٹر
 function executeHardwareCommandLocally(text) {
     let cmd = text.toLowerCase();
     if (cmd.includes("وائبریٹ") || cmd.includes("vibrate")) {
@@ -53,21 +61,26 @@ window.stopAyeshaCompletely = function() {
         b.classList.remove('playing-audio');
     });
     window.AyeshaAudio.currentBtn = null;
+    if(window.AndroidBridge) window.AndroidBridge.stopBubbleVideo();
 };
 
 function playCloudQueue(btnElement) {
     if (window.AyeshaAudio.queue.length === 0) {
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
         btnElement.classList.remove('playing-audio');
+        if(window.AndroidBridge) window.AndroidBridge.stopBubbleVideo();
         return;
     }
     let textChunk = window.AyeshaAudio.queue.shift();
     let url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textChunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`;
     window.AyeshaAudio.audioObj = new Audio(url);
     window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btnElement);
+    
+    if(window.AndroidBridge) window.AndroidBridge.startBubbleVideo();
     window.AyeshaAudio.audioObj.play().catch(e => {
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
         btnElement.classList.remove('playing-audio');
+        if(window.AndroidBridge) window.AndroidBridge.stopBubbleVideo();
     });
 }
 
@@ -77,10 +90,12 @@ window.toggleVoiceMessage = function(btnElement) {
             window.AyeshaAudio.audioObj.pause();
             btnElement.innerHTML = window.AyeshaAudio.playIcon;
             btnElement.classList.remove('playing-audio');
+            if(window.AndroidBridge) window.AndroidBridge.stopBubbleVideo(); 
         } else {
             window.AyeshaAudio.audioObj.play();
             btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
             btnElement.classList.add('playing-audio');
+            if(window.AndroidBridge) window.AndroidBridge.startBubbleVideo(); 
         }
         return;
     }
@@ -97,7 +112,7 @@ window.toggleVoiceMessage = function(btnElement) {
 };
 
 // =========================================================================
-// 2. مین UI (آپ کے دیے گئے پرانے اور کامیاب کوڈ پر مبنی)
+// 2. مین UI لاجک
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -121,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUI() {
         const hasText = input.value.trim().length > 0;
         const hasImage = pendingImageFile !== null;
-        const isActive = (document.activeElement === input) || hasText || hasImage || isRecording;
+        const isActive = (document.activeElement === input) || hasText || hasImage || window.isAyeshaRecording;
         
         if (isActive) {
             plusBtn.classList.add('bg-[#2f3037]', 'border-[#3a8ff7]', 'border');
@@ -131,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inputPill.style.marginLeft = "0px"; inputPill.style.paddingLeft = "56px"; inputPill.classList.remove('active');
         }
         
-        if (isRecording) {
+        if (window.isAyeshaRecording) {
             micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
             micActionBtn.classList.remove('hidden'); micActionBtn.classList.add('recording-pulse');
             sendActionBtn.classList.add('hidden');
@@ -216,7 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const replyText = data.response || "معاف کیجیے، میں سمجھ نہیں سکی۔";
             addMessage(replyText, 'assistant');
             
-            // 🎯 ہارڈویئر کمانڈز (عائشہ کی طرف سے)
             if (replyText.includes("وائبریٹ") || replyText.toLowerCase().includes("vibrate") || data.vibrate) {
                 if (navigator.vibrate) navigator.vibrate([200, 100, 300, 100, 400]); 
             }
@@ -232,25 +246,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // 🚀 آپ کا بھیجا ہوا گولڈن وائس انجن (بغیر کسی کچرے کے)
     let recognition;
-    let isRecording = false;
 
     if ('webkitSpeechRecognition' in window) {
         recognition = new webkitSpeechRecognition();
-        recognition.continuous = false; // 👈 یہی وہ لائن تھی جو آٹو سینڈ کو سموتھ بناتی تھی
+        recognition.continuous = false; 
         recognition.interimResults = true;
-        
-        // 🌍 یہ لائن جادو ہے! جاپانی فون پر جاپانی، انگلش پر انگلش، رومن اردو سنے گی
         recognition.lang = navigator.language || 'en-US'; 
 
         recognition.onstart = function() {
             window.stopAyeshaCompletely();
-            isRecording = true;
+            window.isAyeshaRecording = true;
             input.value = '';
             updateUI();
-            input.placeholder = "Listening...";
+            input.placeholder = "سن رہی ہوں...";
         };
 
         recognition.onresult = function(event) {
@@ -267,20 +276,17 @@ document.addEventListener('DOMContentLoaded', () => {
             updateUI();
         };
 
-        // 🎯 100% پرفیکٹ آٹو سینڈ لاجک (جو آپ کے کوڈ میں تھا)
         recognition.onend = function() {
-            isRecording = false;
-            input.placeholder = "Ask something...";
+            window.isAyeshaRecording = false;
+            input.placeholder = "سوال پوچھیں...";
             updateUI();
             
-            // اگر کچھ لکھا گیا ہے، تو 600ms بعد سینڈ مار دو! (یہی تو پرفیکشن تھی)
             if (input.value.trim().length > 0) {
                 setTimeout(() => {
                     const text = input.value.trim();
                     const imageToSend = pendingImageFile;
 
-                    executeHardwareCommandLocally(text); // ہارڈویئر کمانڈز
-                    
+                    executeHardwareCommandLocally(text); 
                     addMessage(text, 'user', imageToSend ? previewImg.src : null);
                     
                     input.value = ''; 
@@ -303,6 +309,15 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Voice typing not supported on this device.");
     }
 
+    // 🌟 نیا فنکشن جو بیک گراؤنڈ سے مائیک ایکٹیو کرے گا 🌟
+    window.startAutoListening = function() {
+        if (recognition) {
+            window.stopAyeshaCompletely();
+            input.value = ''; 
+            recognition.start();
+        }
+    };
+
     function startRecording() {
         if (recognition) {
             input.value = ''; 
@@ -318,7 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 🎯 بٹنز کے کلک ایونٹس
     sendActionBtn.onclick = (e) => {
         e.preventDefault();
         window.stopAyeshaCompletely();
@@ -344,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     micActionBtn.onclick = (e) => {
         e.preventDefault();
-        isRecording ? stopRecording() : startRecording();
+        window.isAyeshaRecording ? stopRecording() : startRecording();
     };
 
     input.addEventListener('keypress', (e) => {
@@ -358,4 +372,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {once:true});
 
 });
-    
+                
