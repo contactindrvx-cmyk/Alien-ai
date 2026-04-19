@@ -2,12 +2,17 @@ package com.raza.alienai;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.PixelFormat;
+import android.graphics.SurfaceTexture;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.IBinder;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -16,6 +21,7 @@ public class FloatingBubbleService extends Service {
     private WindowManager windowManager;
     private View bubbleView;
     private WindowManager.LayoutParams params;
+    private MediaPlayer mediaPlayer;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -26,10 +32,8 @@ public class FloatingBubbleService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        // 1. لے آؤٹ کو سکرین پر لانا
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
 
-        // 2. ونڈو مینیجر کی سیٹنگز (ہر ایپ کے اوپر دکھانے کے لیے)
         int layoutFlag;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             layoutFlag = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
@@ -44,7 +48,6 @@ public class FloatingBubbleService extends Service {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
 
-        // ببل سکرین کے کس حصے میں آئے گا
         params.gravity = Gravity.TOP | Gravity.LEFT;
         params.x = 0;
         params.y = 100;
@@ -52,7 +55,41 @@ public class FloatingBubbleService extends Service {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         windowManager.addView(bubbleView, params);
 
-        // 3. ببل کو انگلی سے ہلانے (Drag) کا لاجک
+        // 🚀 Assets فولڈر سے ویڈیو پلے کرنے کا پروفیشنل طریقہ 🚀
+        TextureView textureView = bubbleView.findViewById(R.id.bubbleVideoView);
+        textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+                mediaPlayer = new MediaPlayer();
+                try {
+                    AssetFileDescriptor afd = getAssets().openFd("bubble_video.mp4");
+                    mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+                    mediaPlayer.setSurface(new Surface(surface));
+                    mediaPlayer.setLooping(true); // ویڈیو بار بار چلے گی
+                    mediaPlayer.prepare();
+                    mediaPlayer.start();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
+
+            @Override
+            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+                if (mediaPlayer != null) {
+                    mediaPlayer.stop();
+                    mediaPlayer.release();
+                }
+                return true;
+            }
+
+            @Override
+            public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
+        });
+
+        // ببل کو کلک اور ڈریگ (Drag) کرنے کا لاجک
         bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener(new View.OnTouchListener() {
             private int initialX;
             private int initialY;
@@ -74,7 +111,15 @@ public class FloatingBubbleService extends Service {
                         windowManager.updateViewLayout(bubbleView, params);
                         return true;
                     case MotionEvent.ACTION_UP:
-                        // یہاں ہم کلک کرنے کا لاجک ڈالیں گے (عائشہ کو اوپن کرنے کے لیے)
+                        int Xdiff = (int) (event.getRawX() - initialTouchX);
+                        int Ydiff = (int) (event.getRawY() - initialTouchY);
+                        
+                        // اگر انگلی نہیں ہلی تو یہ کلک ہے! ایپ اوپن کرو
+                        if (Math.abs(Xdiff) < 10 && Math.abs(Ydiff) < 10) {
+                            Intent openAppIntent = new Intent(FloatingBubbleService.this, MainActivity.class);
+                            openAppIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(openAppIntent);
+                        }
                         return true;
                 }
                 return false;
@@ -85,6 +130,9 @@ public class FloatingBubbleService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+        }
         if (bubbleView != null) {
             windowManager.removeView(bubbleView);
         }
