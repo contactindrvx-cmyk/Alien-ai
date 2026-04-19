@@ -20,6 +20,7 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -27,6 +28,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 import org.json.JSONObject;
 import java.io.OutputStream;
@@ -48,8 +50,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private AudioManager audioManager;
     private Surface currentSurface;
     private Handler mainHandler = new Handler(Looper.getMainLooper());
-    private boolean isAyeshaListening = false;
-    private boolean isAiProcessing = false;
+    private boolean isListening = false;
 
     @Override
     public IBinder onBind(Intent intent) { return null; }
@@ -57,28 +58,13 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     @Override
     public void onCreate() {
         super.onCreate();
+        startMyForeground();
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         tts = new TextToSpeech(this, this);
 
-        createNotificationChannel();
-        Notification notification = new NotificationCompat.Builder(this, "AyeshaChannel")
-                .setContentTitle("Alien AI")
-                .setContentText("Ayesha is ready to help...")
-                .setSmallIcon(R.drawable.app_logo)
-                .build();
-        startForeground(1, notification);
-
-        setupFloatingBubble();
-        setupVideoPlayer();
-        setupMovement();
-        
-        // 🎤 مائیک شروع کریں
-        startListeningLoop();
-    }
-
-    private void setupFloatingBubble() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
+
         int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 2038 : 2002;
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
@@ -86,39 +72,54 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         params.gravity = Gravity.TOP | Gravity.LEFT;
         params.x = 100; params.y = 100;
         windowManager.addView(bubbleView, params);
+
+        setupVideoPlayer();
+        setupMovement();
+        
+        new Handler().postDelayed(this::startAyeshaListening, 2000);
+    }
+
+    private void startMyForeground() {
+        String channelId = "AyeshaVoiceChannel";
+        if (Build.VERSION.VERSION_CODES.O <= Build.VERSION.SDK_INT) {
+            NotificationChannel channel = new NotificationChannel(channelId, "Ayesha AI Voice", NotificationManager.IMPORTANCE_LOW);
+            getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        }
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("عائشہ ایکٹو ہے")
+                .setContentText("میں سن رہی ہوں...")
+                .setSmallIcon(R.drawable.app_logo)
+                .build();
+        startForeground(1, notification);
     }
 
     @Override
     public void onInit(int status) {
-        if (status == TextToSpeech.SUCCESS) { tts.setLanguage(new Locale("ur", "PK")); }
-    }
-
-    private void speak(String text) {
-        if (tts != null) {
-            // ویڈیو پلے کرو جب عائشہ بولے
-            if (mediaPlayer != null) mediaPlayer.start();
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AyeshaReply");
-            
-            // جب بولنا ختم کرے تو ویڈیو روک دو
-            new Handler().postDelayed(() -> {
-                if (mediaPlayer != null && !tts.isSpeaking()) {
-                    mediaPlayer.pause();
-                    mediaPlayer.seekTo(100);
+        if (status == TextToSpeech.SUCCESS) {
+            tts.setLanguage(new Locale("ur", "PK"));
+            // 🌟 جب عائشہ بولنا ختم کرے تو مائیک دوبارہ آن کرو 🌟
+            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override
+                public void onStart(String utteranceId) {}
+                @Override
+                public void onDone(String utteranceId) {
+                    mainHandler.post(() -> startAyeshaListening());
                 }
-            }, 5000); 
+                @Override
+                public void onError(String utteranceId) {
+                    mainHandler.post(() -> startAyeshaListening());
+                }
+            });
         }
     }
 
-    // 🔇 بیپ کی آواز کو خاموش کرنے کا پروفیشنل طریقہ 🔇
-    private void muteSystemSounds(boolean mute) {
-        if (audioManager != null) {
-            int mode = mute ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE;
-            audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, mode, 0);
+    private void startAyeshaListening() {
+        if (speechRecognizer != null) {
+            speechRecognizer.stopListening();
+            speechRecognizer.cancel();
+            speechRecognizer.destroy();
         }
-    }
-
-    private void startListeningLoop() {
-        if (speechRecognizer != null) speechRecognizer.destroy();
+        
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
@@ -126,35 +127,29 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
+            public void onReadyForSpeech(Bundle params) { isListening = true; }
+            @Override
             public void onResults(Bundle results) {
-                muteSystemSounds(false);
+                isListening = false;
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
-                    String text = matches.get(0).toLowerCase();
-                    
-                    if (!isAiProcessing) {
-                        if (text.contains("ayesha") || text.contains("عائشہ")) {
-                            isAiProcessing = true;
-                            speak("جی رضا بھائی، میں سن رہی ہوں، بتائیے کیا کام ہے؟");
-                            // 2 سیکنڈ بعد یوزر کا اصل سوال سننا شروع کرو
-                            mainHandler.postDelayed(() -> startListeningLoop(), 3000);
-                        } else {
-                            // اگر نام نہیں تھا تو یہ یوزر کا سوال ہے، اسے AI کو بھیجو
-                            sendToAiServer(text);
-                        }
+                    String text = matches.get(0);
+                    if (text.toLowerCase().contains("ayesha") || text.contains("عائشہ")) {
+                        speak("جی رضا بھائی، حکم کریں؟");
+                    } else {
+                        sendToAi(text);
                     }
                 } else {
-                    restartMic();
+                    restartWithDelay(500);
                 }
             }
 
             @Override
             public void onError(int error) {
-                muteSystemSounds(false);
-                restartMic();
+                isListening = false;
+                restartWithDelay(1000);
             }
 
-            @Override public void onReadyForSpeech(Bundle params) {}
             @Override public void onBeginningOfSpeech() {}
             @Override public void onRmsChanged(float rmsdB) {}
             @Override public void onBufferReceived(byte[] buffer) {}
@@ -163,18 +158,17 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
             @Override public void onEvent(int eventType, Bundle params) {}
         });
 
-        muteSystemSounds(true); // بیپ سے بچنے کے لیے خاموش کرو
         speechRecognizer.startListening(speechIntent);
     }
 
-    private void restartMic() {
+    private void restartWithDelay(int ms) {
+        mainHandler.removeCallbacksAndMessages(null);
         mainHandler.postDelayed(() -> {
-            if (!tts.isSpeaking()) startListeningLoop();
-        }, 1000);
+            if (!tts.isSpeaking()) startAyeshaListening();
+        }, ms);
     }
 
-    // 🧠 AI سرور (Hugging Face) سے رابطہ 🧠
-    private void sendToAiServer(String userMessage) {
+    private void sendToAi(String msg) {
         new Thread(() -> {
             try {
                 URL url = new URL("https://aigrowthbox-ayesha-ai.hf.space/chat");
@@ -182,32 +176,36 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setDoOutput(true);
-
-                JSONObject jsonParam = new JSONObject();
-                jsonParam.put("message", userMessage);
-                jsonParam.put("email", "alirazasabir007@gmail.com");
-
+                JSONObject json = new JSONObject();
+                json.put("message", msg);
+                json.put("email", "alirazasabir007@gmail.com");
                 OutputStream os = conn.getOutputStream();
-                os.write(jsonParam.toString().getBytes("UTF-8"));
+                os.write(json.toString().getBytes("UTF-8"));
                 os.close();
-
                 Scanner s = new Scanner(conn.getInputStream()).useDelimiter("\\A");
-                String response = s.hasNext() ? s.next() : "";
-                JSONObject resObj = new JSONObject(response);
-                String aiReply = resObj.getString("response");
-
-                mainHandler.post(() -> {
-                    speak(aiReply);
-                    isAiProcessing = false;
-                });
-
+                String reply = new JSONObject(s.hasNext() ? s.next() : "").getString("response");
+                mainHandler.post(() -> speak(reply));
             } catch (Exception e) {
-                mainHandler.post(() -> {
-                    speak("سرور سے رابطہ نہیں ہو سکا");
-                    isAiProcessing = false;
-                });
+                mainHandler.post(() -> restartWithDelay(1000));
             }
         }).start();
+    }
+
+    private void speak(String text) {
+        if (tts != null) {
+            if (mediaPlayer != null) mediaPlayer.start();
+            Bundle params = new Bundle();
+            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "AyeshaTalk");
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, "AyeshaTalk");
+            
+            // ویڈیو روکنے کا لاجک
+            new Handler().postDelayed(() -> {
+                if (mediaPlayer != null && !tts.isSpeaking()) {
+                    mediaPlayer.pause();
+                    mediaPlayer.seekTo(100);
+                }
+            }, 5000);
+        }
     }
 
     private void setupVideoPlayer() {
@@ -225,7 +223,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                     mediaPlayer.setLooping(true);
                     mediaPlayer.prepareAsync();
                     mediaPlayer.setOnPreparedListener(mp -> mp.seekTo(100));
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) {}
             }
             @Override public void onSurfaceTextureSizeChanged(SurfaceTexture s, int w, int h) {}
             @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture s) { return true; }
@@ -255,13 +253,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         });
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel("AyeshaChannel", "Ayesha AI", NotificationManager.IMPORTANCE_LOW);
-            getSystemService(NotificationManager.class).createNotificationChannel(channel);
-        }
-    }
-
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -270,4 +261,5 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-                }
+            }
+    
