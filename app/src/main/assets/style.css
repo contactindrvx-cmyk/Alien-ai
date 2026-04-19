@@ -31,7 +31,7 @@
 
 .gemini-glow { 
     box-shadow: 0 0 15px rgba(58, 143, 247, 0.1); 
-    transition: all 0.3s ease; 
+    transition: all 0.2s ease; /* اینیمیشن تیز کر دی گئی ہے */
 }
 
 .gemini-glow:focus-within, .gemini-glow.active { 
@@ -39,7 +39,6 @@
     border-color: #3a8ff7 !important; 
 }
 
-/* 🔊 جمنائی سٹائل بلو سپیکر بٹن */
 .gemini-speaker-btn {
     position: sticky;
     bottom: 0px; 
@@ -66,4 +65,17 @@
 .gemini-speaker-btn.playing-audio {
     background: #3a8ff7;
     color: #fff;
+}
+
+/* 🔴 نیا: ریکارڈنگ کے وقت مائیک کا پروفیشنل بلنک اثر */
+.recording-pulse {
+    animation: micPulse 1.5s infinite;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 50%;
+}
+
+@keyframes micPulse {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
