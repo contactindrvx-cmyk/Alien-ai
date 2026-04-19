@@ -1,39 +1,40 @@
 // =========================================================================
-// 1. کلاؤڈ آڈیو انجن (اینڈرائیڈ کی پابندی کو بائی پاس کرنے کے لیے)
+// 1. کلاؤڈ آڈیو انجن (عائشہ کی آواز اور انٹرپٹ کنٹرول)
 // =========================================================================
 window.AyeshaAudio = {
     audioObj: null,
-    isPlaying: false,
-    playIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`,
-    stopIcon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>`,
+    playIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`,
+    stopIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>`,
     queue: [],
     lang: 'ur'
 };
 
-window.playVoiceMessage = function(btnElement) {
-    // اگر وہی آواز چل رہی ہے تو اسے روک دیں
-    if (btnElement.classList.contains('playing')) {
-        if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause();
-        btnElement.classList.remove('playing');
-        btnElement.innerHTML = window.AyeshaAudio.playIcon;
-        return;
+window.stopAyeshaCompletely = function() {
+    window.AyeshaAudio.queue = []; 
+    if(window.AyeshaAudio.audioObj) {
+        window.AyeshaAudio.audioObj.pause();
+        window.AyeshaAudio.audioObj.currentTime = 0;
     }
-
-    // باقی سب کو خاموش کریں
-    if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause();
-    document.querySelectorAll('.inline-play-btn').forEach(b => {
+    document.querySelectorAll('.smart-speaker-btn').forEach(b => {
         b.classList.remove('playing');
         b.innerHTML = window.AyeshaAudio.playIcon;
     });
+};
+
+window.playVoiceMessage = function(btnElement) {
+    if (btnElement.classList.contains('playing')) {
+        window.stopAyeshaCompletely();
+        return;
+    }
+
+    window.stopAyeshaCompletely();
 
     let rawText = decodeURIComponent(btnElement.getAttribute('data-text'));
-    // ایموجیز ہٹائیں تاکہ آڈیو کریش نہ ہو
     let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
     
-    // سمارٹ لینگویج (اردو اور انگلش کے لیے)
+    // سمارٹ لینگویج (عائشہ کے بولنے کے لیے)
     window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(cleanText) ? 'ur' : 'en';
     
-    // لمبے میسج کو چھوٹے حصوں میں کاٹنا تاکہ کلاؤڈ سرور بلاک نہ کرے
     let parts = cleanText.match(/[^.!?؟\n]+[.!?؟\n]+/g) || [cleanText];
     let safeParts = [];
     parts.forEach(p => {
@@ -53,28 +54,26 @@ window.playVoiceMessage = function(btnElement) {
 };
 
 function playQueue(btnElement) {
-    if (window.AyeshaAudio.queue.length === 0) {
+    if (window.AyeshaAudio.queue.length === 0 || !btnElement.classList.contains('playing')) {
         btnElement.classList.remove('playing');
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
         return;
     }
 
     let text = window.AyeshaAudio.queue.shift();
-    // کلاؤڈ آڈیو کا جادو (بغیر موبائل انجن کے)
     let url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`;
     
     window.AyeshaAudio.audioObj = new Audio(url);
     window.AyeshaAudio.audioObj.onended = () => playQueue(btnElement);
     window.AyeshaAudio.audioObj.onerror = () => playQueue(btnElement);
     window.AyeshaAudio.audioObj.play().catch(e => {
-        console.log("Cloud Audio blocked by browser interaction policy.", e);
         btnElement.classList.remove('playing');
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
     });
 }
 
-// عائشہ کا آٹو پلے
 window.autoPlayVoice = function(rawText) {
+    window.stopAyeshaCompletely(); 
     let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
     window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(cleanText) ? 'ur' : 'en';
     
@@ -97,7 +96,7 @@ window.autoPlayVoice = function(rawText) {
         let url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`;
         window.AyeshaAudio.audioObj = new Audio(url);
         window.AyeshaAudio.audioObj.onended = playAutoQueue;
-        window.AyeshaAudio.audioObj.play().catch(e => console.log("Auto-play requires user click first.", e));
+        window.AyeshaAudio.audioObj.play().catch(e => console.log("Auto-play blocked", e));
     }
     playAutoQueue();
 };
@@ -124,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuBtn = document.getElementById('menu-btn');
 
     let isRecording = false;
+    let finalTranscript = ''; // پکی ٹائپنگ سٹور کرنے کے لیے
 
     function showThinking(text) {
         indicatorText.innerText = text;
@@ -150,12 +150,19 @@ document.addEventListener('DOMContentLoaded', () => {
             inputPill.style.marginLeft = "0px"; inputPill.style.paddingLeft = "56px"; inputPill.classList.remove('active');
         }
         
-        if (hasText) {
-            micIcon.classList.add('hidden'); stopIcon.classList.add('hidden'); sendIcon.classList.remove('hidden');
-        } else if (isRecording) {
-            micIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
+        // اگر ریکارڈنگ ہو رہی ہے تو سٹاپ بٹن، ورنہ سینڈ یا مائیک
+        if (isRecording) {
+            micIcon.classList.add('hidden'); 
+            sendIcon.classList.add('hidden'); 
+            stopIcon.classList.remove('hidden');
+        } else if (hasText) {
+            micIcon.classList.add('hidden'); 
+            stopIcon.classList.add('hidden'); 
+            sendIcon.classList.remove('hidden');
         } else {
-            stopIcon.classList.add('hidden'); sendIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
+            stopIcon.classList.add('hidden'); 
+            sendIcon.classList.add('hidden'); 
+            micIcon.classList.remove('hidden');
         }
     }
 
@@ -196,14 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
             msgDiv.innerHTML = `${imgHtml}<p>${text}</p>`;
         } else {
             const encodedText = encodeURIComponent(text);
-            const playIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
-            
             msgDiv.className = 'relative group w-full mt-4';
             msgDiv.innerHTML = `
                 <div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10 relative">
                     ${imgHtml}<p style="white-space: pre-wrap;">${text}</p>
-                    <button class="inline-play-btn" data-text="${encodedText}" onclick="window.playVoiceMessage(this)" title="Play Audio">
-                        ${playIcon}
+                    <button class="smart-speaker-btn" data-text="${encodedText}" onclick="window.playVoiceMessage(this)" title="Play Audio">
+                        ${window.AyeshaAudio.playIcon}
                     </button>
                 </div>
             `;
@@ -249,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 🔴 نیا: رئیل ٹائم گلوبل ٹائپنگ انجن
     let recognition = null;
     let mediaRecorder = null;
     let audioChunks = [];
@@ -256,23 +262,38 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('webkitSpeechRecognition' in window) {
         try {
             recognition = new webkitSpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = true; 
+            recognition.continuous = true; // لگاتار سنے گا
+            recognition.interimResults = true; // رئیل ٹائم کچی ٹائپنگ دکھائے گا
+            
+            // 🌍 گلوبل لینگویج (یوزر کے کی بورڈ سے پکڑے گا)
             recognition.lang = navigator.language || 'en-US';
 
+            recognition.onstart = function() {
+                finalTranscript = ''; 
+                input.value = '';
+            };
+
             recognition.onresult = function(event) {
-                let finalTranscript = '';
                 let interimTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) { finalTranscript += event.results[i][0].transcript; } 
-                    else { interimTranscript += event.results[i][0].transcript; }
+                    if (event.results[i].isFinal) { 
+                        finalTranscript += event.results[i][0].transcript + ' '; 
+                    } else { 
+                        interimTranscript += event.results[i][0].transcript; 
+                    }
                 }
-                input.value = finalTranscript || interimTranscript;
+                // 🔴 جادو یہاں ہے: لائیو الفاظ سکرین پر نظر آئیں گے
+                input.value = finalTranscript + interimTranscript;
                 updateUI();
             };
 
+            recognition.onerror = function(e) {
+                console.log("Speech recognition error:", e.error);
+            };
+
             recognition.onend = function() {
-                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                // اگر بولنا ختم ہو جائے تو خودکار سٹاپ کر دے
+                if (isRecording && mediaRecorder && mediaRecorder.state !== 'inactive') {
                     mediaRecorder.stop(); 
                 }
             };
@@ -282,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function startRecordingSafely() {
+        window.stopAyeshaCompletely(); // عائشہ کو چپ کروائیں
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
@@ -307,7 +330,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             input.value = ''; 
-            if (recognition) { recognition.start(); }
+            finalTranscript = '';
+            
+            if (recognition) { 
+                try { recognition.start(); } catch(e){} 
+            }
             mediaRecorder.start(); 
             
             isRecording = true;
@@ -321,26 +348,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function stopRecordingSafely() {
-        try {
-            if (recognition) { recognition.stop(); }
-            else if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
-        } catch(e) {}
+        if (recognition) { 
+            try { recognition.stop(); } catch(e){} 
+        }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') { 
+            mediaRecorder.stop(); 
+        }
     }
 
     actionBtn.onclick = (e) => {
         e.preventDefault();
-        if (input.value.trim().length > 0) {
+        if (isRecording) {
+            // اگر ریکارڈنگ چل رہی ہے، تو اس بٹن کو دبانے سے ریکارڈنگ سٹاپ ہوگی اور سینڈ ہو جائے گی
+            stopRecordingSafely();
+        } else if (input.value.trim().length > 0) {
+            // اگر ٹیکسٹ لکھا ہے، تو سینڈ ہو جائے گا
+            window.stopAyeshaCompletely(); 
             const text = input.value.trim();
             addMessage(text, 'user');
             input.value = ''; updateUI(); 
             sendToHuggingFace(text, null, null); 
         } else {
-            if (isRecording) { stopRecordingSafely(); } else { startRecordingSafely(); }
+            // ورنہ ریکارڈنگ سٹارٹ ہوگی
+            startRecordingSafely();
         }
     };
 
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && input.value.trim().length > 0) {
+            window.stopAyeshaCompletely(); 
             const text = input.value.trim();
             addMessage(text, 'user');
             input.value = ''; updateUI(); 
@@ -349,4 +385,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
-    
+        
