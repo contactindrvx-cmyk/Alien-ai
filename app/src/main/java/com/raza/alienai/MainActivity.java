@@ -66,10 +66,8 @@ public class FloatingBubbleService extends Service {
                     mediaPlayer.setSurface(new Surface(surface));
                     mediaPlayer.prepare();
                     
-                    // 🔴 ویڈیو کو شروع میں پوز (Pause) رکھنے کا لاجک 🔴
                     mediaPlayer.seekTo(100); 
                     mediaPlayer.pause();     
-                    
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -137,4 +135,4 @@ public class FloatingBubbleService extends Service {
             windowManager.removeView(bubbleView);
         }
     }
-            }
+}
