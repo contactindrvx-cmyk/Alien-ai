@@ -70,7 +70,8 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName()));
-            startActivity(intent, 1000);
+            // 🔴 یہ وہ لائن ہے جو فکس کر دی گئی ہے 🔴
+            startActivityForResult(intent, 1000);
         }
     }
 
