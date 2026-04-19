@@ -67,16 +67,3 @@
     background: #3a8ff7;
     color: #fff;
 }
-
-/* 🔵 مائیک کی اینیمیشن کا لال رنگ بھی نیلے میں بدل دیا گیا ہے */
-.recording-pulse {
-    animation: micPulse 1.5s infinite;
-    background: rgba(58, 143, 247, 0.1);
-    border-radius: 50%;
-}
-
-@keyframes micPulse {
-    0% { box-shadow: 0 0 0 0 rgba(58, 143, 247, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(58, 143, 247, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(58, 143, 247, 0); }
-}
