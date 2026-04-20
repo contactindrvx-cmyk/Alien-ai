@@ -68,7 +68,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         String channelId = "AyeshaChannel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(channelId, "Ayesha AI", NotificationManager.IMPORTANCE_LOW);
-            channel.setSound(null, null); // بیپ بند کرنے کے لیے
+            channel.setSound(null, null); 
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
         Notification notification = new NotificationCompat.Builder(this, channelId)
@@ -90,9 +90,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     }
 
     private void startListeningLoop() {
-        if (speechRecognizer != null) {
-            speechRecognizer.destroy();
-        }
+        if (speechRecognizer != null) { speechRecognizer.destroy(); }
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
@@ -143,7 +141,16 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 }
             }
 
-            @Override public void onError(int error) { restartMicQuietly(); }
+            @Override 
+            public void onError(int error) { 
+                // 🚀 واٹس ایپ/جیمنی مائیک پروٹیکشن 🚀
+                if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_AUDIO) {
+                    mainHandler.postDelayed(() -> startListeningLoop(), 5000); // 5 سیکنڈ انتظار کرو
+                } else {
+                    restartMicQuietly(); 
+                }
+            }
+
             @Override public void onBeginningOfSpeech() {}
             @Override public void onRmsChanged(float rmsdB) {}
             @Override public void onBufferReceived(byte[] buffer) {}
@@ -155,12 +162,10 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     }
 
     private void restartMicQuietly() {
+        mainHandler.removeCallbacksAndMessages(null);
         mainHandler.postDelayed(() -> {
-            if (!tts.isSpeaking()) {
-                startListeningLoop();
-            } else {
-                restartMicQuietly();
-            }
+            if (!tts.isSpeaking()) startListeningLoop();
+            else restartMicQuietly();
         }, 1000); 
     }
 
@@ -211,7 +216,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                     mediaPlayer.pause();
                     mediaPlayer.seekTo(100);
                 }
-            }, 4000);
+            }, 5000);
         }
     }
 
@@ -252,12 +257,10 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         });
     }
 
-    // 🚀 ایپ آف ہونے پر زومبی مائیک کو مارنے کا کوڈ 🚀
     @Override
     public void onDestroy() {
         super.onDestroy();
         mainHandler.removeCallbacksAndMessages(null); 
-        
         if (speechRecognizer != null) {
             speechRecognizer.cancel();
             speechRecognizer.destroy();
@@ -266,5 +269,5 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-        }
-                                                              
+    }
+                                              
