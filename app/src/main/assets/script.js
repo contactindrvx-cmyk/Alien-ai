@@ -27,13 +27,64 @@ function showToast(message) {
     }, 3000);
 }
 
+// 🛠️ ہارڈویئر کمانڈز
+function executeHardwareCommandLocally(text) {
+    let cmd = text.toLowerCase();
+    if (cmd.includes("وائبریٹ") || cmd.includes("vibrate")) {
+        if (navigator.vibrate) navigator.vibrate([300, 100, 400]); 
+    }
+    if (cmd.includes("یوٹیوب") || cmd.includes("youtube")) window.open("https://www.youtube.com", '_blank');
+    if (cmd.includes("پلے سٹور") || cmd.includes("play store")) window.open("https://play.google.com", '_blank');
+}
+
+// 🔊 کلاؤڈ پلے بیک لاجک
+function playCloudQueue(btnElement) {
+    if (window.AyeshaAudio.queue.length === 0) {
+        btnElement.innerHTML = window.AyeshaAudio.playIcon;
+        btnElement.classList.remove('playing-audio');
+        return;
+    }
+    let textChunk = window.AyeshaAudio.queue.shift();
+    let url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textChunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`;
+    window.AyeshaAudio.audioObj = new Audio(url);
+    window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btnElement);
+    window.AyeshaAudio.audioObj.play();
+}
+
+window.toggleVoiceMessage = function(btnElement) {
+    if (window.AyeshaAudio.currentBtn === btnElement && window.AyeshaAudio.audioObj) {
+        if (!window.AyeshaAudio.audioObj.paused) {
+            window.AyeshaAudio.audioObj.pause();
+            btnElement.innerHTML = window.AyeshaAudio.playIcon;
+            btnElement.classList.remove('playing-audio');
+        } else {
+            window.AyeshaAudio.audioObj.play();
+            btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
+            btnElement.classList.add('playing-audio');
+        }
+        return;
+    }
+    window.stopAyeshaCompletely();
+    window.AyeshaAudio.currentBtn = btnElement;
+    let rawText = decodeURIComponent(btnElement.getAttribute('data-text'));
+    let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+    window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(cleanText) ? 'ur' : 'en';
+    let safeParts = cleanText.match(/.{1,150}(\s|$)|.{1,150}/g) || [cleanText];
+    window.AyeshaAudio.queue = safeParts.filter(p => p.trim().length > 0);
+    btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
+    btnElement.classList.add('playing-audio');
+    playCloudQueue(btnElement);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('user-input');
-    const inputPill = document.getElementById('input-pill');
     const plusBtn = document.getElementById('plus-btn');
+    const callPlusBtn = document.getElementById('call-plus-btn'); // نیا پلس بٹن کال کے لیے
+    const fileInput = document.getElementById('hidden-file-input');
     const micActionBtn = document.getElementById('mic-action-btn');
     const sendActionBtn = document.getElementById('send-action-btn');
     const startCallBtn = document.getElementById('start-call-btn');
+    
     const normalChatUI = document.getElementById('normal-chat-ui');
     const activeCallUI = document.getElementById('active-call-ui');
     
@@ -41,10 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const endCallBtn = document.getElementById('end-call-btn');
     const unmutedIcon = document.getElementById('unmuted-icon-call');
     const mutedIcon = document.getElementById('muted-icon-call');
+    const chatBox = document.getElementById('chat-box');
+    const thinkingIndicator = document.getElementById('thinking-indicator');
+
+    let pendingImageFile = null;
 
     function updateUI() {
-        if(isCallActive) return; // اگر کال چل رہی ہے تو نارمل UI اپڈیٹ مت کرو
-        
+        if(isCallActive) return; 
         const hasText = input.value.trim().length > 0;
         if (hasText) {
             sendActionBtn.classList.remove('hidden'); 
@@ -58,42 +112,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     input.addEventListener('input', updateUI);
 
-    // 🚀 کال شروع کرنے کی اینیمیشن اور لاجک 🚀
+    // 🚀 کال شروع کرنے کی اینیمیشن 🚀
     startCallBtn.onclick = (e) => {
         e.preventDefault();
         isCallActive = true;
         isCallMuted = false;
 
-        // UI کو کال موڈ میں شفٹ کریں
-        plusBtn.style.opacity = '0'; plusBtn.style.pointerEvents = 'none';
-        inputPill.style.paddingLeft = '10px';
+        // نارمل UI ہائیڈ کرو
+        normalChatUI.classList.remove('fade-enter-active');
+        normalChatUI.classList.add('fade-exit-active');
         
-        normalChatUI.style.opacity = '0'; normalChatUI.style.pointerEvents = 'none';
+        // کالنگ کے 3 بٹنز شو کرو
         setTimeout(() => {
             activeCallUI.classList.remove('fade-exit', 'fade-exit-active');
             activeCallUI.classList.add('fade-enter-active');
         }, 150);
 
         unmutedIcon.classList.remove('hidden'); mutedIcon.classList.add('hidden');
-        muteCallBtn.classList.replace('bg-[#3a8ff7]/20', 'bg-[#2f3037]');
+        muteCallBtn.classList.remove('bg-red-500/20');
+        muteCallBtn.classList.add('bg-[#16243d]');
 
         if (window.AndroidBridge && window.AndroidBridge.toggleCall) {
             window.AndroidBridge.toggleCall(true);
         }
     };
 
-    // 🚀 کال اینڈ کرنے کی اینیمیشن اور لاجک 🚀
+    // 🚀 کال اینڈ کرنے کی اینیمیشن 🚀
     endCallBtn.onclick = () => {
         isCallActive = false;
 
-        // UI کو نارمل موڈ میں واپس لائیں
+        // کال UI ہائیڈ کرو
         activeCallUI.classList.remove('fade-enter-active');
         activeCallUI.classList.add('fade-exit-active');
         
+        // نارمل UI واپس لاؤ
         setTimeout(() => {
-            normalChatUI.style.opacity = '1'; normalChatUI.style.pointerEvents = 'auto';
-            plusBtn.style.opacity = '1'; plusBtn.style.pointerEvents = 'auto';
-            inputPill.style.paddingLeft = '56px';
+            normalChatUI.classList.remove('fade-exit-active');
+            normalChatUI.classList.add('fade-enter-active');
+            updateUI();
         }, 300);
 
         showToast("Voice chat ended");
@@ -108,10 +164,10 @@ document.addEventListener('DOMContentLoaded', () => {
         isCallMuted = !isCallMuted;
         if(isCallMuted) {
             unmutedIcon.classList.add('hidden'); mutedIcon.classList.remove('hidden');
-            muteCallBtn.classList.replace('bg-[#2f3037]', 'bg-red-500/20');
+            muteCallBtn.classList.replace('bg-[#16243d]', 'bg-red-500/20');
         } else {
             unmutedIcon.classList.remove('hidden'); mutedIcon.classList.add('hidden');
-            muteCallBtn.classList.replace('bg-red-500/20', 'bg-[#2f3037]');
+            muteCallBtn.classList.replace('bg-red-500/20', 'bg-[#16243d]');
         }
         
         if (window.AndroidBridge && window.AndroidBridge.muteCall) {
@@ -119,5 +175,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // (باقی پرانا Voice Typing اور Hugging Face کا کوڈ ویسے ہی رہے گا جو میں نے پچھلے میسج میں دیا تھا)
+    // پلس بٹن لاجک (نارمل اور کال دونوں کے لیے)
+    const handlePlusClick = () => fileInput.click();
+    plusBtn.onclick = handlePlusClick;
+    callPlusBtn.onclick = handlePlusClick;
+
+    function addMessage(text, sender) {
+        const msgDiv = document.createElement('div');
+        let cleanText = text ? `<p dir="auto" style="white-space: pre-wrap;">${text}</p>` : '';
+        if (sender === 'user') {
+            msgDiv.className = 'w-full flex justify-end mt-4';
+            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]">${cleanText}</div>`;
+        } else {
+            const encodedText = encodeURIComponent(text);
+            msgDiv.className = 'w-full flex justify-start mt-4 relative';
+            msgDiv.innerHTML = `<div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10">${cleanText}<button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)">${window.AyeshaAudio.playIcon}</button></div>`;
+        }
+        chatBox.insertBefore(msgDiv, thinkingIndicator);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    sendActionBtn.onclick = (e) => {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (text) {
+            executeHardwareCommandLocally(text);
+            addMessage(text, 'user');
+            input.value = ''; updateUI();
+            
+            // Hugging Face Request
+            thinkingIndicator.classList.remove('hidden'); thinkingIndicator.classList.add('flex');
+            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" })
+            }).then(res => res.json()).then(data => {
+                thinkingIndicator.classList.add('hidden');
+                addMessage(data.response, 'assistant');
+            }).catch(e => {
+                thinkingIndicator.classList.add('hidden');
+            });
+        }
+    };
+
+    document.getElementById('menu-btn').onclick = () => { 
+        document.getElementById('sidebar').classList.toggle('-translate-x-full'); 
+        document.getElementById('sidebar-overlay').classList.toggle('hidden'); 
+    };
+    document.getElementById('sidebar-overlay').onclick = () => {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.add('hidden');
+    };
 });
+        
