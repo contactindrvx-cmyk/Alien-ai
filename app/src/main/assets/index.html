@@ -11,9 +11,25 @@
     <input type="file" id="hidden-file-input" class="hidden" accept="image/*">
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity cursor-pointer"></div>
 
+    <div id="call-overlay" class="fixed inset-0 bg-[#0a0a0a] z-50 hidden flex-col items-center justify-between pb-12 pt-32 transition-opacity duration-300">
+        <div class="text-center">
+            <h2 id="call-status-text" class="text-3xl font-medium text-gray-300 tracking-wide">Connecting...</h2>
+        </div>
+        
+        <div class="flex items-center gap-6">
+            <button id="call-mute-btn" class="w-14 h-14 rounded-full bg-[#2f3037] flex items-center justify-center text-white transition-all active:scale-90">
+                <svg id="unmuted-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                <svg id="muted-icon" class="hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path></svg>
+            </button>
+            
+            <button id="call-end-btn" class="px-8 py-3.5 rounded-full bg-[#3a8ff7] text-white font-semibold text-lg flex items-center gap-2 transition-all active:scale-95 shadow-[0_0_15px_rgba(58,143,247,0.4)]">
+                End
+            </button>
+        </div>
+    </div>
+
     <aside id="sidebar" class="fixed z-50 w-64 h-full border-r border-[#2f3037] flex flex-col bg-[#0a0a0a] transform -translate-x-full transition-transform duration-300 ease-in-out left-0 top-0 shadow-2xl">
         <div class="p-4 flex-1 flex flex-col overflow-y-auto">
-            
             <h2 class="text-2xl font-bold mb-6 mt-4 text-center text-[#3a8ff7]">Select Assistant</h2>
             <div class="space-y-4" id="assistants-list">
                 <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
@@ -74,13 +90,6 @@
                         <input type="text" id="user-input" class="flex-1 bg-transparent px-2 py-3 outline-none text-white text-base placeholder-gray-400 w-full" placeholder="Ask something..." autocomplete="off">
                         
                         <div class="flex items-center gap-1 pr-1">
-                            <button id="call-action-btn" class="p-3 text-[#3a8ff7] transition-colors hover:text-white rounded-full" title="Start Live Call">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
-                                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
-                                </svg>
-                            </button>
-
                             <button id="send-action-btn" class="hidden p-3 text-[#3a8ff7] transition-colors hover:text-white">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                             </button>
@@ -88,6 +97,12 @@
                             <button id="mic-action-btn" class="p-3 text-[#3a8ff7] transition-colors hover:text-white rounded-full">
                                 <svg id="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
                                 <svg id="stop-icon" class="hidden text-[#3a8ff7]" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+                            </button>
+
+                            <button id="call-action-btn" class="p-3 text-[#3a8ff7] transition-colors hover:text-white rounded-full transition-all duration-200" title="Start Live Call">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path>
+                                </svg>
                             </button>
                         </div>
                     </div>
