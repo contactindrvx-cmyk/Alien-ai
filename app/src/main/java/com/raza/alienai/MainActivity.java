@@ -20,6 +20,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -32,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
 
-    // خاموش وائس ریکگنیشن (بغیر گوگل پاپ اپ کے)
+    // وائس ریکگنیشن (بغیر گوگل پاپ اپ کے)
     private SpeechRecognizer speechRecognizer;
     private Intent speechRecognizerIntent;
     private boolean isRecording = false;
@@ -60,20 +61,30 @@ public class MainActivity extends AppCompatActivity {
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
         webView.setWebViewClient(new WebViewClient());
 
+        // گیلری اور کیمرے کی پرمیشن کے لیے WebChromeClient
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (MainActivity.this.filePathCallback != null) MainActivity.this.filePathCallback.onReceiveValue(null);
+                if (MainActivity.this.filePathCallback != null) {
+                    MainActivity.this.filePathCallback.onReceiveValue(null);
+                }
                 MainActivity.this.filePathCallback = filePathCallback;
-                try { startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); } 
-                catch (Exception e) { MainActivity.this.filePathCallback = null; return false; }
+                try { 
+                    startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); 
+                } catch (Exception e) { 
+                    MainActivity.this.filePathCallback = null; 
+                    return false; 
+                }
                 return true;
             }
             @Override
-            public void onPermissionRequest(final PermissionRequest request) { request.grant(request.getResources()); }
+            public void onPermissionRequest(final PermissionRequest request) { 
+                request.grant(request.getResources()); 
+            }
         });
 
         webView.loadUrl("file:///android_asset/index.html");
+        
         requestPermissions();
         setupSpeechRecognizer(); // مائیک سیٹ اپ
 
@@ -143,31 +154,61 @@ public class MainActivity extends AppCompatActivity {
         }
         
         List<String> needed = new ArrayList<>();
-        for (String p : perms) { if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) needed.add(p); }
+        for (String p : perms) { 
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) needed.add(p); 
+        }
         if (!needed.isEmpty()) ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 100);
     }
 
+    // جاوا سکرپٹ اور اینڈرائیڈ کے درمیان پل
     public class WebAppInterface {
         @JavascriptInterface
         public void toggleCall(boolean start) {
-            Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
-            if (start) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-            } else { stopService(intent); }
+            // runOnUiThread کا استعمال تاکہ ایپ کریش نہ ہو
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
+                    if (start) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent);
+                        } else {
+                            startService(intent);
+                        }
+                    } else { 
+                        stopService(intent); 
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(MainActivity.this, "Call Service Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
         }
 
         @JavascriptInterface
         public void toggleInlineMic() {
-            new Handler(Looper.getMainLooper()).post(() -> {
-                if (isRecording) {
-                    speechRecognizer.stopListening();
-                    stopRecordingState();
-                } else {
-                    speechRecognizer.startListening(speechRecognizerIntent);
-                    isRecording = true;
-                    webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
+            runOnUiThread(() -> {
+                try {
+                    if (isRecording) {
+                        speechRecognizer.stopListening();
+                        stopRecordingState();
+                    } else {
+                        speechRecognizer.startListening(speechRecognizerIntent);
+                        isRecording = true;
+                        webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(MainActivity.this, "Mic Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             });
+        }
+
+        @JavascriptInterface
+        public void muteCall(boolean isMuted) {
+            Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
+            intent.setAction("ACTION_MUTE_CALL");
+            intent.putExtra("isMuted", isMuted);
+            startService(intent);
         }
     }
 
@@ -190,4 +231,5 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-}
+                        }
+                          
