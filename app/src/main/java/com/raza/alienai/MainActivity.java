@@ -158,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(wakeWordReceiver);
+        try { unregisterReceiver(wakeWordReceiver); } catch (Exception e) {}
     }
 
     public class WebAppInterface {
@@ -187,4 +187,5 @@ public class MainActivity extends AppCompatActivity {
             sendBroadcast(new Intent("com.raza.alienai.PAUSE_VIDEO"));
         }
     }
-}
+            }
+                                 
