@@ -11,16 +11,13 @@ window.AyeshaAudio = {
     torchStream: null
 };
 
-// 🌟 نیا فیچر: بیک گراؤنڈ سے "نام" سن کر خود بخود ریکارڈنگ شروع کرنا 🌟
 window.isAyeshaRecording = false;
 window.onWakeWordDetected = function(agentName) {
-    console.log("Wake word detected for: " + agentName);
     if (!window.isAyeshaRecording) {
         window.startAutoListening();
     }
 };
 
-// 🔦 ہارڈویئر کنٹرول: ٹارچ
 async function toggleTorch(state) {
     try {
         if (state) {
@@ -122,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('hidden-file-input');
     const micActionBtn = document.getElementById('mic-action-btn');
     const sendActionBtn = document.getElementById('send-action-btn');
+    const callActionBtn = document.getElementById('call-action-btn'); // 🚀 نیا کال بٹن
     const micIcon = document.getElementById('mic-icon');
     const stopIcon = document.getElementById('stop-icon');
     const previewContainer = document.getElementById('image-preview-container');
@@ -150,13 +148,18 @@ document.addEventListener('DOMContentLoaded', () => {
             micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
             micActionBtn.classList.remove('hidden'); micActionBtn.classList.add('recording-pulse');
             sendActionBtn.classList.add('hidden');
+            callActionBtn.classList.add('hidden'); // ریکارڈنگ کے وقت کال بٹن چھپا دو
         } else {
             stopIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
             micActionBtn.classList.remove('recording-pulse');
             if (hasText) {
-                sendActionBtn.classList.remove('hidden'); micActionBtn.classList.add('hidden');
+                sendActionBtn.classList.remove('hidden'); 
+                micActionBtn.classList.add('hidden');
+                callActionBtn.classList.add('hidden');
             } else {
-                sendActionBtn.classList.add('hidden'); micActionBtn.classList.remove('hidden');
+                sendActionBtn.classList.add('hidden'); 
+                micActionBtn.classList.remove('hidden');
+                callActionBtn.classList.remove('hidden'); // نارمل حالت میں کال بٹن دکھاؤ
             }
         }
     }
@@ -309,7 +312,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Voice typing not supported on this device.");
     }
 
-    // 🌟 نیا فنکشن جو بیک گراؤنڈ سے مائیک ایکٹیو کرے گا 🌟
     window.startAutoListening = function() {
         if (recognition) {
             window.stopAyeshaCompletely();
@@ -361,6 +363,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.isAyeshaRecording ? stopRecording() : startRecording();
     };
 
+    // 🚀 کال بٹن پر کلک کرنے کی لاجک 🚀
+    callActionBtn.onclick = (e) => {
+        e.preventDefault();
+        if (window.AndroidBridge && window.AndroidBridge.toggleCall) {
+            // جاوا کو سگنل بھیجیں کہ کال سروس شروع کرو
+            window.AndroidBridge.toggleCall(true);
+            
+            // سکرین پر یوزر کو بتا دیں کہ کال شروع ہو رہی ہے
+            input.placeholder = "عائشہ سے کال کنیکٹ ہو رہی ہے...";
+            setTimeout(() => {
+                input.placeholder = "Ask something...";
+            }, 3000);
+        } else {
+            console.log("یہ بٹن اینڈرائیڈ ایپ کے اندر کام کرے گا");
+        }
+    };
+
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && (input.value.trim().length > 0 || pendingImageFile)) {
             sendActionBtn.click();
@@ -372,4 +391,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, {once:true});
 
 });
-                
+        
