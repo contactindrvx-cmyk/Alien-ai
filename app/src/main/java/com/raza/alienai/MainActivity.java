@@ -34,7 +34,6 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
 
-    // وائس ریکگنیشن (بغیر گوگل پاپ اپ کے)
     private SpeechRecognizer speechRecognizer;
     private Intent speechRecognizerIntent;
     private boolean isRecording = false;
@@ -58,14 +57,11 @@ public class MainActivity extends AppCompatActivity {
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setAllowFileAccess(true);
-        
-        // 🌟 سب سے اہم فکس: آٹو پلے آڈیو (عائشہ کی آواز) کے لیے 🌟
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
         webView.setWebViewClient(new WebViewClient());
 
-        // گیلری اور کیمرے کی پرمیشن کے لیے WebChromeClient
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
@@ -90,13 +86,35 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("file:///android_asset/index.html");
         
         requestPermissions();
-        setupSpeechRecognizer(); // مائیک سیٹ اپ
+        setupSpeechRecognizer();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(messageReceiver, new IntentFilter("NEW_MESSAGE_FROM_CALL"), Context.RECEIVER_NOT_EXPORTED);
         } else {
             registerReceiver(messageReceiver, new IntentFilter("NEW_MESSAGE_FROM_CALL"));
         }
+
+        // 🚀 Accessibility سروس کی پرمیشن چیک اور ریکویسٹ 🚀
+        if (!isAccessibilityServiceEnabled(this, AyeshaAccessibilityService.class)) {
+            Toast.makeText(this, "عائشہ کو موبائل کنٹرول دینے کے لیے Accessibility آن کریں", Toast.LENGTH_LONG).show();
+            Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            startActivity(intent);
+        }
+    }
+
+    // Accessibility چیک کرنے کا ہیلپر فنکشن
+    private boolean isAccessibilityServiceEnabled(Context context, Class<?> accessibilityService) {
+        android.content.ComponentName expectedComponentName = new android.content.ComponentName(context, accessibilityService);
+        String enabledServicesSetting = android.provider.Settings.Secure.getString(context.getContentResolver(),  android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (enabledServicesSetting == null) return false;
+        android.text.TextUtils.SimpleStringSplitter colonSplitter = new android.text.TextUtils.SimpleStringSplitter(':');
+        colonSplitter.setString(enabledServicesSetting);
+        while (colonSplitter.hasNext()) {
+            String componentNameString = colonSplitter.next();
+            android.content.ComponentName enabledService = android.content.ComponentName.unflattenFromString(componentNameString);
+            if (enabledService != null && enabledService.equals(expectedComponentName)) return true;
+        }
+        return false;
     }
 
     private void setupSpeechRecognizer() {
@@ -164,11 +182,9 @@ public class MainActivity extends AppCompatActivity {
         if (!needed.isEmpty()) ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 100);
     }
 
-    // جاوا سکرپٹ اور اینڈرائیڈ کے درمیان پل
     public class WebAppInterface {
         @JavascriptInterface
         public void toggleCall(boolean start) {
-            // runOnUiThread کا استعمال تاکہ ایپ کریش نہ ہو
             runOnUiThread(() -> {
                 try {
                     Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
@@ -235,4 +251,5 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-}
+                                                                }
+        
