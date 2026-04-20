@@ -5,6 +5,45 @@ window.isAyeshaRecording = false;
 let input, outPlus, outSend, mainPill, inPlus, waveArea, inSend, inMic, inCall, inEnd;
 let iMicNormal, iMicStop, fileIn, preview, pendingImg = null, voiceTimeout;
 
+// 🌟 عائشہ کی آٹو پلے وائس کا لاجک (Restore کر دیا گیا ہے) 🌟
+window.stopAyeshaCompletely = function() {
+    if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
+    window.AyeshaAudio.queue = []; 
+    document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
+        b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
+        b.classList.remove('bg-[#3a8ff7]', 'text-white'); 
+    });
+};
+
+function playCloudQueue(btn) {
+    if (window.AyeshaAudio.queue.length === 0) { 
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
+        btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
+        return; 
+    }
+    let chunk = window.AyeshaAudio.queue.shift();
+    window.AyeshaAudio.audioObj = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`);
+    window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btn); 
+    window.AyeshaAudio.audioObj.play();
+}
+
+window.toggleVoiceMessage = function(btn) {
+    if (window.AyeshaAudio.currentBtn === btn && window.AyeshaAudio.audioObj && !window.AyeshaAudio.audioObj.paused) {
+        window.AyeshaAudio.audioObj.pause(); 
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
+        btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
+        return;
+    }
+    window.stopAyeshaCompletely(); 
+    window.AyeshaAudio.currentBtn = btn;
+    let text = decodeURIComponent(btn.getAttribute('data-text'));
+    window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(text) ? 'ur' : 'en';
+    window.AyeshaAudio.queue = text.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
+    btn.classList.add('bg-[#3a8ff7]', 'text-white'); 
+    playCloudQueue(btn);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     input = document.getElementById('user-input'); 
     outPlus = document.getElementById('out-plus'); 
@@ -22,11 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fileIn = document.getElementById('hidden-file-input'); 
     preview = document.getElementById('image-preview-container');
 
-    // 🌟 100% پرفیکٹ سٹیٹ مینیجر 🌟
     function updateUIState() {
         const text = input.value.trim();
 
-        // سٹیپ 1: سب سے پہلے ہر چیز کو زبردستی چھپا دیں (Reset All)
         outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
         outSend.classList.add('btn-collapse'); outSend.classList.remove('btn-expand');
         inPlus.classList.add('btn-collapse');
@@ -42,9 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         iMicNormal.classList.remove('hidden');
         iMicStop.classList.add('hidden');
 
-        // سٹیپ 2: جو ایکشن ہو رہا ہے، صرف اس کے بٹن آن کریں
         if (isCallActive) {
-            // 🔴 لائیو کال سٹیٹ
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             outSend.classList.remove('btn-collapse'); outSend.classList.add('btn-expand');
             input.classList.add('btn-collapse');
@@ -52,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
             inEnd.classList.remove('btn-collapse'); inEnd.classList.add('btn-expand-auto');
         } 
         else if (window.isAyeshaRecording) {
-            // 🎤 مائیک ریکارڈنگ سٹیٹ
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
             inMic.classList.remove('btn-collapse');
@@ -61,13 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
             iMicStop.classList.remove('hidden');
         } 
         else if (text.length > 0 || pendingImg) {
-            // ⌨️ ٹائپنگ سٹیٹ (جہاز بٹن)
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
             inSend.classList.remove('btn-collapse');
         } 
         else {
-            // ✅ پرفیکٹ نارمل سٹیٹ (صرف 4 بٹن)
             inPlus.classList.remove('btn-collapse');
             inMic.classList.remove('btn-collapse');
             inCall.classList.remove('btn-collapse');
@@ -120,10 +152,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleSendClick = (e) => {
         e.preventDefault(); const text = input.value.trim();
         if (text || pendingImg) {
-            addMessage(text || "تصویر بھیجی گئی", 'user');
-            input.value = ''; pendingImg = null; preview.classList.add('hidden'); 
+            // فکس: تصویر کا URL بنا کر میسج فنکشن کو بھیجیں
+            let imgUrl = pendingImg ? URL.createObjectURL(pendingImg) : null;
+            addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
             
-            // سینڈ کے فوراً بعد UI کو نارمل حالت پر لے آئیں
+            input.value = ''; pendingImg = null; preview.classList.add('hidden'); 
             window.isAyeshaRecording = false;
             updateUIState();
             
@@ -133,23 +166,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
             })
             .then(res => res.json()).then(d => { 
-                document.getElementById('thinking-indicator').classList.add('hidden'); addMessage(d.response, 'assistant');
-            }).catch(e => { document.getElementById('thinking-indicator').classList.add('hidden'); addMessage("سرور آف لائن ہے۔", 'assistant'); });
+                document.getElementById('thinking-indicator').classList.add('hidden'); 
+                let btn = addMessage(d.response, 'assistant');
+                
+                // فکس: نارمل میسج پر آٹو پلے
+                if(btn && !isCallActive) {
+                    setTimeout(() => window.toggleVoiceMessage(btn), 300);
+                }
+            }).catch(e => { 
+                document.getElementById('thinking-indicator').classList.add('hidden'); 
+                addMessage("سرور آف لائن ہے۔", 'assistant'); 
+            });
         }
     };
     inSend.onclick = handleSendClick; outSend.onclick = handleSendClick;
 });
 
-function addMessage(text, sender) {
-    const chatBox = document.getElementById('chat-box'); const msgDiv = document.createElement('div');
+// فکس: اب یہ فنکشن تصویر بھی وصول کر کے چیٹ میں دکھائے گا
+function addMessage(text, sender, imgUrl = null) {
+    const chatBox = document.getElementById('chat-box'); 
+    const msgDiv = document.createElement('div');
+    
+    // اگر تصویر موجود ہے تو اس کا HTML ٹیگ بنائیں
+    let imgHTML = imgUrl ? `<img src="${imgUrl}" class="w-48 h-48 object-cover rounded-xl mb-3 border-2 border-[#3a8ff7] shadow-sm">` : '';
+
     if (sender === 'user') {
         msgDiv.className = 'w-full flex justify-end mt-4';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%]"><p dir="auto">${text}</p></div>`;
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">
+            ${imgHTML}
+            <p dir="auto">${text}</p>
+        </div>`;
+        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator'));
+        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        return null;
     } else {
+        const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex justify-start mt-4 group';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]"><p dir="auto">${text}</p></div>`;
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]">
+            ${imgHTML}
+            <p dir="auto">${text}</p>
+            <div class="flex items-center gap-3 mt-3">
+                <button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}" onclick="window.toggleVoiceMessage(this)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                </button>
+            </div>
+        </div>`;
+        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator'));
+        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        return msgDiv.querySelector('.gemini-speaker-btn');
     }
-    chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator'));
-    chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-                                                              }
-                    
+}
