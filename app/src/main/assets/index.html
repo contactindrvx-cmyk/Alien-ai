@@ -10,17 +10,7 @@
         .wave-bar { width: 3px; height: 12px; background-color: #3a8ff7; border-radius: 4px; animation: wave 1.2s ease-in-out infinite; margin: 0 1.5px; }
         .wave-bar:nth-child(2) { animation-delay: 0.2s; } .wave-bar:nth-child(3) { animation-delay: 0.4s; } .wave-bar:nth-child(4) { animation-delay: 0.6s; }
         @keyframes wave { 0%, 100% { height: 8px; } 50% { height: 22px; } }
-        
-        .pop-out-btn {
-            position: absolute; width: 52px; height: 52px; border-radius: 50%;
-            background-color: #16243d; border: 1px solid #2f3037;
-            display: flex; align-items: center; justify-content: center; color: #3a8ff7;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            opacity: 0; transform: scale(0.5); pointer-events: none; z-index: 40;
-        }
-        .pop-out-btn.active { opacity: 1; transform: scale(1); pointer-events: auto; }
         .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.15); border-color: #3a8ff7 !important; }
-        .hide-call-btn { width: 0 !important; opacity: 0 !important; padding: 0 !important; border: none !important; overflow: hidden; margin: 0 !important;}
     </style>
 </head>
 <body class="h-screen flex bg-black text-white font-sans w-full overflow-hidden relative">
@@ -54,7 +44,7 @@
 
     <div class="flex-1 flex flex-col h-full w-full">
         <header class="flex items-center justify-between p-4 border-b border-[#2f3037] bg-[#0a0a0a] z-30">
-            <button id="menu-btn" class="p-2 text-[#3a8ff7] hover:bg-[#2f3037] rounded-lg transition">
+            <button id="menu-btn" class="p-2 text-[#3a8ff7] hover:bg-[#2f3037] rounded-lg transition z-50 relative cursor-pointer">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
             <h1 class="text-lg font-bold text-white tracking-wide">Ayesha AI</h1>
@@ -75,44 +65,47 @@
             </div>
 
             <div class="px-4 md:px-6 pb-6 bg-black z-30">
-                <div id="chat-wrapper" class="flex items-center w-full max-w-4xl mx-auto h-14 gap-0 transition-all duration-500">
-                    <button id="btn-plus" class="w-14 h-14 bg-[#16243d] border border-[#2f3037] flex-shrink-0 flex justify-center items-center text-[#3a8ff7] rounded-l-full transition-all duration-500 z-10 active:scale-95 border-r-0">
+                <div id="chat-wrapper" class="flex items-center w-full max-w-4xl mx-auto h-14 gap-0 transition-all duration-300">
+                    
+                    <button id="btn-plus" class="w-14 h-14 bg-[#16243d] border border-[#2f3037] border-r-0 rounded-l-full flex-shrink-0 flex justify-center items-center text-[#3a8ff7] transition-all duration-300 z-10">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
 
-                    <div id="center-area" class="flex-1 h-14 bg-[#16243d] border-y border-[#2f3037] flex items-center transition-all duration-500 overflow-hidden relative">
+                    <div id="center-area" class="flex-1 h-14 bg-[#16243d] border-y border-[#2f3037] flex items-center transition-all duration-300 overflow-hidden relative">
                         <input type="text" id="user-input" class="absolute inset-0 w-full h-full bg-transparent px-3 text-white outline-none transition-all duration-300" placeholder="Ask something..." autocomplete="off">
-                        <button id="send-btn" class="absolute right-2 w-10 h-10 flex items-center justify-center transition-all duration-300 transform scale-0 opacity-0 pointer-events-none text-[#3a8ff7] hover:text-white"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg></button>
+                        
+                        <button id="send-btn" class="absolute right-2 w-10 h-10 flex items-center justify-center transition-all duration-300 transform scale-0 opacity-0 pointer-events-none text-[#3a8ff7] hover:text-white">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                        </button>
 
-                        <div id="call-inner-ui" class="absolute inset-0 w-full h-full flex items-center justify-between px-3 transform translate-y-14 opacity-0 transition-all duration-500 pointer-events-none">
+                        <div id="call-inner-ui" class="absolute inset-0 w-full h-full flex items-center justify-between px-3 transform translate-y-14 opacity-0 transition-all duration-300 pointer-events-none">
                             <div class="flex items-center gap-3">
                                 <div class="flex items-center h-6 justify-center"><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div></div>
                                 <span class="text-[#3a8ff7] text-sm font-medium">Listening...</span>
                             </div>
-                            <button id="btn-end" class="h-9 px-4 rounded-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center gap-1.5 border border-red-500/30">End</button>
+                            <button id="btn-end" class="h-9 px-4 rounded-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center gap-1.5 border border-red-500/30">
+                                <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div> End
+                            </button>
                         </div>
                     </div>
 
-                    <button id="btn-mic" class="w-14 h-14 bg-[#16243d] border-y border-[#2f3037] flex-shrink-0 flex justify-center items-center text-[#3a8ff7] transition-all duration-500 z-10 active:scale-95 relative">
-                        <svg id="icon-mic-normal" class="absolute transition-all duration-300" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                    <button id="btn-mic" class="w-14 h-14 bg-[#16243d] border-y border-[#2f3037] flex-shrink-0 flex justify-center items-center text-[#3a8ff7] transition-all duration-300 z-10 relative">
+                        <svg id="icon-mic-normal" class="absolute transition-all" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
                         <svg id="icon-mic-stop" class="hidden absolute text-white animate-pulse" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+                        <svg id="icon-call-unmuted" class="hidden absolute text-white" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                        <svg id="icon-call-muted" class="hidden absolute text-red-500" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path></svg>
+                        <svg id="icon-call-send" class="hidden absolute text-[#3a8ff7]" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                     </button>
 
-                    <button id="btn-call" class="w-14 h-14 bg-[#16243d] border border-[#2f3037] border-l-0 flex-shrink-0 flex justify-center items-center text-[#3a8ff7] rounded-r-full transition-all duration-500 active:scale-95">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
+                    <button id="btn-call" class="w-14 h-14 bg-[#16243d] border border-[#2f3037] border-l-0 rounded-r-full flex-shrink-0 flex justify-center items-center text-[#3a8ff7] transition-all duration-300 overflow-hidden">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
                     </button>
 
-                    <button id="call-plus-btn" class="pop-out-btn shadow-xl bg-[#16243d] border-[#2f3037]"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                    <button id="mute-call-btn" class="pop-out-btn shadow-xl bg-[#16243d] border-[#2f3037]" style="left: 64px;">
-                        <svg id="icon-call-unmuted" class="absolute transition-all" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                        <svg id="icon-call-muted" class="hidden absolute text-red-500 transition-all" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-                        <svg id="icon-call-send" class="hidden absolute text-[#3a8ff7] transition-all" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-                    </button>
                 </div>
             </div>
         </main>
     </div>
     <script src="script.js"></script>
 </body>
-                                                                                                                                                                                                                                  </html>
-    
+    </html>
+                                                                                                                                                                                                                                                                                                            
