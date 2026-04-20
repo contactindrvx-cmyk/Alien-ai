@@ -55,7 +55,6 @@ window.toggleVoiceMessage = function(btn) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // نارمل موڈ ایلیمنٹس کو لنک کرنا (کوئی بھی مس نہیں ہے اب)
     inputNormal = document.getElementById('user-input'); 
     outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill');
@@ -68,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
     iMicNormal = document.getElementById('icon-mic-normal'); 
     iMicStop = document.getElementById('icon-mic-stop');
 
-    // کال موڈ ایلیمنٹس کو لنک کرنا
     inputCall = document.getElementById('cg-input');
     cgPlus = document.getElementById('cg-plus');
     cgSend = document.getElementById('cg-send');
@@ -104,40 +102,39 @@ document.addEventListener('DOMContentLoaded', () => {
             callBar.classList.add('hidden'); callBar.classList.remove('flex');
             normalBar.classList.remove('hidden'); normalBar.classList.add('flex');
 
-            // 1. پہلے سب کچھ چھپائیں (فکسڈ)
+            // 1. Reset: پہلے سب کچھ چھپائیں
             outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
             inPlus.classList.add('btn-collapse'); 
             inSend.classList.add('btn-collapse');
             inMic.classList.add('btn-collapse'); 
             inCall.classList.add('btn-collapse');
-            waveArea.classList.add('btn-collapse'); 
-            inEnd.classList.add('btn-collapse');
             
-            mainPill.classList.remove('gemini-glow'); 
+            // Note:waveArea اور inEnd اب UI میں موجود نہیں ہیں، انہیں کنٹرول کرنے کی ضرورت نہیں
+            if(waveArea) waveArea.classList.add('btn-collapse'); 
+            if(inEnd) inEnd.classList.add('btn-collapse');
+            
             inputNormal.classList.remove('btn-collapse');
             inMic.classList.remove('bg-red-500/20'); 
             iMicNormal.classList.remove('hidden'); 
             iMicStop.classList.add('hidden');
 
-            // 2. صرف متعلقہ بٹن شو کریں
+            // 2. متعلقہ بٹن ظاہر کریں
             if (window.isAyeshaRecording) {
                 outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-                mainPill.classList.add('gemini-glow');
                 inMic.classList.remove('btn-collapse');
                 inMic.classList.add('bg-red-500/20');
                 iMicNormal.classList.add('hidden'); iMicStop.classList.remove('hidden');
             } 
             else if (text.length > 0) {
                 outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-                mainPill.classList.add('gemini-glow');
                 inSend.classList.remove('btn-collapse');
             } 
             else if (pendingImg) {
                 outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-                mainPill.classList.add('gemini-glow');
                 inMic.classList.remove('btn-collapse');
             }
             else {
+                // ڈیفالٹ حالت
                 inPlus.classList.remove('btn-collapse');
                 inMic.classList.remove('btn-collapse');
                 inCall.classList.remove('btn-collapse');
@@ -153,9 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
         else fileIn.click();
     };
-    outPlus.onclick = handlePlusClick; 
-    inPlus.onclick = handlePlusClick; 
-    cgPlus.onclick = handlePlusClick;
+    outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick; cgPlus.onclick = handlePlusClick;
 
     fileIn.onchange = (e) => {
         if(e.target.files[0]) {
@@ -187,9 +182,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    inCall.onclick = () => { isCallActive = true; isCallMuted = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
-    cgEnd.onclick = () => { isCallActive = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
+    // کال شروع کرنا
+    inCall.onclick = () => { 
+        isCallActive = true; 
+        isCallMuted = false; 
+        updateUIState(); 
+        if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); 
+    };
     
+    // 🚀 فکس: کال اینڈ کرنے کا پکا لاجک (سٹیٹ کلین اپ) 🚀
+    cgEnd.onclick = () => { 
+        isCallActive = false; 
+        
+        // 1. تمام ان پٹس اور تصویروں کو کلین کریں (تاکہ پرانی سٹیٹ نہ رہے)
+        inputNormal.value = '';
+        inputCall.value = '';
+        pendingImg = null;
+        preview.classList.add('hidden');
+        fileIn.value = ''; // file input کو بھی ری سیٹ کریں
+
+        // 2. UI کو ری سیٹ کریں
+        updateUIState(); 
+        
+        // 3. اینڈرائیڈ کو کال بند کرنے کا آرڈر دیں
+        if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
+    };
+    
+    // سینڈ کرنا
     const handleSendClick = (e) => {
         e.preventDefault(); 
         const activeInput = isCallActive ? inputCall : inputNormal; 
@@ -216,8 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
-    inSend.onclick = handleSendClick; 
-    cgSend.onclick = handleSendClick;
+    inSend.onclick = handleSendClick; cgSend.onclick = handleSendClick;
 });
 
 function addMessage(text, sender, imgUrl = null) {
@@ -228,28 +246,13 @@ function addMessage(text, sender, imgUrl = null) {
 
     if (sender === 'user') {
         msgDiv.className = 'w-full flex justify-end mt-4';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">
-            ${imgHTML}
-            <p dir="auto">${text}</p>
-        </div>`;
-        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator'));
-        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-        return null;
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">${imgHTML}<p dir="auto">${text}</p></div>`;
     } else {
         const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex justify-start mt-4 group';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]">
-            ${imgHTML}
-            <p dir="auto">${text}</p>
-            <div class="flex items-center gap-3 mt-3">
-                <button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}" onclick="window.toggleVoiceMessage(this)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                </button>
-            </div>
-        </div>`;
-        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator'));
-        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-        return msgDiv.querySelector('.gemini-speaker-btn');
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]">${imgHTML}<p dir="auto">${text}</p><div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}" onclick="window.toggleVoiceMessage(this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div></div>`;
     }
-      }
-                          
+    chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+    return sender === 'user' ? null : msgDiv.querySelector('.gemini-speaker-btn');
+    }
+        
