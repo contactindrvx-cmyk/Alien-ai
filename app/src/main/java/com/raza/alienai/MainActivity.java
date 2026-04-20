@@ -30,6 +30,16 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> mFilePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1;
 
+    private BroadcastReceiver wakeWordReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String agentName = intent.getStringExtra("agentName");
+            if (webView != null) {
+                webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,8 +85,12 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("file:///android_asset/index.html"); 
         
-        // 🚀 ایپ کھلتے ہی ببل سروس کو چیک کرو اور چلاؤ 🚀
-        manageBubbleService();
+        IntentFilter filter = new IntentFilter("com.raza.alienai.WAKE_WORD_DETECTED");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(wakeWordReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(wakeWordReceiver, filter);
+        }
     }
 
     private void requestRuntimePermissions() {
@@ -91,7 +105,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🚀 ہینگ ہونے سے بچانے والا لاجک: اب ہم بار بار سروس کو سٹاپ/سٹارٹ نہیں کریں گے 🚀
+    @Override
+    protected void onStart() {
+        super.onStart();
+        stopService(new Intent(this, FloatingBubbleService.class));
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        manageBubbleService();
+    }
+
     private void manageBubbleService() {
         boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true);
         if (isEnabled && hasOverlayPermission()) {
@@ -130,6 +155,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(wakeWordReceiver);
+    }
+
     public class WebAppInterface {
         @JavascriptInterface
         public void toggleBubble(boolean isEnabled) {
@@ -142,6 +173,18 @@ public class MainActivity extends AppCompatActivity {
                     stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
                 }
             });
+        }
+        @JavascriptInterface
+        public void setAgent(String agentName) {
+            sharedPreferences.edit().putString("selectedAgent", agentName).apply();
+        }
+        @JavascriptInterface
+        public void startBubbleVideo() {
+            sendBroadcast(new Intent("com.raza.alienai.PLAY_VIDEO"));
+        }
+        @JavascriptInterface
+        public void stopBubbleVideo() {
+            sendBroadcast(new Intent("com.raza.alienai.PAUSE_VIDEO"));
         }
     }
 }
