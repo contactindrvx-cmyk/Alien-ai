@@ -19,7 +19,6 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -30,16 +29,6 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences sharedPreferences;
     private ValueCallback<Uri[]> mFilePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1;
-
-    private BroadcastReceiver wakeWordReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String agentName = intent.getStringExtra("agentName");
-            if (webView != null) {
-                webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,15 +48,11 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setMediaPlaybackRequiresUserGesture(false); 
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
-
+        
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
-                runOnUiThread(() -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        request.grant(request.getResources());
-                    }
-                });
+                runOnUiThread(() -> request.grant(request.getResources()));
             }
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
@@ -89,26 +74,9 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("file:///android_asset/index.html"); 
-
-        IntentFilter filter = new IntentFilter("com.raza.alienai.WAKE_WORD_DETECTED");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(wakeWordReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(wakeWordReceiver, filter);
-        }
-    }
-
-    // 🚀 جب ببل پسِ پردہ ایپ کو جگائے گا، تو یہ فنکشن چلے گا! 🚀
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        if (intent != null && intent.hasExtra("WAKE_AGENT")) {
-            String agentName = intent.getStringExtra("WAKE_AGENT");
-            if (webView != null) {
-                // جاوا سکرپٹ کو بولو کہ جلدی سے مائیک آن کرے کیونکہ یوزر نے بلایا ہے
-                webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
-            }
-        }
+        
+        // 🚀 ایپ کھلتے ہی ببل سروس کو چیک کرو اور چلاؤ 🚀
+        manageBubbleService();
     }
 
     private void requestRuntimePermissions() {
@@ -116,20 +84,23 @@ public class MainActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, permissions, 100);
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        stopService(new Intent(this, FloatingBubbleService.class));
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
+    // 🚀 ہینگ ہونے سے بچانے والا لاجک: اب ہم بار بار سروس کو سٹاپ/سٹارٹ نہیں کریں گے 🚀
+    private void manageBubbleService() {
         boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true);
         if (isEnabled && hasOverlayPermission()) {
-            startService(new Intent(this, FloatingBubbleService.class));
+            Intent serviceIntent = new Intent(this, FloatingBubbleService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
         }
     }
 
@@ -159,32 +130,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        unregisterReceiver(wakeWordReceiver); 
-    }
-
     public class WebAppInterface {
         @JavascriptInterface
         public void toggleBubble(boolean isEnabled) {
             sharedPreferences.edit().putBoolean("bubbleEnabled", isEnabled).apply();
             runOnUiThread(() -> {
-                if (isEnabled) checkOverlayPermission();
-                else stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
+                if (isEnabled) {
+                    checkOverlayPermission();
+                    manageBubbleService();
+                } else {
+                    stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
+                }
             });
-        }
-        @JavascriptInterface
-        public void setAgent(String agentName) {
-            sharedPreferences.edit().putString("selectedAgent", agentName).apply();
-        }
-        @JavascriptInterface
-        public void startBubbleVideo() {
-            sendBroadcast(new Intent("com.raza.alienai.PLAY_VIDEO"));
-        }
-        @JavascriptInterface
-        public void stopBubbleVideo() {
-            sendBroadcast(new Intent("com.raza.alienai.PAUSE_VIDEO"));
         }
     }
 }
