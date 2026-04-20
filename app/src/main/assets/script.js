@@ -2,7 +2,7 @@ window.AyeshaAudio = { audioObj: null, queue: [], lang: 'ur' };
 let isCallActive = false; 
 window.isAyeshaRecording = false;
 
-let input, outPlus, outSend, mainPill, inPlus, waveArea, inSend, inMic, inCall, inEnd;
+let input, outPlus, outSend, mainPill, inPlus, waveArea, inSend, inMic, inCall;
 let iMicNormal, iMicStop, fileIn, preview, pendingImg = null, voiceTimeout;
 
 window.stopAyeshaCompletely = function() {
@@ -24,12 +24,9 @@ function playCloudQueue(btn) {
     window.AyeshaAudio.audioObj = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`);
     window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btn); 
     
-    // آٹو پلے ایرر کو ہینڈل کرنے کے لیے
     let playPromise = window.AyeshaAudio.audioObj.play();
     if (playPromise !== undefined) {
-        playPromise.catch(error => {
-            console.log("Auto-play blocked by Android WebView. Please enable setMediaPlaybackRequiresUserGesture(false) in MainActivity.java");
-        });
+        playPromise.catch(error => { console.log("Auto-play blocked."); });
     }
 }
 
@@ -60,7 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
     inSend = document.getElementById('in-send'); 
     inMic = document.getElementById('in-mic');
     inCall = document.getElementById('in-call'); 
-    inEnd = document.getElementById('in-end');
+    
+    // نوٹ: in-end اب waveArea کے اندر مستقل ہے، الگ سے btn-collapse نہیں ہے
+    let inEnd = document.getElementById('in-end'); 
     
     iMicNormal = document.getElementById('icon-mic-normal'); 
     iMicStop = document.getElementById('icon-mic-stop');
@@ -70,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUIState() {
         const text = input.value.trim();
 
+        // 1. Reset all states
         outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
         outSend.classList.add('btn-collapse'); outSend.classList.remove('btn-expand');
         inPlus.classList.add('btn-collapse');
@@ -77,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
         inMic.classList.add('btn-collapse');
         inCall.classList.add('btn-collapse');
         waveArea.classList.add('btn-collapse');
-        inEnd.classList.add('btn-collapse'); inEnd.classList.remove('btn-expand-auto');
         
         mainPill.classList.remove('gemini-glow');
         input.classList.remove('btn-collapse');
@@ -85,12 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
         iMicNormal.classList.remove('hidden');
         iMicStop.classList.add('hidden');
 
+        // 2. Apply active state
         if (isCallActive) {
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             outSend.classList.remove('btn-collapse'); outSend.classList.add('btn-expand');
             input.classList.add('btn-collapse');
-            waveArea.classList.remove('btn-collapse');
-            inEnd.classList.remove('btn-collapse'); inEnd.classList.add('btn-expand-auto');
+            waveArea.classList.remove('btn-collapse'); // پوری لہر اور اینڈ بٹن شو ہو جائے گا
         } 
         else if (window.isAyeshaRecording) {
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
@@ -153,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     inCall.onclick = () => { isCallActive = true; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
+    
+    // فکس: اب inEnd براہ راست waveArea کا حصہ ہے
     inEnd.onclick = () => { isCallActive = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
     
     const handleSendClick = (e) => {
@@ -173,8 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json()).then(d => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
                 let btn = addMessage(d.response, 'assistant');
-                
-                // 🌟 آٹو وائس کو یقینی بنانے کے لیے ٹائمر کو مضبوط کیا گیا ہے 🌟
                 if(btn && !isCallActive) {
                     setTimeout(() => window.toggleVoiceMessage(btn), 500);
                 }
@@ -218,5 +217,4 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return msgDiv.querySelector('.gemini-speaker-btn');
     }
-        }
-                                                                      
+            }
