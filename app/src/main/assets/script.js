@@ -13,12 +13,6 @@ function showToast(msg) {
     setTimeout(() => { t.classList.remove('opacity-100', 'translate-y-0'); t.classList.add('opacity-0', '-translate-y-10', 'pointer-events-none'); }, 3000);
 }
 
-function executeHardwareCommandLocally(text) {
-    let cmd = text.toLowerCase();
-    if (cmd.includes("وائبریٹ") || cmd.includes("vibrate")) { if (navigator.vibrate) navigator.vibrate([300, 100, 400]); }
-    if (cmd.includes("یوٹیوب") || cmd.includes("youtube")) window.open("https://www.youtube.com", '_blank');
-}
-
 window.stopAyeshaCompletely = function() {
     if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); window.AyeshaAudio.queue = []; 
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => { b.innerHTML = ICONS.play; b.classList.remove('bg-[#3a8ff7]', 'text-white'); });
@@ -40,11 +34,6 @@ window.toggleVoiceMessage = function(btn) {
     window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(text) ? 'ur' : 'en';
     window.AyeshaAudio.queue = text.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
     btn.innerHTML = ICONS.pause; btn.classList.add('bg-[#3a8ff7]', 'text-white'); playCloudQueue(btn);
-};
-
-window.addMessageFromJava = function(text) {
-    let btn = addMessage(text, 'assistant');
-    if(btn && isCallActive) setTimeout(() => window.toggleVoiceMessage(btn), 200);
 };
 
 function addMessage(text, sender) {
@@ -71,169 +60,77 @@ function addMessage(text, sender) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('user-input'); 
-    
-    // UI Elements
     const outPlus = document.getElementById('out-plus'); const outMute = document.getElementById('out-mute');
     const mainPill = document.getElementById('main-pill');
-    
     const inPlus = document.getElementById('in-plus'); const waveArea = document.getElementById('wave-area');
     const inSend = document.getElementById('in-send'); const inMic = document.getElementById('in-mic');
     const inCall = document.getElementById('in-call'); const inEnd = document.getElementById('in-end');
-
-    const iMicNormal = document.getElementById('icon-mic-normal'); const iMicStop = document.getElementById('icon-mic-stop');
-    const iUnmuted = document.getElementById('icon-unmuted'); const iMuted = document.getElementById('icon-muted');
-    const iCallSend = document.getElementById('icon-call-send');
-
-    const fileIn = document.getElementById('hidden-file-input'); const preview = document.getElementById('image-preview-container');
+    const fileIn = document.getElementById('hidden-file-input');
     const chatBox = document.getElementById('chat-box'); const thinking = document.getElementById('thinking-indicator');
     const scrollBtn = document.getElementById('scroll-bottom-btn');
     let pendingImg = null;
 
-    chatBox.addEventListener('scroll', () => {
-        if (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight > 200) scrollBtn.classList.remove('scale-0', 'opacity-0', 'pointer-events-none');
-        else scrollBtn.classList.add('scale-0', 'opacity-0', 'pointer-events-none');
-    });
-    scrollBtn.onclick = () => chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-
     function applyState(state) {
         if (state === 'NORMAL') {
-            outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
-            outMute.classList.add('btn-collapse'); outMute.classList.remove('btn-expand');
+            outPlus.classList.add('btn-collapse'); outMute.classList.add('btn-collapse');
             mainPill.classList.remove('gemini-glow');
-            
             inPlus.classList.remove('btn-collapse'); input.classList.remove('btn-collapse');
             inMic.classList.remove('btn-collapse'); inCall.classList.remove('btn-collapse');
-            
-            inSend.classList.add('btn-collapse'); inSend.classList.remove('btn-expand');
-            waveArea.classList.add('btn-collapse');
-            inEnd.classList.add('btn-collapse'); inEnd.classList.remove('btn-expand-auto');
-
-            iMicNormal.classList.remove('hidden'); iMicStop.classList.add('hidden'); inMic.classList.remove('bg-red-500/20');
-        } 
-        else if (state === 'TYPING') {
+            inSend.classList.add('btn-collapse'); waveArea.classList.add('btn-collapse'); inEnd.classList.add('btn-collapse');
+        } else if (state === 'TYPING') {
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            outMute.classList.add('btn-collapse'); outMute.classList.remove('btn-expand');
             mainPill.classList.add('gemini-glow');
-            
-            inPlus.classList.add('btn-collapse'); input.classList.remove('btn-collapse');
-            inMic.classList.add('btn-collapse'); inCall.classList.add('btn-collapse');
-            
+            inPlus.classList.add('btn-collapse'); inMic.classList.add('btn-collapse'); inCall.classList.add('btn-collapse');
             inSend.classList.remove('btn-collapse'); inSend.classList.add('btn-expand');
-            waveArea.classList.add('btn-collapse'); inEnd.classList.add('btn-collapse');
-        }
-        else if (state === 'VOICE_NOTE') {
-            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            outMute.classList.add('btn-collapse');
-            mainPill.classList.add('gemini-glow');
-            
-            inPlus.classList.add('btn-collapse'); input.classList.remove('btn-collapse');
-            inSend.classList.add('btn-collapse'); inSend.classList.remove('btn-expand');
-            inCall.classList.add('btn-collapse');
-            
-            inMic.classList.remove('btn-collapse');
-            iMicNormal.classList.add('hidden'); iMicStop.classList.remove('hidden'); inMic.classList.add('bg-red-500/20');
-        }
-        else if (state === 'CALL') {
-            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            outMute.classList.remove('btn-collapse'); outMute.classList.add('btn-expand');
-            mainPill.classList.remove('gemini-glow');
-            
-            inPlus.classList.add('btn-collapse'); input.classList.add('btn-collapse');
-            inSend.classList.add('btn-collapse'); inSend.classList.remove('btn-expand');
+        } else if (state === 'CALL') {
+            outPlus.classList.remove('btn-collapse'); outMute.classList.remove('btn-collapse');
+            input.classList.add('btn-collapse'); inPlus.classList.add('btn-collapse');
             inMic.classList.add('btn-collapse'); inCall.classList.add('btn-collapse');
-            
-            waveArea.classList.remove('btn-collapse');
-            inEnd.classList.remove('btn-collapse'); inEnd.classList.add('btn-expand-auto');
-
-            if(pendingImg) {
-                iCallSend.classList.remove('hidden'); iUnmuted.classList.add('hidden'); iMuted.classList.add('hidden');
-                outMute.classList.remove('bg-red-500/20');
-            } else {
-                iCallSend.classList.add('hidden');
-                iUnmuted.classList.toggle('hidden', isCallMuted); iMuted.classList.toggle('hidden', !isCallMuted);
-                outMute.classList.toggle('bg-red-500/20', isCallMuted);
-            }
+            waveArea.classList.remove('btn-collapse'); inEnd.classList.remove('btn-collapse'); inEnd.classList.add('btn-expand-auto');
         }
     }
 
-    function checkUI() {
-        if(isCallActive) { applyState('CALL'); return; }
-        if(window.isAyeshaRecording) { applyState('VOICE_NOTE'); return; }
-        if(input.value.trim().length > 0 || pendingImg) { applyState('TYPING'); return; } 
-        applyState('NORMAL');
-    }
-
-    input.addEventListener('input', checkUI);
-    
-    document.getElementById('menu-btn').onclick = () => { document.getElementById('sidebar').classList.remove('-translate-x-full'); document.getElementById('sidebar-overlay').classList.remove('hidden'); };
-    document.getElementById('sidebar-overlay').onclick = () => { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebar-overlay').classList.add('hidden'); };
-
-    // فکس: پلس بٹن کو ڈائریکٹ ٹارگٹ کیا گیا ہے
     const handlePlusClick = (e) => {
         e.preventDefault();
-        fileIn.click();
-    };
-    outPlus.onclick = handlePlusClick; 
-    inPlus.onclick = handlePlusClick;
-
-    fileIn.onchange = (e) => {
-        if(e.target.files[0]) {
-            pendingImg = e.target.files[0];
-            document.getElementById('preview-img').src = URL.createObjectURL(pendingImg);
-            preview.classList.remove('hidden'); checkUI();
+        // اگر ایپ کا برج ہے تو اسے استعمال کریں ورنہ براؤزر کا فائل ان پٹ
+        if(window.AndroidBridge && window.AndroidBridge.openGallery) {
+            window.AndroidBridge.openGallery();
+        } else {
+            fileIn.click();
         }
     };
-    document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; checkUI(); };
+    outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick;
 
-    // فکس: مائیکروفون کی کراس براؤزر سپورٹ
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let rec; 
-    if(SpeechRecognition) {
-        rec = new SpeechRecognition(); 
-        rec.lang='ur-PK';
-        rec.onstart = () => { window.isAyeshaRecording = true; input.placeholder='سن رہی ہوں...'; checkUI(); };
-        rec.onresult = (e) => { input.value = e.results[0][0].transcript; setTimeout(()=> inSend.click(), 500); };
-        rec.onend = () => { window.isAyeshaRecording = false; input.placeholder='Ask something...'; checkUI(); };
-    }
-    
-    inMic.onclick = () => { 
-        if(!rec) {
-            showToast("آپ کے براؤزر میں وائس ٹائپنگ سپورٹ نہیں ہے۔");
-            return;
+    inMic.onclick = () => {
+        // ایپ برج کے ذریعے مائیک کھولیں
+        if(window.AndroidBridge && window.AndroidBridge.startVoiceRecognition) {
+            window.AndroidBridge.startVoiceRecognition();
+        } else {
+            showToast("Native voice support not found. Ensure AndroidBridge is set up.");
         }
-        if(window.isAyeshaRecording) rec.stop(); else rec.start(); 
     };
 
-    inCall.onclick = () => {
-        isCallActive = true; isCallMuted = false; checkUI();
-        if(window.AndroidBridge) window.AndroidBridge.toggleCall(true);
-    };
-
-    inEnd.onclick = () => {
-        isCallActive = false; checkUI(); showToast("Voice chat ended");
-        if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
-    };
-
-    outMute.onclick = () => {
-        if(pendingImg) { inSend.click(); } 
-        else { isCallMuted = !isCallMuted; checkUI(); if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); }
-    };
+    inCall.onclick = () => { isCallActive = true; applyState('CALL'); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
+    inEnd.onclick = () => { isCallActive = false; applyState('NORMAL'); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
 
     inSend.onclick = (e) => {
-        e.preventDefault(); const text = input.value.trim();
-        if (text || pendingImg) {
-            addMessage(text || "تصویر بھیجی گئی", 'user');
-            const data = { message: text, email: "alirazasabir007@gmail.com" };
-            input.value = ''; pendingImg = null; preview.classList.add('hidden'); checkUI();
-            
+        const text = input.value.trim();
+        if (text) {
+            addMessage(text, 'user');
+            input.value = ''; applyState('NORMAL');
             thinking.classList.remove('hidden');
-            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
+                method: "POST", 
+                headers: { "Content-Type": "application/json" }, 
+                body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
+            })
             .then(res => res.json()).then(d => { 
                 thinking.classList.add('hidden'); 
-                let btn = addMessage(d.response, 'assistant');
-                if(btn && !isCallActive) setTimeout(() => window.toggleVoiceMessage(btn), 300); 
-            }).catch(e => { thinking.classList.add('hidden'); addMessage("سرور آف لائن ہے۔", 'assistant'); });
+                addMessage(d.response, 'assistant');
+            }).catch(() => { thinking.classList.add('hidden'); addMessage("سرور آف لائن ہے۔", 'assistant'); });
         }
     };
+    
+    input.addEventListener('input', () => { if(!isCallActive) applyState(input.value.length > 0 ? 'TYPING' : 'NORMAL'); });
 });
-                    
+        
