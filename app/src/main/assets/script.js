@@ -89,14 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const scrollBtn = document.getElementById('scroll-bottom-btn');
     let pendingImg = null;
 
-    // 🚀 سکرول بٹن 🚀
     chatBox.addEventListener('scroll', () => {
         if (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight > 200) scrollBtn.classList.remove('scale-0', 'opacity-0', 'pointer-events-none');
         else scrollBtn.classList.add('scale-0', 'opacity-0', 'pointer-events-none');
     });
     scrollBtn.onclick = () => chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
 
-    // 🚀 جادوئی UI مینیجر (No Overlaps Guarantee) 🚀
     function applyState(state) {
         if (state === 'NORMAL') {
             outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
@@ -167,13 +165,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     input.addEventListener('input', checkUI);
     
-    // سائیڈ بار کنٹرول
     document.getElementById('menu-btn').onclick = () => { document.getElementById('sidebar').classList.remove('-translate-x-full'); document.getElementById('sidebar-overlay').classList.remove('hidden'); };
     document.getElementById('sidebar-overlay').onclick = () => { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebar-overlay').classList.add('hidden'); };
 
-    // پلس بٹن اور تصویر
-    const handlePlusClick = () => fileIn.click();
-    outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick;
+    // فکس: پلس بٹن کو ڈائریکٹ ٹارگٹ کیا گیا ہے
+    const handlePlusClick = (e) => {
+        e.preventDefault();
+        fileIn.click();
+    };
+    outPlus.onclick = handlePlusClick; 
+    inPlus.onclick = handlePlusClick;
 
     fileIn.onchange = (e) => {
         if(e.target.files[0]) {
@@ -184,16 +185,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; checkUI(); };
 
-    // 🎤 وائس ٹائپنگ
-    let rec; if('webkitSpeechRecognition' in window) {
-        rec = new webkitSpeechRecognition(); rec.lang='ur-PK';
+    // فکس: مائیکروفون کی کراس براؤزر سپورٹ
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let rec; 
+    if(SpeechRecognition) {
+        rec = new SpeechRecognition(); 
+        rec.lang='ur-PK';
         rec.onstart = () => { window.isAyeshaRecording = true; input.placeholder='سن رہی ہوں...'; checkUI(); };
         rec.onresult = (e) => { input.value = e.results[0][0].transcript; setTimeout(()=> inSend.click(), 500); };
         rec.onend = () => { window.isAyeshaRecording = false; input.placeholder='Ask something...'; checkUI(); };
     }
-    inMic.onclick = () => { if(window.isAyeshaRecording) rec.stop(); else rec.start(); };
+    
+    inMic.onclick = () => { 
+        if(!rec) {
+            showToast("آپ کے براؤزر میں وائس ٹائپنگ سپورٹ نہیں ہے۔");
+            return;
+        }
+        if(window.isAyeshaRecording) rec.stop(); else rec.start(); 
+    };
 
-    // 📞 لائیو کال بٹن
     inCall.onclick = () => {
         isCallActive = true; isCallMuted = false; checkUI();
         if(window.AndroidBridge) window.AndroidBridge.toggleCall(true);
@@ -226,4 +236,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 });
-        
+                    
