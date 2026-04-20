@@ -19,6 +19,7 @@ import android.speech.tts.TextToSpeech;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Base64;
+import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
@@ -113,6 +114,9 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }, PhoneStateListener.LISTEN_CALL_STATE);
     }
 
+    // ==========================================
+    // 🎙️ سمارٹ آڈیو سٹریمنگ (Silence Detection کے ساتھ)
+    // ==========================================
     private void startAudioStreaming() {
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
@@ -123,36 +127,101 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         new Thread(() -> {
             byte[] buffer = new byte[bufferSize];
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            boolean userIsSpeaking = false;
+            int silenceFrames = 0;
+
             while (isRecording) {
                 if (isMutedBySystem || isAyeshaSpeaking || isMutedByUser) continue;
                 
                 int read = audioRecord.read(buffer, 0, buffer.length);
                 if (read > 0) {
-                    baos.write(buffer, 0, read);
-                    if (baos.size() > 32000) { 
-                        sendToWebSocket(baos.toByteArray());
-                        baos.reset();
+                    double rms = calculateRMS(buffer, read);
+                    
+                    if (rms > 500) { // 👈 جب آپ بول رہے ہوں گے
+                        userIsSpeaking = true;
+                        silenceFrames = 0;
+                        try { baos.write(buffer, 0, read); } catch (Exception e) {}
+                    } else if (userIsSpeaking) { // 👈 جب آپ چپ ہو جائیں گے
+                        silenceFrames++;
+                        try { baos.write(buffer, 0, read); } catch (Exception e) {}
+                        
+                        // اگر تقریباً 1.5 سیکنڈ تک خاموشی رہے، تو آڈیو بھیج دو!
+                        if (silenceFrames > 25) { 
+                            userIsSpeaking = false;
+                            sendRawAudioToAI(baos.toByteArray());
+                            baos.reset();
+                        }
                     }
                 }
             }
         }).start();
     }
 
-    private void sendToWebSocket(byte[] data) {
+    // آواز کی طاقت (Volume) چیک کرنے کا فنکشن
+    private double calculateRMS(byte[] buffer, int length) {
+        long sum = 0;
+        for (int i = 0; i < length; i += 2) {
+            short sample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xFF));
+            sum += sample * sample;
+        }
+        return Math.sqrt(sum / (length / 2.0));
+    }
+
+    // AI کو بھیجنے سے پہلے آڈیو کو WAV فارمیٹ میں پیک کرنا (بہت ضروری)
+    private void sendRawAudioToAI(byte[] pcmData) {
+        if (pcmData.length < 8000) return; // چھوٹی موٹی کھانسی یا شور کو اگنور کرو
+        
+        byte[] wavData = addWavHeader(pcmData);
+        String base64Audio = Base64.encodeToString(wavData, Base64.NO_WRAP);
+        
         if (webSocket != null) {
-            JSONObject json = new JSONObject();
             try {
-                json.put("audio", Base64.encodeToString(data, Base64.NO_WRAP));
+                JSONObject json = new JSONObject();
+                json.put("audio", base64Audio);
                 json.put("email", "alirazasabir007@gmail.com");
                 webSocket.send(json.toString());
-            } catch (Exception e) {}
+            } catch (Exception e) { e.printStackTrace(); }
         }
+    }
+
+    // WAV ہیڈر بنانے والا کوڈ
+    private byte[] addWavHeader(byte[] pcmData) {
+        int totalAudioLen = pcmData.length;
+        int totalDataLen = totalAudioLen + 36;
+        int byteRate = SAMPLE_RATE * 2;
+
+        byte[] header = new byte[44];
+        header[0] = 'R'; header[1] = 'I'; header[2] = 'F'; header[3] = 'F';
+        header[4] = (byte) (totalDataLen & 0xff); header[5] = (byte) ((totalDataLen >> 8) & 0xff);
+        header[6] = (byte) ((totalDataLen >> 16) & 0xff); header[7] = (byte) ((totalDataLen >> 24) & 0xff);
+        header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
+        header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
+        header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0;
+        header[20] = 1; header[21] = 0; header[22] = 1; header[23] = 0;
+        header[24] = (byte) (SAMPLE_RATE & 0xff); header[25] = (byte) ((SAMPLE_RATE >> 8) & 0xff);
+        header[26] = (byte) ((SAMPLE_RATE >> 16) & 0xff); header[27] = (byte) ((SAMPLE_RATE >> 24) & 0xff);
+        header[28] = (byte) (byteRate & 0xff); header[29] = (byte) ((byteRate >> 8) & 0xff);
+        header[30] = (byte) ((byteRate >> 16) & 0xff); header[31] = (byte) ((byteRate >> 24) & 0xff);
+        header[32] = 2; header[33] = 0; header[34] = 16; header[35] = 0;
+        header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
+        header[40] = (byte) (totalAudioLen & 0xff); header[41] = (byte) ((totalAudioLen >> 8) & 0xff);
+        header[42] = (byte) ((totalAudioLen >> 16) & 0xff); header[43] = (byte) ((totalAudioLen >> 24) & 0xff);
+
+        byte[] wavData = new byte[header.length + pcmData.length];
+        System.arraycopy(header, 0, wavData, 0, header.length);
+        System.arraycopy(pcmData, 0, wavData, header.length, pcmData.length);
+        return wavData;
     }
 
     private void connectWebSocket() {
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder().url("wss://aigrowthbox-ayesha-ai.hf.space/ws/live").build();
         webSocket = client.newWebSocket(request, new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket webSocket, okhttp3.Response response) {
+                mainHandler.post(() -> Toast.makeText(AyeshaCallService.this, "Call Connected to Server", Toast.LENGTH_SHORT).show());
+            }
+
             @Override
             public void onMessage(WebSocket webSocket, String text) {
                 try {
@@ -193,4 +262,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
-            }
+                        }
+                
