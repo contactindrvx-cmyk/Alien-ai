@@ -8,24 +8,15 @@
     <link rel="stylesheet" href="style.css">
     <style>
         /* لائیو کال ویوز (Waveform) کی اینیمیشن */
-        .wave-bar {
-            width: 3px; height: 12px; background-color: #3a8ff7; border-radius: 4px;
-            animation: wave 1s ease-in-out infinite; margin: 0 1px;
-        }
-        .wave-bar:nth-child(2) { animation-delay: 0.2s; }
-        .wave-bar:nth-child(3) { animation-delay: 0.4s; }
-        .wave-bar:nth-child(4) { animation-delay: 0.6s; }
-        @keyframes wave { 0%, 100% { height: 8px; } 50% { height: 20px; } }
+        .wave-bar { width: 3px; height: 12px; background-color: #3a8ff7; border-radius: 4px; animation: wave 1.2s ease-in-out infinite; margin: 0 1.5px; }
+        .wave-bar:nth-child(2) { animation-delay: 0.2s; } .wave-bar:nth-child(3) { animation-delay: 0.4s; } .wave-bar:nth-child(4) { animation-delay: 0.6s; }
+        @keyframes wave { 0%, 100% { height: 8px; } 50% { height: 22px; } }
         
-        /* چیٹ جی پی ٹی سٹائل سموتھ اینیمیشن (Pop-out) */
-        .pop-out-btn {
-            position: absolute; width: 56px; height: 56px; border-radius: 50%;
-            background-color: #16243d; border: 1px solid #2f3037;
-            display: flex; items-center justify-center; color: white;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            opacity: 0; transform: scale(0.5); pointer-events: none; z-index: 40;
-        }
-        .pop-out-btn.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+        /* سموتھ اینیمیشن کلاسز (ChatGPT Style) */
+        .slide-hide { width: 0 !important; padding: 0 !important; margin: 0 !important; opacity: 0 !important; overflow: hidden !important; transform: scale(0.5); pointer-events: none; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .slide-show-circle { width: 48px !important; height: 48px !important; opacity: 1 !important; transform: scale(1); pointer-events: auto; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .slide-show-flex { flex: 1 !important; opacity: 1 !important; transform: scale(1); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.15); border-color: #3a8ff7 !important; }
     </style>
 </head>
 <body class="h-screen flex bg-black text-white font-sans w-full overflow-hidden relative">
@@ -42,17 +33,20 @@
         <div class="p-4 flex-1 flex flex-col overflow-y-auto">
             <h2 class="text-2xl font-bold mb-6 mt-4 text-center text-[#3a8ff7]">Select Assistant</h2>
             <div class="space-y-4" id="assistants-list">
-                <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition" data-name="Ayesha AI">
-                    <span class="w-3 h-3 rounded-full bg-green-500"></span> 
+                <button class="assistant-btn w-full text-left p-3 bg-[#16243d] border border-[#3a8ff7] rounded-xl flex items-center gap-3 transition">
+                    <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
                     <span class="font-semibold">Ayesha AI</span>
                 </button>
             </div>
         </div>
         <div class="p-4 border-t border-[#2f3037] bg-[#0a0a0a]">
-            <button class="w-full mb-4 py-2.5 bg-gradient-to-r from-[#3a8ff7] to-purple-600 rounded-xl font-bold text-white transition-transform active:scale-95 flex items-center justify-center gap-2">Upgrade Premium</button>
-            <div class="flex items-center gap-3 mt-4">
+            <button class="w-full mb-4 py-2.5 bg-gradient-to-r from-[#3a8ff7] to-purple-600 rounded-xl font-bold text-white transition-transform active:scale-95 flex items-center justify-center gap-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                Upgrade Premium
+            </button>
+            <div class="flex items-center gap-3 mt-2">
                 <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
-                <span class="font-medium text-sm text-gray-300">Ali Raza</span>
+                <span class="font-medium text-sm text-gray-200">Ali Raza</span>
             </div>
         </div>
     </aside>
@@ -68,7 +62,7 @@
 
         <main class="flex-1 flex flex-col relative overflow-hidden bg-black">
             <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-box">
-                <div id="image-preview-container" class="hidden fixed bottom-24 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-40">
+                <div id="image-preview-container" class="hidden absolute bottom-24 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-4 z-40">
                     <div class="bg-[#16243d] p-2 pr-4 rounded-xl border border-[#3a8ff7] shadow-lg flex items-center justify-between w-fit gap-4 mx-auto">
                         <div class="flex items-center gap-3">
                             <img id="preview-img" src="" class="h-10 w-10 object-cover rounded-md border border-[#3a8ff7]/50">
@@ -79,60 +73,54 @@
                         </button>
                     </div>
                 </div>
-
-                <div id="thinking-indicator" class="hidden w-full mt-2 mb-4 flex justify-start px-2">
-                    <div class="flex items-center gap-2 text-[#3a8ff7]">
-                        <svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        <span id="indicator-text" class="animate-pulse text-sm font-medium">سوچ رہی ہے...</span>
-                    </div>
-                </div>
+                <div id="thinking-indicator" class="hidden w-full flex justify-start px-2"><span class="text-[#3a8ff7] animate-pulse font-medium">سوچ رہی ہے...</span></div>
             </div>
 
-            <div class="relative w-full px-4 md:px-6 pb-6 bg-black flex flex-col z-30">
-                <div id="input-area" class="relative w-full flex items-center justify-center max-w-4xl mx-auto h-16 transition-all duration-300">
+            <div class="px-4 md:px-6 pb-6 bg-black z-30">
+                <div class="relative w-full max-w-4xl mx-auto flex items-center gap-2 h-14 justify-end">
                     
-                    <div id="input-pill" class="relative flex-1 h-14 bg-[#16243d] border border-[#2f3037] gemini-glow rounded-full flex items-center transition-all duration-300 ml-0 overflow-hidden pr-1 pl-1 w-full">
+                    <button id="standalone-plus" class="slide-hide flex-shrink-0 bg-[#16243d] border border-[#2f3037] text-[#3a8ff7] rounded-full flex items-center justify-center active:scale-95 shadow-md">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+
+                    <button id="standalone-mute" class="slide-hide flex-shrink-0 bg-[#16243d] border border-[#2f3037] text-white rounded-full flex items-center justify-center active:scale-95 shadow-md">
+                        <svg id="call-unmuted-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                        <svg id="call-muted-icon" class="hidden text-red-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path></svg>
+                    </button>
+
+                    <div id="main-pill" class="slide-show-flex h-full bg-[#16243d] border border-[#2f3037] rounded-full flex items-center px-1 overflow-hidden transition-all duration-400 w-full">
                         
-                        <button id="plus-btn" class="w-12 h-12 flex-shrink-0 flex items-center justify-center text-[#3a8ff7] rounded-full transition-all duration-300">
+                        <button id="pill-plus" class="w-12 h-12 flex-shrink-0 flex items-center justify-center text-[#3a8ff7] rounded-full transition-all duration-300">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
 
-                        <input type="text" id="user-input" class="flex-1 bg-transparent px-2 py-3 outline-none text-white text-base placeholder-gray-400 w-full" placeholder="Ask something..." autocomplete="off">
+                        <input type="text" id="user-input" class="slide-show-flex bg-transparent px-1 py-3 outline-none text-white text-base w-full" placeholder="Ask something..." autocomplete="off">
                         
-                        <div class="flex items-center gap-1 flex-shrink-0">
-                            <button id="start-call-btn" class="p-3 text-[#3a8ff7] hover:text-white transition-all duration-200" title="Start Live Call">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
-                            </button>
-                            
-                            <button id="send-action-btn" class="hidden p-3 text-[#3a8ff7] transition-colors hover:text-white">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-                            </button>
-
-                            <button id="mic-action-btn" class="p-3 text-[#3a8ff7] transition-colors hover:text-white rounded-full transition-all duration-200">
-                                <svg id="mic-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                                <svg id="stop-icon" class="hidden text-white animate-pulse" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <button id="call-plus-btn" class="pop-out-btn shadow-xl flexitems-center justify-center flex-shrink-0">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
-                    <button id="mute-call-btn" class="pop-out-btn shadow-xl flex items-center justify-center flex-shrink-0">
-                        <svg id="unmuted-icon-call" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                        <svg id="muted-icon-call" class="hidden text-red-500" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path></svg>
-                    </button>
-                    
-                    <div id="call-end-pill" class="absolute h-14 bg-[#16243d] border border-[#2f3037] shadow-xl rounded-full flex items-center justify-between px-2 pl-4 transition-all duration-400 opacity-0 transform scale-50 pointer-events-none z-50">
-                        <div class="flex items-center gap-3">
+                        <div id="call-waves-container" class="slide-hide flex items-center flex-1 pl-4 gap-3">
                             <div class="flex items-center h-6 justify-center">
                                 <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
                             </div>
-                            <span class="text-[#3a8ff7] font-medium text-sm ml-2">Connecting...</span>
+                            <span class="text-[#3a8ff7] text-sm font-medium">Listening...</span>
                         </div>
-                        <button id="end-call-btn" class="px-5 py-2.5 rounded-full bg-[#3a8ff7] text-white font-semibold text-sm transition active:scale-95 shadow-md flex-shrink-0">
-                            <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-white animate-pulse"></div> End</div>
-                        </button>
+
+                        <div class="flex items-center flex-shrink-0 pr-1">
+                            <button id="send-btn" class="slide-hide w-10 h-10 rounded-full flex items-center justify-center text-white bg-[#3a8ff7] shadow-lg ml-1">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                            </button>
+                            
+                            <button id="pill-mic" class="w-11 h-11 rounded-full flex items-center justify-center text-[#3a8ff7] hover:text-white transition-all duration-300">
+                                <svg id="mic-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                                <svg id="stop-icon" class="hidden text-white animate-pulse" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+                            </button>
+                            
+                            <button id="pill-call" class="w-11 h-11 rounded-full flex items-center justify-center text-[#3a8ff7] hover:text-white transition-all duration-300">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
+                            </button>
+
+                            <button id="pill-end" class="slide-hide h-10 px-5 rounded-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center justify-center gap-1.5 active:scale-95 border border-red-500/30">
+                                End
+                            </button>
+                        </div>
                     </div>
 
                 </div>
@@ -141,4 +129,5 @@
     </div>
     <script src="script.js"></script>
 </body>
-</html>
+                                    </html>
+    
