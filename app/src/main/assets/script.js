@@ -1,84 +1,61 @@
 window.AyeshaAudio = { audioObj: null, queue: [], lang: 'ur' };
 let isCallActive = false; 
-let isCallMuted = false; 
 window.isAyeshaRecording = false;
 
 // UI Elements
-let input, outPlus, outMute, mainPill, inPlus, waveArea, inSend, inMic, inCall, inEnd;
-let iMicNormal, iMicStop, iUnmuted, iMuted, iCallSend;
-let fileIn, preview, pendingImg = null, voiceTimeout;
+let input, outPlus, outSend, mainPill, inPlus, waveArea, inSend, inMic, inCall, inEnd;
+let iMicNormal, iMicStop, fileIn, preview, pendingImg = null, voiceTimeout;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Elements کو متغیرات میں محفوظ کریں
     input = document.getElementById('user-input'); 
     outPlus = document.getElementById('out-plus'); 
-    outMute = document.getElementById('out-mute');
+    outSend = document.getElementById('out-send'); // لائیو کال میں باہر والا جہاز
     mainPill = document.getElementById('main-pill');
     inPlus = document.getElementById('in-plus'); 
     waveArea = document.getElementById('wave-area');
-    inSend = document.getElementById('in-send'); 
+    inSend = document.getElementById('in-send'); // ٹائپنگ میں اندر والا جہاز
     inMic = document.getElementById('in-mic');
     inCall = document.getElementById('in-call'); 
     inEnd = document.getElementById('in-end');
     
     iMicNormal = document.getElementById('icon-mic-normal'); 
     iMicStop = document.getElementById('icon-mic-stop');
-    iUnmuted = document.getElementById('icon-unmuted'); 
-    iMuted = document.getElementById('icon-muted');
-    iCallSend = document.getElementById('icon-call-send');
-    
     fileIn = document.getElementById('hidden-file-input'); 
     preview = document.getElementById('image-preview-container');
 
-    // 🌟 جادوئی سٹیٹ مینیجر: آپ کے بتائے ہوئے ڈیزائن کے مطابق 🌟
+    // 🌟 ماسٹر UI کنٹرولر 🌟
     function updateUIState() {
-        // پہلے سب کچھ ری سیٹ کریں (Hide All)
-        outPlus.classList.add('btn-collapse'); outMute.classList.add('btn-collapse');
+        // ری سیٹ (Hide All)
+        outPlus.classList.add('btn-collapse'); outSend.classList.add('btn-collapse');
         inPlus.classList.add('btn-collapse'); inSend.classList.add('btn-collapse');
         inMic.classList.add('btn-collapse'); inCall.classList.add('btn-collapse');
         waveArea.classList.add('btn-collapse'); inEnd.classList.add('btn-collapse');
         mainPill.classList.remove('gemini-glow'); input.classList.remove('btn-collapse');
 
         if (isCallActive) {
-            // 4. لائیو کال سٹیٹ
-            outPlus.classList.remove('btn-collapse'); // پلس باہر
-            outPlus.classList.add('btn-expand');
-            outMute.classList.remove('btn-collapse'); // میوٹ باہر
-            outMute.classList.add('btn-expand');
-            input.classList.add('btn-collapse'); // ٹیکسٹ ہائیڈ
-            waveArea.classList.remove('btn-collapse'); // لہریں شو
-            inEnd.classList.remove('btn-collapse'); // اینڈ بٹن شو
-            inEnd.classList.add('btn-expand-auto');
-
-            if (pendingImg) {
-                // اگر کال میں تصویر اپلوڈ کی ہے تو میوٹ بٹن جہاز بن جائے گا
-                iCallSend.classList.remove('hidden'); iUnmuted.classList.add('hidden'); iMuted.classList.add('hidden');
-                outMute.classList.remove('bg-red-500/20');
-            } else {
-                iCallSend.classList.add('hidden');
-                iUnmuted.classList.toggle('hidden', isCallMuted); iMuted.classList.toggle('hidden', !isCallMuted);
-                outMute.classList.toggle('bg-red-500/20', isCallMuted);
-            }
+            // حالت 4: لائیو کال
+            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
+            outSend.classList.remove('btn-collapse'); outSend.classList.add('btn-expand');
+            input.classList.add('btn-collapse'); 
+            waveArea.classList.remove('btn-collapse'); 
+            inEnd.classList.remove('btn-collapse'); inEnd.classList.add('btn-expand-auto');
         } 
         else if (window.isAyeshaRecording) {
-            // 2. مائیک ریکارڈنگ سٹیٹ
-            outPlus.classList.remove('btn-collapse'); // پلس باہر
-            outPlus.classList.add('btn-expand');
+            // حالت 3: مائیک چل رہا ہے
+            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
-            inMic.classList.remove('btn-collapse'); // مائیک (سٹاپ بٹن بن کر) اندر
+            inMic.classList.remove('btn-collapse'); 
             iMicNormal.classList.add('hidden'); iMicStop.classList.remove('hidden');
-            inMic.classList.add('bg-red-500/20'); // سرخ رنگ
+            inMic.classList.add('bg-red-500/20'); 
         } 
         else if (input.value.trim().length > 0 || pendingImg) {
-            // 3. ٹائپنگ یا تصویر سلیکٹ سٹیٹ
-            outPlus.classList.remove('btn-collapse'); // پلس باہر
-            outPlus.classList.add('btn-expand');
+            // حالت 2: ٹائپنگ یا تصویر
+            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
-            inSend.classList.remove('btn-collapse'); // سینڈ (جہاز) اندر
-            inSend.classList.add('btn-expand');
+            inSend.classList.remove('btn-collapse'); inSend.classList.add('btn-expand');
         } 
         else {
-            // 1. نارمل سٹیٹ (سب اندر)
+            // حالت 1: کچھ نہیں ہو رہا (سارے بٹن اندر)
             inPlus.classList.remove('btn-collapse');
             inMic.classList.remove('btn-collapse');
             inCall.classList.remove('btn-collapse');
@@ -89,15 +66,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     input.addEventListener('input', updateUIState);
 
-    // پلس بٹن فنکشن (گیلری کھولنا)
+    // پلس بٹن کلک (اندر والا ہو یا باہر والا)
     const handlePlusClick = (e) => {
         e.preventDefault();
-        if(window.AndroidBridge && window.AndroidBridge.openGallery) { window.AndroidBridge.openGallery(); } 
-        else { fileIn.click(); }
+        if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
+        else fileIn.click();
     };
     outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick;
 
-    // تصویر سلیکٹ ہونے پر
     fileIn.onchange = (e) => {
         if(e.target.files[0]) {
             pendingImg = e.target.files[0];
@@ -107,60 +83,39 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
 
-    // مائیکروفون اور آٹو سینڈ لاجک
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let rec; 
-    if(SpeechRecognition) {
-        rec = new SpeechRecognition(); 
-        rec.lang='ur-PK';
-        rec.continuous = false;
-        
-        rec.onstart = () => { window.isAyeshaRecording = true; input.placeholder='سن رہی ہوں...'; updateUIState(); };
-        
-        rec.onresult = (e) => { 
-            input.value = e.results[0][0].transcript; 
-            updateUIState();
-            
-            // آٹو سینڈ: بات مکمل ہونے کے بعد 2 سیکنڈ کا ڈیلے
-            clearTimeout(voiceTimeout);
-            voiceTimeout = setTimeout(() => {
-                if(window.isAyeshaRecording) { rec.stop(); }
-                inSend.click(); // آٹو سینڈ
-            }, 2000); 
-        };
-        
-        rec.onend = () => { window.isAyeshaRecording = false; input.placeholder='Ask something...'; updateUIState(); };
-    }
-    
+    // مائیک بٹن کلک
     inMic.onclick = () => { 
-        if(window.AndroidBridge && window.AndroidBridge.startVoiceRecognition) {
-            window.AndroidBridge.startVoiceRecognition();
-        } else if(rec) {
-            if(window.isAyeshaRecording) { rec.stop(); clearTimeout(voiceTimeout); } else { rec.start(); }
-        } else {
-            showToast("وائس ٹائپنگ سپورٹ نہیں ہے۔");
+        if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
+            window.AndroidBridge.toggleInlineMic(); // یہ نیا فنکشن جاوا میں بنے گا
         }
     };
 
-    // لائیو کال کنٹرولز
-    inCall.onclick = () => { isCallActive = true; isCallMuted = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
-    inEnd.onclick = () => { isCallActive = false; updateUIState(); showToast("Voice chat ended"); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
+    // جاوا سے آنے والی اپڈیٹس (مائیک شروع ہوا یا بند ہوا)
+    window.onInlineMicState = function(isRecording) {
+        window.isAyeshaRecording = isRecording;
+        if(isRecording) { input.placeholder = "سن رہی ہوں..."; } 
+        else { input.placeholder = "Ask something..."; }
+        updateUIState();
+    };
+
+    // جاوا سے ٹیکسٹ ملنا (لائیو ٹائپنگ)
+    window.updateInputFromJava = function(text, finalResult) {
+        input.value = text;
+        updateUIState();
+        if(finalResult) {
+            clearTimeout(voiceTimeout);
+            voiceTimeout = setTimeout(() => { inSend.click(); }, 1500); // 1.5 سیکنڈ بعد آٹو سینڈ
+        }
+    };
+
+    // لائیو کال کلکس
+    inCall.onclick = () => { isCallActive = true; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
+    inEnd.onclick = () => { isCallActive = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
     
-    outMute.onclick = () => {
-        if(pendingImg) { 
-            // اگر تصویر ہے تو یہ بٹن سینڈ کا کام کرے گا
-            inSend.click(); 
-        } else { 
-            // ورنہ میوٹ کا کام کرے گا
-            isCallMuted = !isCallMuted; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); 
-        }
-    };
-
-    // میسج سینڈ کرنا
-    inSend.onclick = (e) => {
+    // سینڈ بٹن (اندر والا ٹائپنگ کے لیے، باہر والا لائیو کال کے لیے)
+    const handleSendClick = (e) => {
         e.preventDefault(); const text = input.value.trim();
         if (text || pendingImg) {
-            // آپ کے اوریجنل کوڈ کے مطابق سینڈ لاجک
             addMessage(text || "تصویر بھیجی گئی", 'user');
             input.value = ''; pendingImg = null; preview.classList.add('hidden'); updateUIState();
             
@@ -170,14 +125,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
             })
             .then(res => res.json()).then(d => { 
-                document.getElementById('thinking-indicator').classList.add('hidden'); 
-                addMessage(d.response, 'assistant');
+                document.getElementById('thinking-indicator').classList.add('hidden'); addMessage(d.response, 'assistant');
             }).catch(e => { document.getElementById('thinking-indicator').classList.add('hidden'); addMessage("سرور آف لائن ہے۔", 'assistant'); });
         }
     };
+    inSend.onclick = handleSendClick; outSend.onclick = handleSendClick;
 });
 
-// Helper Function for messages (آپ کا اوریجنل لاجک)
 function addMessage(text, sender) {
     const chatBox = document.getElementById('chat-box'); const msgDiv = document.createElement('div');
     if (sender === 'user') {
@@ -189,4 +143,4 @@ function addMessage(text, sender) {
     }
     chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator'));
     chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-                       }
+}
