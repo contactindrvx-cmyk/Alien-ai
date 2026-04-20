@@ -1,340 +1,213 @@
-// گلوبل ویری ایبلز اور اوریجنل آئیکنز
-window.AyeshaAudio = {
-    audioObj: null, queue: [], lang: 'ur',
-    playIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`,
-    pauseIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
-    currentBtn: null
-};
-
-window.isAyeshaRecording = false; // وائس ٹائپنگ کے لیے
-let isCallActive = false; // لائیو کال کے لیے
+// =========================================================================
+// 1. گلوبل ویری ایبلز اور آئیکنز
+// =========================================================================
+window.AyeshaAudio = { audioObj: null, queue: [], lang: 'ur' };
+let isCallActive = false; 
 let isCallMuted = false;
+window.isAyeshaRecording = false;
 
-// عائشہ کو خاموش کرنا
-window.stopAyeshaCompletely = function() {
-    if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause();
-    window.AyeshaAudio.queue = []; 
-    document.querySelectorAll('.gemini-speaker-btn').forEach(b => {
-        b.innerHTML = window.AyeshaAudio.playIcon;
-        b.classList.remove('playing-audio');
-    });
-    window.AyeshaAudio.currentBtn = null;
-    if(window.AndroidBridge && window.AndroidBridge.stopBubbleVideo) window.AndroidBridge.stopBubbleVideo();
+const ICONS = {
+    play: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`,
+    pause: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
+    copy: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`
 };
 
-// ٹاپ نوٹیفکیشن (Voice chat ended)
-function showToast(message) {
-    const toast = document.getElementById('top-toast');
-    document.getElementById('toast-text').innerText = message;
-    toast.classList.remove('opacity-0', '-translate-y-10', 'pointer-events-none');
-    toast.classList.add('opacity-100', 'translate-y-0');
-    setTimeout(() => {
-        toast.classList.add('opacity-0', '-translate-y-10', 'pointer-events-none');
-        toast.classList.remove('opacity-100', 'translate-y-0');
-    }, 3000);
+// =========================================================================
+// 2. فنکشنز
+// =========================================================================
+function showToast(msg) {
+    const t = document.getElementById('top-toast'); document.getElementById('toast-text').innerText = msg;
+    t.classList.remove('opacity-0', '-translate-y-10', 'pointer-events-none'); t.classList.add('opacity-100', 'translate-y-0');
+    setTimeout(() => { t.classList.remove('opacity-100', 'translate-y-0'); t.classList.add('opacity-0', '-translate-y-10', 'pointer-events-none'); }, 3000);
 }
 
-// ہارڈویئر کمانڈز (ٹارچ، وائبریٹ، یوٹیوب)
 function executeHardwareCommandLocally(text) {
     let cmd = text.toLowerCase();
     if (cmd.includes("وائبریٹ") || cmd.includes("vibrate")) { if (navigator.vibrate) navigator.vibrate([300, 100, 400]); }
     if (cmd.includes("یوٹیوب") || cmd.includes("youtube")) window.open("https://www.youtube.com", '_blank');
 }
 
-// کلاؤڈ پلے بیک لاجک
+window.stopAyeshaCompletely = function() {
+    if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause();
+    window.AyeshaAudio.queue = []; 
+    document.querySelectorAll('.gemini-speaker-btn').forEach(b => { b.innerHTML = ICONS.play; b.classList.remove('bg-[#3a8ff7]', 'text-white'); });
+    if(window.AndroidBridge && window.AndroidBridge.stopBubbleVideo) window.AndroidBridge.stopBubbleVideo();
+};
+
 function playCloudQueue(btnElement) {
-    if (window.AyeshaAudio.queue.length === 0) {
-        btnElement.innerHTML = window.AyeshaAudio.playIcon;
-        btnElement.classList.remove('playing-audio');
-        return;
-    }
+    if (window.AyeshaAudio.queue.length === 0) { btnElement.innerHTML = ICONS.play; btnElement.classList.remove('bg-[#3a8ff7]', 'text-white'); return; }
     let textChunk = window.AyeshaAudio.queue.shift();
-    let url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textChunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`;
-    window.AyeshaAudio.audioObj = new Audio(url);
+    window.AyeshaAudio.audioObj = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textChunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`);
     window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btnElement);
     window.AyeshaAudio.audioObj.play();
 }
 
 window.toggleVoiceMessage = function(btnElement) {
     if (window.AyeshaAudio.currentBtn === btnElement && window.AyeshaAudio.audioObj) {
-        if (!window.AyeshaAudio.audioObj.paused) {
-            window.AyeshaAudio.audioObj.pause();
-            btnElement.innerHTML = window.AyeshaAudio.playIcon;
-            btnElement.classList.remove('playing-audio');
-        } else {
-            window.AyeshaAudio.audioObj.play();
-            btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
-            btnElement.classList.add('playing-audio');
-        }
-        return;
+        if (!window.AyeshaAudio.audioObj.paused) { window.AyeshaAudio.audioObj.pause(); btnElement.innerHTML = ICONS.play; btnElement.classList.remove('bg-[#3a8ff7]', 'text-white'); } 
+        else { window.AyeshaAudio.audioObj.play(); btnElement.innerHTML = ICONS.pause; btnElement.classList.add('bg-[#3a8ff7]', 'text-white'); } return;
     }
-    window.stopAyeshaCompletely();
-    window.AyeshaAudio.currentBtn = btnElement;
+    window.stopAyeshaCompletely(); window.AyeshaAudio.currentBtn = btnElement;
     let rawText = decodeURIComponent(btnElement.getAttribute('data-text'));
-    let cleanText = rawText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-    window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(cleanText) ? 'ur' : 'en';
-    let safeParts = cleanText.match(/.{1,150}(\s|$)|.{1,150}/g) || [cleanText];
-    window.AyeshaAudio.queue = safeParts.filter(p => p.trim().length > 0);
-    btnElement.innerHTML = window.AyeshaAudio.pauseIcon;
-    btnElement.classList.add('playing-audio');
+    window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(rawText) ? 'ur' : 'en';
+    window.AyeshaAudio.queue = rawText.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
+    btnElement.innerHTML = ICONS.pause; btnElement.classList.add('bg-[#3a8ff7]', 'text-white');
     playCloudQueue(btnElement);
 };
 
 // =========================================================================
-// مین UI لاجک (اوریجنل اینیمیشنز بحال)
+// 3. مین UI اور اینیمیشن کنٹرولر
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-
-    const input = document.getElementById('user-input');
-    const inputPill = document.getElementById('input-pill');
-    const plusBtn = document.getElementById('plus-btn');
-    const fileInput = document.getElementById('hidden-file-input');
-    const micActionBtn = document.getElementById('mic-action-btn');
-    const sendActionBtn = document.getElementById('send-action-btn');
-    const startCallBtn = document.getElementById('start-call-btn');
-    const micIcon = document.getElementById('mic-icon');
-    const stopIcon = document.getElementById('stop-icon'); // اوریجنل سٹاپ بٹن واپس بحال
+    const input = document.getElementById('user-input'); const mainPill = document.getElementById('main-pill');
+    const pillPlus = document.getElementById('pill-plus'); const pillMic = document.getElementById('pill-mic');
+    const pillCall = document.getElementById('pill-call'); const pillEnd = document.getElementById('pill-end');
+    const sendBtn = document.getElementById('send-btn'); const waves = document.getElementById('call-waves-container');
+    const standalonePlus = document.getElementById('standalone-plus'); const standaloneMute = document.getElementById('standalone-mute');
     
-    // Call UI Elements (الگ الگ بٹنز)
-    const callPlusBtn = document.getElementById('call-plus-btn');
-    const muteCallBtn = document.getElementById('mute-call-btn');
-    const callEndPill = document.getElementById('call-end-pill');
-    const endCallBtn = document.getElementById('end-call-btn');
-    const callStatusSpan = callEndPill.querySelector('span');
-    const unmutedIcon = document.getElementById('unmuted-icon-call');
-    const mutedIcon = document.getElementById('muted-icon-call');
+    const fileInput = document.getElementById('hidden-file-input'); const preview = document.getElementById('image-preview-container');
+    const chatBox = document.getElementById('chat-box'); const thinking = document.getElementById('thinking-indicator');
+    let pendingImageFile = null;
 
-    const previewContainer = document.getElementById('image-preview-container');
-    const previewImg = document.getElementById('preview-img');
-    const removeImgBtn = document.getElementById('remove-img-btn');
-    const chatBox = document.getElementById('chat-box');
-    const thinkingIndicator = document.getElementById('thinking-indicator');
+    // 🚀 نارمل چیٹ اور وائس نوٹ اینیمیشن 🚀
+    function updateNormalUI() {
+        if(isCallActive) return;
+        const hasText = input.value.trim().length > 0 || pendingImageFile;
+        const isTyping = document.activeElement === input || hasText;
 
-    let pendingImageFile = null; 
-
-    // 🚀 اوریجنل UI اینیمیشن (ٹیکسٹ لکھنے پر پلس بٹن غائب) بحال 🚀
-    function updateUI() {
-        if(isCallActive) return; // اگر کال چل رہی ہے تو نارمل UI مت چھیڑو
-
-        const hasText = input.value.trim().length > 0;
-        
-        if (isActiveInputField()) {
-            // پلس بٹن کو باہر کی طرف موو (Move) کرو (اوریجنل لاجک)
-            plusBtn.style.opacity = '0'; plusBtn.style.pointerEvents = 'none'; plusBtn.style.transform = 'translateX(-20px)';
-            inputPill.style.paddingLeft = '10px'; inputPill.classList.add('gemini-glow');
-            startCallBtn.classList.add('hidden'); // کال بٹن غائب
+        if (isTyping || window.isAyeshaRecording) {
+            pillPlus.classList.add('slide-hide'); mainPill.classList.add('gemini-glow');
+            mainPill.style.paddingLeft = '8px';
+            pillCall.classList.add('slide-hide'); // کال بٹن غائب
+            if(hasText && !window.isAyeshaRecording) {
+                sendBtn.classList.remove('slide-hide'); pillMic.classList.add('slide-hide');
+            }
         } else {
-            // پلس بٹن واپس اندر آئے گا
-            plusBtn.style.opacity = '1'; plusBtn.style.pointerEvents = 'auto'; plusBtn.style.transform = 'translateX(0)';
-            inputPill.style.paddingLeft = '56px'; inputPill.classList.remove('gemini-glow');
-            startCallBtn.classList.remove('hidden'); // کال بٹن واپس
-        }
-        
-        if (hasText) {
-            sendActionBtn.classList.remove('hidden'); micActionBtn.classList.add('hidden');
-        } else {
-            sendActionBtn.classList.add('hidden'); micActionBtn.classList.remove('hidden');
+            pillPlus.classList.remove('slide-hide'); mainPill.classList.remove('gemini-glow');
+            mainPill.style.paddingLeft = '4px';
+            pillCall.classList.remove('slide-hide'); // کال بٹن واپس
+            sendBtn.classList.add('slide-hide'); pillMic.classList.remove('slide-hide');
         }
     }
+    input.addEventListener('input', updateNormalUI); input.addEventListener('focus', updateNormalUI); input.addEventListener('blur', updateNormalUI);
 
-    function isActiveInputField() {
-        return (document.activeElement === input) || (input.value.trim().length > 0) || window.isAyeshaRecording;
-    }
-
-    input.addEventListener('input', updateUI);
-    input.addEventListener('focus', updateUI);
-    input.addEventListener('blur', updateUI);
-
-    // پلس بٹن (فائل سلیکٹر)
+    // 🚀 پلس بٹن لاجک 🚀
     const handlePlusClick = () => fileInput.click();
-    plusBtn.onclick = handlePlusClick;
-    callPlusBtn.onclick = handlePlusClick; 
+    pillPlus.onclick = handlePlusClick; standalonePlus.onclick = handlePlusClick;
 
     fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if(file) {
-            pendingImageFile = file;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                previewImg.src = event.target.result;
-                previewContainer.classList.remove('hidden'); // 🚀 پریویو کنٹینر اب شو ہوگا (Fixed) 🚀
-                updateUI(); 
-            };
-            reader.readAsDataURL(file);
+        if(e.target.files[0]) {
+            pendingImageFile = e.target.files[0];
+            document.getElementById('preview-img').src = URL.createObjectURL(pendingImageFile);
+            preview.classList.remove('hidden'); updateNormalUI();
         }
     };
+    document.getElementById('remove-img-btn').onclick = () => { pendingImageFile = null; preview.classList.add('hidden'); fileInput.value=''; updateNormalUI(); };
 
-    removeImgBtn.onclick = () => {
-        pendingImageFile = null; previewImg.src = "";
-        previewContainer.classList.add('hidden'); fileInput.value = ""; updateUI();
-    };
-
-    // میسج ایڈ کرنا
-    function addMessage(text, sender) {
-        const msgDiv = document.createElement('div');
-        let cleanText = text ? `<p dir="auto" style="white-space: pre-wrap;">${text}</p>` : '';
-        if (sender === 'user') {
-            msgDiv.className = 'w-full flex justify-end mt-4';
-            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]">${cleanText}</div>`;
-        } else {
-            const encodedText = encodeURIComponent(text);
-            msgDiv.className = 'w-full flex justify-start mt-4 relative';
-            msgDiv.innerHTML = `<div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10">${cleanText}<button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)">${window.AyeshaAudio.playIcon}</button></div>`;
-        }
-        chatBox.insertBefore(msgDiv, thinkingIndicator);
-        chatBox.scrollTop = chatBox.scrollHeight;
+    // 🚀 مائیک (Voice Note) لاجک 🚀
+    let rec; if('webkitSpeechRecognition' in window) {
+        rec = new webkitSpeechRecognition(); rec.lang='ur-PK';
+        rec.onstart = () => { 
+            window.isAyeshaRecording = true; updateNormalUI();
+            document.getElementById('mic-icon').classList.add('hidden'); document.getElementById('stop-icon').classList.remove('hidden');
+            pillMic.classList.add('bg-red-500/20'); input.placeholder='سن رہی ہوں...'; 
+        };
+        rec.onresult = (e) => { input.value = e.results[0][0].transcript; setTimeout(()=> sendBtn.click(), 300); };
+        rec.onend = () => { 
+            window.isAyeshaRecording = false; 
+            document.getElementById('mic-icon').classList.remove('hidden'); document.getElementById('stop-icon').classList.add('hidden');
+            pillMic.classList.remove('bg-red-500/20'); input.placeholder='Ask something...'; updateNormalUI(); 
+        };
     }
+    pillMic.onclick = () => { if(window.isAyeshaRecording) rec.stop(); else rec.start(); };
 
-    // میسج بھیجنا
-    sendActionBtn.onclick = (e) => {
-        e.preventDefault();
-        const text = input.value.trim();
-        if (text || pendingImageFile) {
-            executeHardwareCommandLocally(text);
-            addMessage(text, 'user');
+    // 🚀 لائیو کال کی زبردست اینیمیشن (ChatGPT Style) 🚀
+    pillCall.onclick = () => {
+        isCallActive = true; isCallMuted = false;
+        
+        // 1. اندر والے بٹن اور ان پٹ غائب
+        pillPlus.classList.add('slide-hide'); input.classList.remove('slide-show-flex'); input.classList.add('slide-hide');
+        pillMic.classList.add('slide-hide'); pillCall.classList.add('slide-hide');
+        
+        // 2. باہر والے بٹن ظاہر
+        setTimeout(() => {
+            standalonePlus.classList.replace('slide-hide', 'slide-show-circle');
+            standaloneMute.classList.replace('slide-hide', 'slide-show-circle');
+            document.getElementById('call-unmuted-icon').classList.remove('hidden'); document.getElementById('call-muted-icon').classList.add('hidden');
+            standaloneMute.classList.remove('bg-red-500/20', 'text-red-500'); standaloneMute.classList.add('text-white');
             
-            // Hugging Face ریکویسٹ
-            thinkingIndicator.classList.remove('hidden'); thinkingIndicator.classList.add('flex');
-            const payload = { message: text, email: "alirazasabir007@gmail.com" };
-            
-            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            }).then(res => res.json()).then(data => {
-                thinkingIndicator.classList.add('hidden'); thinkingIndicator.classList.remove('flex');
-                const reply = data.response || "میں سمجھ نہیں سکی۔";
-                addMessage(reply, 'assistant');
-                setTimeout(() => {
-                    const allBtns = document.querySelectorAll('.gemini-speaker-btn');
-                    if(allBtns.length > 0) window.toggleVoiceMessage(allBtns[allBtns.length - 1]);
-                }, 300);
-            }).catch(e => {
-                thinkingIndicator.classList.add('hidden'); thinkingIndicator.classList.remove('flex');
-                addMessage("سرور آف لائن ہے۔", 'assistant');
-            });
+            // 3. ڈبے کے اندر ویوز اور اینڈ بٹن
+            waves.classList.remove('slide-hide'); waves.classList.add('slide-show-flex');
+            pillEnd.classList.remove('slide-hide'); pillEnd.classList.add('opacity-100', 'px-5');
+        }, 100);
 
-            input.value = ''; pendingImageFile = null;
-            previewContainer.classList.add('hidden');
-            updateUI(); 
-        }
-    };
-
-    // =========================================================================
-    // 🎤 سپیچ ریکگنیشن (اوریجنل سٹاپ بٹن بحال)
-    // =========================================================================
-    let recognition;
-    if ('webkitSpeechRecognition' in window) {
-        recognition = new webkitSpeechRecognition();
-        recognition.continuous = false; recognition.interimResults = false;
-        recognition.lang = 'ur-PK'; 
-
-        recognition.onstart = () => {
-            window.stopAyeshaCompletely();
-            window.isAyeshaRecording = true;
-            input.value = ''; updateUI();
-            micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden'); // 🚀 سٹاپ بٹن واپس لایا گیا ہے (Fixed) 🚀
-            input.placeholder = "سن رہی ہوں...";
-        };
-
-        recognition.onresult = (event) => {
-            let transcript = event.results[0][0].transcript;
-            input.value = transcript;
-            setTimeout(() => { if(input.value.trim().length > 0) sendActionBtn.click(); }, 300); // بات ختم ہوتے ہی خودکار بھیجو
-        };
-
-        recognition.onend = () => {
-            window.isAyeshaRecording = false;
-            stopIcon.classList.add('hidden'); micIcon.classList.remove('hidden'); // 🚀 واپس مائیک لایا گیا ہے 🚀
-            input.placeholder = "Ask something...";
-            updateUI();
-        };
-
-        recognition.onerror = () => { stopRecording(); };
-    }
-
-    function stopRecording() { if (recognition) recognition.stop(); }
-
-    micActionBtn.onclick = () => {
-        if (window.isAyeshaRecording) recognition.stop();
-        else { window.stopAyeshaCompletely(); recognition.start(); }
-    };
-
-    // =========================================================================
-    // 🚀 کال اینیمیشن اور لاجک (Pill سے "پاپ آؤٹ" بحال) 🚀
-    // ==========================================
-    startCallBtn.onclick = (e) => {
-        e.preventDefault();
-        isCallActive = true;
-        isCallMuted = false;
-
-        // جاوا کو کال سٹارٹ کا سگنل
         if (window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(true);
-
-        // نارمل UI کو ہائیڈ کرو
-        inputPill.style.transition = 'all 0.4s ease';
-        inputPill.style.opacity = '0'; inputPill.style.transform = 'scale(0.8)'; inputPill.style.pointerEvents = 'none';
-        plusBtn.style.opacity = '0'; plusBtn.style.pointerEvents = 'none';
-
-        // کالنگ کے 3 بٹنز کو سموتھلی "پاپ آؤٹ" (Pop-out) کرو
-        // 🚀 کال پلس بٹن 🚀
-        callPlusBtn.style.left = '0%'; callPlusBtn.classList.add('active');
-        
-        // 🚀 کال میوٹ بٹن 🚀
-        muteCallBtn.style.left = 'calc(0% + 64px)'; muteCallBtn.classList.add('active');
-
-        // 🚀 کال اینڈ پیل (لمبا ڈبہ) 🚀
-        callEndPill.style.left = 'calc(0% + 128px)'; callEndPill.style.right = '0%';
-        callEndPill.classList.remove('scale-50', 'opacity-0');
-        callEndPill.classList.add('scale-100', 'opacity-100', 'active', 'pointer-events-auto');
-        
-        unmutedIcon.classList.remove('hidden'); mutedIcon.classList.add('hidden');
-        callStatusSpan.innerText = "Connecting...";
-
-        setTimeout(() => { if(isCallActive) callStatusSpan.innerText = "Listening..."; }, 2500);
     };
 
     // 🚀 کال اینڈ کرنے کی اینیمیشن 🚀
-    endCallBtn.onclick = () => {
+    pillEnd.onclick = () => {
         isCallActive = false;
-
-        // کال UI ہائیڈ کرو (واپس پاپ ان کرو)
-        callPlusBtn.classList.remove('active');
-        muteCallBtn.classList.remove('active');
-        callEndPill.classList.add('scale-50', 'opacity-0');
-        callEndPill.classList.remove('scale-100', 'opacity-100', 'active', 'pointer-events-auto');
-
-        // نارمل چیٹ UI واپس لاؤ
+        
+        // 1. باہر والے بٹن غائب اور اندر والے غائب چیزیں واپس
+        standalonePlus.classList.replace('slide-show-circle', 'slide-hide');
+        standaloneMute.classList.replace('slide-show-circle', 'slide-hide');
+        waves.classList.replace('slide-show-flex', 'slide-hide');
+        pillEnd.classList.add('slide-hide'); pillEnd.classList.remove('opacity-100', 'px-5');
+        
         setTimeout(() => {
-            inputPill.style.opacity = '1'; inputPill.style.transform = 'scale(1)'; inputPill.style.pointerEvents = 'auto';
-            plusBtn.style.opacity = '1'; plusBtn.style.pointerEvents = 'auto';
-            updateUI();
-        }, 300);
+            pillPlus.classList.remove('slide-hide'); input.classList.replace('slide-hide', 'slide-show-flex');
+            pillMic.classList.remove('slide-hide'); pillCall.classList.remove('slide-hide');
+            updateNormalUI();
+        }, 200);
 
         showToast("Voice chat ended");
         if (window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(false);
     };
 
-    // کال کے دوران میوٹ کنٹرول
-    muteCallBtn.onclick = () => {
+    standaloneMute.onclick = () => {
         isCallMuted = !isCallMuted;
-        if(isCallMuted) {
-            unmutedIcon.classList.add('hidden'); mutedIcon.classList.remove('hidden');
-            muteCallBtn.classList.add('bg-red-500/20', 'text-red-500');
-        } else {
-            unmutedIcon.classList.remove('hidden'); mutedIcon.classList.add('hidden');
-            muteCallBtn.classList.remove('bg-red-500/20', 'text-red-500');
-        }
-        if (window.AndroidBridge && window.AndroidBridge.muteCall) window.AndroidBridge.muteCall(isCallMuted);
+        document.getElementById('call-unmuted-icon').classList.toggle('hidden', isCallMuted);
+        document.getElementById('call-muted-icon').classList.toggle('hidden', !isCallMuted);
+        standaloneMute.classList.toggle('bg-red-500/20', isCallMuted); standaloneMute.classList.toggle('text-red-500', isCallMuted);
+        standaloneMute.classList.toggle('text-white', !isCallMuted);
+        if(window.AndroidBridge && window.AndroidBridge.muteCall) window.AndroidBridge.muteCall(isCallMuted);
     };
 
-    // سائیڈ بار کنٹرول
-    document.getElementById('menu-btn').onclick = () => { 
-        document.getElementById('sidebar').classList.remove('-translate-x-full'); 
-        document.getElementById('sidebar-overlay').classList.remove('hidden'); 
-    };
-    document.getElementById('sidebar-overlay').onclick = () => {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-        document.getElementById('sidebar-overlay').classList.add('hidden');
-    };
-});
+    // 🚀 میسج پرنٹ کرنا اور کاپی بٹن 🚀
+    function addMessage(text, sender) {
+        const msgDiv = document.createElement('div');
+        if (sender === 'user') {
+            msgDiv.className = 'w-full flex justify-end mt-4';
+            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]"><p dir="auto" style="white-space: pre-wrap;">${text}</p></div>`;
+        } else {
+            const encodedText = encodeURIComponent(text);
+            msgDiv.className = 'w-full flex justify-start mt-4 relative group';
+            // 🚀 یہاں Play کے ساتھ Copy بٹن ڈالا گیا ہے 🚀
+            msgDiv.innerHTML = `<div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10"><p dir="auto" style="white-space: pre-wrap;">${text}</p>
+                <div class="flex items-center gap-2 mt-3">
+                    <button class="gemini-speaker-btn w-8 h-8 flex items-center justify-center rounded-full bg-[#3a8ff7]/10 text-[#3a8ff7] border border-[#3a8ff7] transition-all hover:bg-[#3a8ff7] hover:text-white" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)">${ICONS.play}</button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded-full bg-transparent text-gray-400 border border-gray-600 hover:text-white hover:border-gray-400 transition-all opacity-0 group-hover:opacity-100" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodedText}')); showToast('Message copied');">${ICONS.copy}</button>
+                </div></div>`;
+        }
+        chatBox.insertBefore(msgDiv, thinking); chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    sendBtn.onclick = (e) => {
+        e.preventDefault(); const text = input.value.trim();
+        if (text || pendingImageFile) {
+            executeHardwareCommandLocally(text); addMessage(text, 'user');
+            input.value = ''; pendingImageFile = null; preview.classList.add('hidden'); updateNormalUI();
             
+            thinking.classList.remove('hidden'); thinking.classList.add('flex');
+            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) })
+            .then(res => res.json()).then(data => {
+                thinking.classList.add('hidden'); thinking.classList.remove('flex');
+                addMessage(data.response, 'assistant');
+            }).catch(e => { thinking.classList.add('hidden'); thinking.classList.remove('flex'); addMessage("سرور آف لائن ہے۔", 'assistant'); });
+        }
+    };
+
+    document.getElementById('menu-btn').onclick = () => { document.getElementById('sidebar').classList.remove('-translate-x-full'); document.getElementById('sidebar-overlay').classList.remove('hidden'); };
+    document.getElementById('sidebar-overlay').onclick = () => { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebar-overlay').classList.add('hidden'); };
+});
+        
