@@ -16,11 +16,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
-import android.speech.tts.UtteranceProgressListener;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Base64;
-import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
@@ -32,6 +30,9 @@ import okhttp3.WebSocketListener;
 
 public class AyeshaCallService extends Service implements TextToSpeech.OnInitListener {
 
+    public static final String ACTION_STOP_SERVICE = "STOP_AYESHA_CALL";
+    public static final String ACTION_MUTE_CALL = "MUTE_AYESHA_CALL";
+
     private static final int SAMPLE_RATE = 16000;
     private AudioRecord audioRecord;
     private boolean isRecording = false;
@@ -39,34 +40,53 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private TextToSpeech tts;
     private AudioManager audioManager;
     private TelephonyManager telephonyManager;
+    
     private boolean isMutedBySystem = false;
+    public static boolean isMutedByUser = false; 
     private boolean isAyeshaSpeaking = false;
     private Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            String action = intent.getAction();
+            if (ACTION_STOP_SERVICE.equals(action)) {
+                stopForeground(true);
+                stopSelf();
+                return START_NOT_STICKY;
+            } else if (ACTION_MUTE_CALL.equals(action)) {
+                isMutedByUser = intent.getBooleanExtra("isMuted", false);
+                return START_STICKY;
+            }
+        }
+        
         startCallForeground();
         connectWebSocket();
         startAudioStreaming();
-        return START_STICKY; // 🚀 یہ لائن ایپ سوائپ کرنے پر بھی کال بند نہیں ہونے دے گی
+        return START_STICKY;
     }
 
     private void startCallForeground() {
         String channelId = "AyeshaCallChannel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId, "عائشہ لائیو کال", NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel channel = new NotificationChannel(channelId, "Active Call", NotificationManager.IMPORTANCE_LOW);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
 
-        Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+        Intent openAppIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingOpenApp = PendingIntent.getActivity(this, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE);
+
+        Intent stopIntent = new Intent(this, AyeshaCallService.class);
+        stopIntent.setAction(ACTION_STOP_SERVICE);
+        PendingIntent pendingStop = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE);
 
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("عائشہ کے ساتھ کال جاری ہے")
-                .setContentText("آپ کی آواز سن رہی ہوں...")
-                .setSmallIcon(R.drawable.app_logo)
-                .setOngoing(true) // اسے یوزر ہٹا نہیں سکے گا جب تک کال چلے
-                .setContentIntent(pendingIntent)
+                .setContentTitle("Ayesha AI")
+                .setContentText("Ongoing voice conversation")
+                .setSmallIcon(R.drawable.app_logo) 
+                .setOngoing(true)
+                .setContentIntent(pendingOpenApp)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End", pendingStop)
                 .build();
 
         startForeground(1, notification);
@@ -76,16 +96,14 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 
-        // 🎧 واٹس ایپ وائس نوٹ / میڈیا ڈیٹیکٹر
         audioManager.requestAudioFocus(focusChange -> {
             if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                isMutedBySystem = true; // عائشہ میوٹ
+                isMutedBySystem = true; 
             } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                isMutedBySystem = false; // عائشہ واپس ان میوٹ
+                isMutedBySystem = false; 
             }
         }, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
 
-        // 📞 فون کال ڈیٹیکٹر
         telephonyManager.listen(new PhoneStateListener() {
             @Override
             public void onCallStateChanged(int state, String phoneNumber) {
@@ -106,12 +124,12 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             byte[] buffer = new byte[bufferSize];
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             while (isRecording) {
-                if (isMutedBySystem || isAyeshaSpeaking) continue;
+                if (isMutedBySystem || isAyeshaSpeaking || isMutedByUser) continue;
+                
                 int read = audioRecord.read(buffer, 0, buffer.length);
                 if (read > 0) {
-                    // یہاں ہم آواز کا والیوم چیک کر کے خاموشی پر ڈیٹا بھیجیں گے
                     baos.write(buffer, 0, read);
-                    if (baos.size() > 32000) { // ہر 1-2 سیکنڈ بعد ڈیٹا بھیجیں
+                    if (baos.size() > 32000) { 
                         sendToWebSocket(baos.toByteArray());
                         baos.reset();
                     }
@@ -149,11 +167,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
             tts.setLanguage(new Locale("ur", "PK"));
-            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                @Override public void onStart(String utteranceId) { isAyeshaSpeaking = true; }
-                @Override public void onDone(String utteranceId) { isAyeshaSpeaking = false; }
-                @Override public void onError(String utteranceId) { isAyeshaSpeaking = false; }
-            });
         }
     }
 
@@ -180,4 +193,4 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
-                  }
+            }
