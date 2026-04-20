@@ -23,6 +23,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
@@ -48,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
         sharedPreferences = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
         webView = findViewById(R.id.webView);
 
+        // 🚀 پرمیشنز مانگیں 🚀
         requestRuntimePermissions();
 
         WebSettings webSettings = webView.getSettings();
@@ -94,14 +98,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestRuntimePermissions() {
-        String[] permissions = { Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE };
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, permissions, 100);
-        }
+        List<String> permissionsNeeded = new ArrayList<>();
+        permissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
+        permissionsNeeded.add(Manifest.permission.CAMERA);
+        permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        
+        // 🚀 فون کال ٹریک کرنے کی پرمیشن 🚀
+        permissionsNeeded.add(Manifest.permission.READ_PHONE_STATE);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+
+        List<String> listPermissionsNeeded = new ArrayList<>();
+        for (String p : permissionsNeeded) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                listPermissionsNeeded.add(p);
             }
+        }
+
+        if (!listPermissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toArray(new String[0]), 100);
         }
     }
 
@@ -188,4 +205,4 @@ public class MainActivity extends AppCompatActivity {
         }
     }
             }
-                                 
+    
