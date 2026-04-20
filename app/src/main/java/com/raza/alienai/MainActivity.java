@@ -204,5 +204,5 @@ public class MainActivity extends AppCompatActivity {
             sendBroadcast(new Intent("com.raza.alienai.PAUSE_VIDEO"));
         }
     }
-            }
-    
+        }
+                
