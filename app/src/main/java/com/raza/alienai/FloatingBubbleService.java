@@ -62,6 +62,8 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         startMyForeground();
         tts = new TextToSpeech(this, this);
+        
+        // 🚀 یہ فنکشن مسنگ تھا، اب شامل کر دیا گیا ہے 🚀
         setupFloatingBubble();
         setupVideoPlayer();
         setupMovement();
@@ -84,7 +86,17 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         startForeground(1, notification);
     }
 
-    // 🔇 مائیک کی بیپ کو ہر طرح سے گلا دبا کر ختم کرنے کا فنکشن 🔇
+    // 🚀 مسنگ فنکشن کی واپسی 🚀
+    private void setupFloatingBubble() {
+        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
+        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 2038 : 2002;
+        params = new WindowManager.LayoutParams(-2, -2, layoutFlag, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
+        params.gravity = Gravity.TOP | Gravity.LEFT;
+        params.x = 100; params.y = 100;
+        windowManager.addView(bubbleView, params);
+    }
+
     private void muteSystemBeep(boolean mute) {
         if (audioManager != null) {
             int direction = mute ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE;
@@ -108,7 +120,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onReadyForSpeech(Bundle params) {
-                // مائیک آن ہو گیا، اب سسٹم کی آواز واپس کھول دو
                 muteSystemBeep(false); 
             }
 
@@ -118,10 +129,9 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 if (matches != null && !matches.isEmpty()) {
                     String text = matches.get(0).toLowerCase();
                     
-                    // 🚀 بات کاٹنے والا فیچر (Interruption Logic) 🚀
                     if (text.contains("ayesha") || text.contains("عائشہ") || text.contains("آشا")) {
                         if (isAyeshaSpeaking && tts != null) {
-                            tts.stop(); // فوراً چپ ہو جاؤ
+                            tts.stop(); 
                             if (mediaPlayer != null) mediaPlayer.pause();
                             isAyeshaSpeaking = false;
                         }
@@ -129,7 +139,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                         if (!isCommandMode) {
                             isCommandMode = true;
                             speechRecognizer.cancel(); 
-                            speak("جی، سن رہی ہوں"); // 🌟 نیا رسپانس 🌟
+                            speak("جی، سن رہی ہوں");
                             mainHandler.postDelayed(() -> startListeningLoop(), 2000); 
                         }
                     }
@@ -142,7 +152,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 if (matches != null && !matches.isEmpty()) {
                     String text = matches.get(0).toLowerCase();
 
-                    // اگر عائشہ بول رہی ہے تو باقی ہر لفظ اگنور کرو (Echo Filter)
                     if (isAyeshaSpeaking) {
                         restartMicQuietly();
                         return;
@@ -166,8 +175,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
 
             @Override 
             public void onError(int error) { 
-                muteSystemBeep(false); // ایرر پر بھی آواز کھول دو
-                
+                muteSystemBeep(false); 
                 if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_AUDIO) {
                     mainHandler.postDelayed(() -> startListeningLoop(), 4000); 
                 } else {
@@ -182,7 +190,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
             @Override public void onEvent(int eventType, Bundle params) {}
         });
 
-        // 🤫 مائیک سٹارٹ ہونے سے عین پہلے بیپ کو خاموش کر دو 🤫
         muteSystemBeep(true);
         try { speechRecognizer.startListening(intent); } catch (Exception e) { muteSystemBeep(false); }
     }
