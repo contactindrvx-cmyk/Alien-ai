@@ -66,7 +66,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                     </button>
 
-                    <div id="main-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center transition-layout overflow-hidden shadow-lg">
+                    <div id="main-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center transition-layout overflow-hidden shadow-lg relative">
                         
                         <button id="in-plus" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] border-r border-[#2f3037] flex-shrink-0 cursor-pointer">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -74,10 +74,14 @@
 
                         <input type="text" id="user-input" class="flex-1 h-full bg-transparent px-3 text-white outline-none transition-layout min-w-[50px]" placeholder="Ask something..." autocomplete="off">
                         
-                        <div id="wave-area" class="btn-collapse transition-layout h-full flex items-center justify-center px-2 gap-2 flex-1">
+                        <div id="wave-area" class="btn-collapse transition-layout h-full flex items-center justify-between px-3 gap-2 flex-1 w-full">
                             <div class="flex items-center h-6"><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div></div>
-                            <span class="text-[#3a8ff7] text-sm font-medium">Listening...</span>
+                            <span class="text-[#3a8ff7] text-sm font-medium flex-1 text-center">Listening...</span>
                         </div>
+
+                        <button id="in-end" class="btn-collapse transition-layout h-10 my-2 mr-2 bg-red-500/20 text-red-500 font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0 px-4 rounded-full hover:bg-red-500/30">
+                            <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div> End
+                        </button>
 
                         <button id="in-send" class="btn-collapse transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer hover:text-white pr-5 pl-2">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
@@ -90,10 +94,6 @@
 
                         <button id="in-call" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] border-l border-[#2f3037] flex-shrink-0 cursor-pointer hover:text-white">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
-                        </button>
-
-                        <button id="in-end" class="btn-collapse transition-layout h-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0 border-l border-[#2f3037] px-5 rounded-r-full">
-                            <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div> End
                         </button>
 
                     </div>
