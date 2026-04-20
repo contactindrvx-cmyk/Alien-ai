@@ -59,11 +59,9 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     @Override
     public void onCreate() {
         super.onCreate();
-        startMyForeground();
-        
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        startMyForeground();
         tts = new TextToSpeech(this, this);
-        
         setupFloatingBubble();
         setupVideoPlayer();
         setupMovement();
@@ -80,28 +78,25 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         }
         Notification notification = new NotificationCompat.Builder(this, channelId)
                 .setContentTitle("عائشہ ایکٹو ہے")
-                .setContentText("خاموشی سے آپ کا انتظار کر رہی ہوں...")
+                .setContentText("سن رہی ہوں...")
                 .setSmallIcon(R.drawable.app_logo)
                 .build();
         startForeground(1, notification);
     }
 
-    // 🔇 سسٹم بیپ کو خاموش کرنے کا جادو 🔇
+    // 🔇 مائیک کی بیپ کو ہر طرح سے گلا دبا کر ختم کرنے کا فنکشن 🔇
     private void muteSystemBeep(boolean mute) {
         if (audioManager != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, 
-                    mute ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE, 0);
-            } else {
-                audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, mute);
-            }
+            int direction = mute ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE;
+            audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, direction, 0);
+            audioManager.adjustStreamVolume(AudioManager.STREAM_ALARM, direction, 0);
+            audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, direction, 0);
         }
     }
 
     private void startListeningLoop() {
-        if (isAyeshaSpeaking) return;
-
         if (speechRecognizer != null) {
+            speechRecognizer.cancel();
             speechRecognizer.destroy();
         }
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
@@ -113,8 +108,32 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onReadyForSpeech(Bundle params) {
-                // مائیک تیار ہوتے ہی آواز واپس کھول دو
+                // مائیک آن ہو گیا، اب سسٹم کی آواز واپس کھول دو
                 muteSystemBeep(false); 
+            }
+
+            @Override
+            public void onPartialResults(Bundle partialResults) {
+                ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (matches != null && !matches.isEmpty()) {
+                    String text = matches.get(0).toLowerCase();
+                    
+                    // 🚀 بات کاٹنے والا فیچر (Interruption Logic) 🚀
+                    if (text.contains("ayesha") || text.contains("عائشہ") || text.contains("آشا")) {
+                        if (isAyeshaSpeaking && tts != null) {
+                            tts.stop(); // فوراً چپ ہو جاؤ
+                            if (mediaPlayer != null) mediaPlayer.pause();
+                            isAyeshaSpeaking = false;
+                        }
+                        
+                        if (!isCommandMode) {
+                            isCommandMode = true;
+                            speechRecognizer.cancel(); 
+                            speak("جی، سن رہی ہوں"); // 🌟 نیا رسپانس 🌟
+                            mainHandler.postDelayed(() -> startListeningLoop(), 2000); 
+                        }
+                    }
+                }
             }
 
             @Override
@@ -122,10 +141,17 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String text = matches.get(0).toLowerCase();
+
+                    // اگر عائشہ بول رہی ہے تو باقی ہر لفظ اگنور کرو (Echo Filter)
+                    if (isAyeshaSpeaking) {
+                        restartMicQuietly();
+                        return;
+                    }
+
                     if (!isCommandMode) {
                         if (text.contains("ayesha") || text.contains("عائشہ")) {
                             isCommandMode = true;
-                            speak("جی رضا بھائی؟");
+                            speak("جی، سن رہی ہوں");
                         } else {
                             restartMicQuietly();
                         }
@@ -141,27 +167,29 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
             @Override 
             public void onError(int error) { 
                 muteSystemBeep(false); // ایرر پر بھی آواز کھول دو
-                restartMicQuietly(); 
+                
+                if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_AUDIO) {
+                    mainHandler.postDelayed(() -> startListeningLoop(), 4000); 
+                } else {
+                    restartMicQuietly(); 
+                }
             }
 
             @Override public void onBeginningOfSpeech() {}
             @Override public void onRmsChanged(float rmsdB) {}
             @Override public void onBufferReceived(byte[] buffer) {}
             @Override public void onEndOfSpeech() {}
-            @Override public void onPartialResults(Bundle partialResults) {}
             @Override public void onEvent(int eventType, Bundle params) {}
         });
 
-        // 🤫 مائیک شروع کرنے سے پہلے بیپ کو خاموش کرو 🤫
+        // 🤫 مائیک سٹارٹ ہونے سے عین پہلے بیپ کو خاموش کر دو 🤫
         muteSystemBeep(true);
         try { speechRecognizer.startListening(intent); } catch (Exception e) { muteSystemBeep(false); }
     }
 
     private void restartMicQuietly() {
         mainHandler.removeCallbacksAndMessages(null);
-        mainHandler.postDelayed(() -> {
-            if (!isAyeshaSpeaking) startListeningLoop();
-        }, 1000);
+        mainHandler.postDelayed(this::startListeningLoop, 800);
     }
 
     private void sendToAiServer(String msg) {
@@ -182,7 +210,10 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 String reply = new JSONObject(s.hasNext() ? s.next() : "").getString("response");
                 mainHandler.post(() -> speak(reply));
             } catch (Exception e) {
-                mainHandler.post(() -> restartMicQuietly());
+                mainHandler.post(() -> {
+                    speak("انٹرنیٹ کا مسئلہ ہے۔");
+                    restartMicQuietly();
+                });
             }
         }).start();
     }
@@ -192,6 +223,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         if (status == TextToSpeech.SUCCESS) {
             tts.setLanguage(new Locale("ur", "PK"));
             isAyeshaReady = true;
+
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String utteranceId) { isAyeshaSpeaking = true; }
                 @Override public void onDone(String utteranceId) {
@@ -209,20 +241,17 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private void speak(String text) {
         if (isAyeshaReady && tts != null) {
             isAyeshaSpeaking = true;
-            if (speechRecognizer != null) speechRecognizer.cancel();
             if (mediaPlayer != null) mediaPlayer.start();
+            
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AyeshaReply");
+            
+            new Handler().postDelayed(() -> {
+                if (mediaPlayer != null && !tts.isSpeaking()) {
+                    mediaPlayer.pause();
+                    mediaPlayer.seekTo(100);
+                }
+            }, 3000);
         }
-    }
-
-    private void setupFloatingBubble() {
-        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
-        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 2038 : 2002;
-        params = new WindowManager.LayoutParams(-2, -2, layoutFlag, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.TOP | Gravity.LEFT;
-        params.x = 100; params.y = 100;
-        windowManager.addView(bubbleView, params);
     }
 
     private void setupVideoPlayer() {
@@ -238,6 +267,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                     mediaPlayer.setSurface(currentSurface);
                     mediaPlayer.setLooping(true);
                     mediaPlayer.prepareAsync();
+                    mediaPlayer.setOnPreparedListener(mp -> mp.seekTo(100));
                 } catch (Exception e) {}
             }
             @Override public void onSurfaceTextureSizeChanged(SurfaceTexture s, int w, int h) {}
@@ -248,12 +278,16 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
 
     private void setupMovement() {
         bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                Intent intent = new Intent(FloatingBubbleService.this, MainActivity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN: return true;
+                case MotionEvent.ACTION_MOVE: return true;
+                case MotionEvent.ACTION_UP:
+                    Intent intent = new Intent(FloatingBubbleService.this, MainActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                    return true;
             }
-            return true;
+            return false;
         });
     }
 
@@ -261,11 +295,13 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     public void onDestroy() {
         super.onDestroy();
         mainHandler.removeCallbacksAndMessages(null); 
-        muteSystemBeep(false); // جاتے جاتے آواز کھول دو
-        if (speechRecognizer != null) speechRecognizer.destroy();
+        muteSystemBeep(false);
+        if (speechRecognizer != null) {
+            speechRecognizer.cancel();
+            speechRecognizer.destroy();
+        }
         if (tts != null) tts.shutdown();
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-                }
-                
+}
