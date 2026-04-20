@@ -1,196 +1,234 @@
 package com.raza.alienai;
 
-import android.Manifest;
-import android.content.ActivityNotFoundException;
-import android.content.BroadcastReceiver;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.net.Uri;
+import android.content.res.AssetFileDescriptor;
+import android.graphics.PixelFormat;
+import android.graphics.SurfaceTexture;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
-import android.webkit.JavascriptInterface;
-import android.webkit.PermissionRequest;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.TextureView;
+import android.view.View;
+import android.view.WindowManager;
+import androidx.core.app.NotificationCompat;
+import org.json.JSONObject;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Scanner;
 
-public class MainActivity extends AppCompatActivity {
+public class FloatingBubbleService extends Service implements TextToSpeech.OnInitListener {
 
-    private WebView webView;
-    private SharedPreferences sharedPreferences;
-    private ValueCallback<Uri[]> mFilePathCallback;
-    private final static int FILECHOOSER_RESULTCODE = 1;
-
-    private BroadcastReceiver wakeWordReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String agentName = intent.getStringExtra("agentName");
-            if (webView != null) {
-                webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
-            }
-        }
-    };
+    private WindowManager windowManager;
+    private View bubbleView;
+    private WindowManager.LayoutParams params;
+    private SpeechRecognizer speechRecognizer;
+    private TextToSpeech tts;
+    private MediaPlayer mediaPlayer;
+    private Surface currentSurface;
+    private Handler mainHandler = new Handler(Looper.getMainLooper());
+    private boolean isAyeshaReady = false;
+    private boolean isCommandMode = false;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+    public IBinder onBind(Intent intent) { return null; }
 
-        sharedPreferences = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
-        webView = findViewById(R.id.webView);
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        startMyForeground();
+        tts = new TextToSpeech(this, this);
+        setupFloatingBubble();
+        setupVideoPlayer();
+        setupMovement();
+        startListeningLoop();
+    }
 
-        requestRuntimePermissions();
+    private void startMyForeground() {
+        String channelId = "AyeshaChannel";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(channelId, "Ayesha AI", NotificationManager.IMPORTANCE_LOW);
+            channel.setSound(null, null); // 🔇 بیپ کی آواز بند 🔇
+            getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        }
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("عائشہ ایکٹو ہے")
+                .setContentText("آپ کی آواز سن رہی ہوں...")
+                .setSmallIcon(R.drawable.app_logo)
+                .build();
+        startForeground(1, notification);
+    }
 
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
-        webSettings.setMediaPlaybackRequiresUserGesture(false); 
+    private void setupFloatingBubble() {
+        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
+        int layoutFlag = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 2038 : 2002;
+        params = new WindowManager.LayoutParams(-2, -2, layoutFlag, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
+        params.gravity = Gravity.TOP | Gravity.LEFT;
+        params.x = 100; params.y = 100;
+        windowManager.addView(bubbleView, params);
+    }
 
-        webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
-        
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onPermissionRequest(final PermissionRequest request) {
-                runOnUiThread(() -> request.grant(request.getResources()));
-            }
-            @Override
-            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (mFilePathCallback != null) mFilePathCallback.onReceiveValue(null);
-                mFilePathCallback = filePathCallback;
-                Intent intent = null;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    intent = fileChooserParams.createIntent();
-                }
+    private void setupVideoPlayer() {
+        TextureView textureView = bubbleView.findViewById(R.id.bubbleVideoView);
+        textureView.setOpaque(false);
+        textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override public void onSurfaceTextureAvailable(SurfaceTexture s, int w, int h) {
+                currentSurface = new Surface(s);
+                mediaPlayer = new MediaPlayer();
                 try {
-                    startActivityForResult(intent, FILECHOOSER_RESULTCODE);
-                } catch (ActivityNotFoundException e) {
-                    mFilePathCallback = null;
-                    return false;
-                }
-                return true;
+                    AssetFileDescriptor afd = getAssets().openFd("ayesha_video.mp4");
+                    mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+                    mediaPlayer.setSurface(currentSurface);
+                    mediaPlayer.setLooping(true);
+                    mediaPlayer.prepareAsync();
+                    mediaPlayer.setOnPreparedListener(mp -> mp.seekTo(100));
+                } catch (Exception e) {}
             }
+            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture s, int w, int h) {}
+            @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture s) { return true; }
+            @Override public void onSurfaceTextureUpdated(SurfaceTexture s) {}
         });
-
-        webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("file:///android_asset/index.html"); 
-        
-        IntentFilter filter = new IntentFilter("com.raza.alienai.WAKE_WORD_DETECTED");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(wakeWordReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(wakeWordReceiver, filter);
-        }
     }
 
-    private void requestRuntimePermissions() {
-        String[] permissions = { Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE };
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, permissions, 100);
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
-            }
-        }
-    }
+    private void startListeningLoop() {
+        if (speechRecognizer != null) speechRecognizer.destroy();
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        // 🚀 جب ایپ کھلے، تو ببل کو مار دو تاکہ ایپ کا مائیک کام کرے 🚀
-        stopService(new Intent(this, FloatingBubbleService.class));
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        // 🚀 جب آپ ہوم بٹن دبائیں (ایپ بند ہو)، تو ببل کو زندہ کر دو 🚀
-        manageBubbleService();
-    }
-
-    private void manageBubbleService() {
-        boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true);
-        if (isEnabled && hasOverlayPermission()) {
-            Intent serviceIntent = new Intent(this, FloatingBubbleService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent);
-            } else {
-                startService(serviceIntent);
-            }
-        }
-    }
-
-    private boolean hasOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { return Settings.canDrawOverlays(this); }
-        return true;
-    }
-
-    private void checkOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, 1000);
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == FILECHOOSER_RESULTCODE) {
-            if (mFilePathCallback == null) return;
-            Uri[] results = null;
-            if (resultCode == RESULT_OK && data != null && data.getDataString() != null) {
-                results = new Uri[]{Uri.parse(data.getDataString())};
-            }
-            mFilePathCallback.onReceiveValue(results);
-            mFilePathCallback = null;
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        unregisterReceiver(wakeWordReceiver);
-    }
-
-    public class WebAppInterface {
-        @JavascriptInterface
-        public void toggleBubble(boolean isEnabled) {
-            sharedPreferences.edit().putBoolean("bubbleEnabled", isEnabled).apply();
-            runOnUiThread(() -> {
-                if (isEnabled) {
-                    checkOverlayPermission();
-                    manageBubbleService();
+        speechRecognizer.setRecognitionListener(new RecognitionListener() {
+            @Override
+            public void onResults(Bundle results) {
+                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (matches != null && !matches.isEmpty()) {
+                    String text = matches.get(0).toLowerCase();
+                    if (!isCommandMode) {
+                        if (text.contains("ayesha") || text.contains("عائشہ")) {
+                            isCommandMode = true; 
+                            speak("جی رضا بھائی؟");
+                            mainHandler.postDelayed(() -> startListeningLoop(), 2000);
+                        } else {
+                            restartMicQuietly();
+                        }
+                    } else {
+                        isCommandMode = false; 
+                        sendToAiServer(text);
+                    }
                 } else {
-                    stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
+                    restartMicQuietly();
                 }
-            });
-        }
+            }
+            @Override public void onError(int error) { restartMicQuietly(); }
+            @Override public void onReadyForSpeech(Bundle params) {}
+            @Override public void onBeginningOfSpeech() {}
+            @Override public void onRmsChanged(float rmsdB) {}
+            @Override public void onBufferReceived(byte[] buffer) {}
+            @Override public void onEndOfSpeech() {}
+            @Override public void onPartialResults(Bundle partialResults) {}
+            @Override public void onEvent(int eventType, Bundle params) {}
+        });
+        try { speechRecognizer.startListening(intent); } catch (Exception e) {}
+    }
 
-        // 🚀 یہ وہ 3 فنکشنز ہیں جو میں نے کاٹ دیے تھے! اب جاوا سکرپٹ کریش نہیں کرے گی 🚀
-        @JavascriptInterface
-        public void setAgent(String agentName) {
-            sharedPreferences.edit().putString("selectedAgent", agentName).apply();
-        }
+    private void restartMicQuietly() {
+        mainHandler.postDelayed(() -> {
+            if (!tts.isSpeaking()) startListeningLoop();
+            else restartMicQuietly();
+        }, 800);
+    }
 
-        @JavascriptInterface
-        public void startBubbleVideo() {
-            sendBroadcast(new Intent("com.raza.alienai.PLAY_VIDEO"));
-        }
+    private void sendToAiServer(String msg) {
+        new Thread(() -> {
+            try {
+                URL url = new URL("https://aigrowthbox-ayesha-ai.hf.space/chat");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                JSONObject json = new JSONObject();
+                json.put("message", msg);
+                json.put("email", "alirazasabir007@gmail.com");
+                OutputStream os = conn.getOutputStream();
+                os.write(json.toString().getBytes("UTF-8"));
+                os.close();
+                Scanner s = new Scanner(conn.getInputStream()).useDelimiter("\\A");
+                String reply = new JSONObject(s.hasNext() ? s.next() : "").getString("response");
+                mainHandler.post(() -> {
+                    speak(reply);
+                    mainHandler.postDelayed(this::startListeningLoop, 3000);
+                });
+            } catch (Exception e) {
+                mainHandler.post(() -> {
+                    speak("سرور سے رابطہ ٹوٹ گیا ہے۔");
+                    startListeningLoop();
+                });
+            }
+        }).start();
+    }
 
-        @JavascriptInterface
-        public void stopBubbleVideo() {
-            sendBroadcast(new Intent("com.raza.alienai.PAUSE_VIDEO"));
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts.setLanguage(new Locale("ur", "PK"));
+            isAyeshaReady = true;
         }
     }
-}
+
+    private void speak(String text) {
+        if (isAyeshaReady && tts != null) {
+            if (mediaPlayer != null) mediaPlayer.start();
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AyeshaReply");
+            new Handler().postDelayed(() -> {
+                if (mediaPlayer != null && !tts.isSpeaking()) {
+                    mediaPlayer.pause();
+                    mediaPlayer.seekTo(100);
+                }
+            }, 5000);
+        }
+    }
+
+    private void setupMovement() {
+        bubbleView.findViewById(R.id.floating_bubble).setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN: return true;
+                case MotionEvent.ACTION_MOVE: return true;
+                case MotionEvent.ACTION_UP:
+                    Intent intent = new Intent(FloatingBubbleService.this, MainActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                    return true;
+            }
+            return false;
+        });
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (speechRecognizer != null) speechRecognizer.destroy();
+        if (tts != null) tts.shutdown();
+        if (mediaPlayer != null) mediaPlayer.release();
+        if (bubbleView != null) windowManager.removeView(bubbleView);
+    }
+                    }
+                        
