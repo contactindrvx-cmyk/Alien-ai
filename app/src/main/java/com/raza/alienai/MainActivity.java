@@ -51,7 +51,6 @@ public class MainActivity extends AppCompatActivity {
         sharedPreferences = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
         webView = findViewById(R.id.webView);
 
-        // 🚀 پرمیشنز مانگیں 🚀
         requestRuntimePermissions();
 
         WebSettings webSettings = webView.getSettings();
@@ -102,8 +101,6 @@ public class MainActivity extends AppCompatActivity {
         permissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
         permissionsNeeded.add(Manifest.permission.CAMERA);
         permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-        
-        // 🚀 فون کال ٹریک کرنے کی پرمیشن 🚀
         permissionsNeeded.add(Manifest.permission.READ_PHONE_STATE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -125,36 +122,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        stopService(new Intent(this, FloatingBubbleService.class));
+        // ایپ اوپن ہونے پر کالنگ سروس بند کر دیں تاکہ ایپ کے اندر بات ہو سکے
+        stopService(new Intent(this, AyeshaCallService.class));
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        manageBubbleService();
+        // ایپ بند ہونے پر کالنگ سروس خود بخود شروع ہو جائے
+        manageCallService();
     }
 
-    private void manageBubbleService() {
-        boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true);
-        if (isEnabled && hasOverlayPermission()) {
-            Intent serviceIntent = new Intent(this, FloatingBubbleService.class);
+    private void manageCallService() {
+        boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true); // نام bubbleEnabled ہی رہنے دیا تاکہ JS نہ چھیڑنی پڑے
+        if (isEnabled) {
+            Intent serviceIntent = new Intent(this, AyeshaCallService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent);
             } else {
                 startService(serviceIntent);
             }
-        }
-    }
-
-    private boolean hasOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { return Settings.canDrawOverlays(this); }
-        return true;
-    }
-
-    private void checkOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, 1000);
         }
     }
 
@@ -181,13 +168,13 @@ public class MainActivity extends AppCompatActivity {
     public class WebAppInterface {
         @JavascriptInterface
         public void toggleBubble(boolean isEnabled) {
+            // نام toggleBubble ہی ہے، لیکن یہ اب Call Service کو کنٹرول کرے گا!
             sharedPreferences.edit().putBoolean("bubbleEnabled", isEnabled).apply();
             runOnUiThread(() -> {
                 if (isEnabled) {
-                    checkOverlayPermission();
-                    manageBubbleService();
+                    manageCallService();
                 } else {
-                    stopService(new Intent(MainActivity.this, FloatingBubbleService.class));
+                    stopService(new Intent(MainActivity.this, AyeshaCallService.class));
                 }
             });
         }
@@ -197,12 +184,11 @@ public class MainActivity extends AppCompatActivity {
         }
         @JavascriptInterface
         public void startBubbleVideo() {
-            sendBroadcast(new Intent("com.raza.alienai.PLAY_VIDEO"));
+            // ان کی اب ضرورت نہیں، لیکن ایپ کو کریش ہونے سے بچانے کے لیے انہیں خالی چھوڑ دیا ہے
         }
         @JavascriptInterface
         public void stopBubbleVideo() {
-            sendBroadcast(new Intent("com.raza.alienai.PAUSE_VIDEO"));
         }
     }
-        }
-                
+    }
+            
