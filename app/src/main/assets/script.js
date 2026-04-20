@@ -1,9 +1,16 @@
 window.AyeshaAudio = { audioObj: null, queue: [], lang: 'ur' };
 let isCallActive = false; 
+let isCallMuted = false;
 window.isAyeshaRecording = false;
 
-let input, outPlus, outSend, mainPill, inPlus, waveArea, inSend, inMic, inCall;
-let iMicNormal, iMicStop, fileIn, preview, pendingImg = null, voiceTimeout;
+// نارمل موڈ کے ایلیمنٹس
+let inputNormal, outPlus, mainPill, inPlus, inSend, inMic, inCall;
+let iMicNormal, iMicStop;
+
+// کال موڈ کے ایلیمنٹس (ChatGPT Style)
+let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd;
+
+let fileIn, preview, pendingImg = null, voiceTimeout;
 
 window.stopAyeshaCompletely = function() {
     if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
@@ -48,90 +55,103 @@ window.toggleVoiceMessage = function(btn) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    input = document.getElementById('user-input'); 
+    // DOM Elements Mapping
+    inputNormal = document.getElementById('user-input'); 
     outPlus = document.getElementById('out-plus'); 
-    outSend = document.getElementById('out-send'); 
     mainPill = document.getElementById('main-pill');
     inPlus = document.getElementById('in-plus'); 
-    waveArea = document.getElementById('wave-area');
     inSend = document.getElementById('in-send'); 
     inMic = document.getElementById('in-mic');
     inCall = document.getElementById('in-call'); 
-    
-    let inEnd = document.getElementById('in-end'); 
-    
     iMicNormal = document.getElementById('icon-mic-normal'); 
     iMicStop = document.getElementById('icon-mic-stop');
+
+    inputCall = document.getElementById('cg-input');
+    cgPlus = document.getElementById('cg-plus');
+    cgSend = document.getElementById('cg-send');
+    cgMic = document.getElementById('cg-mic');
+    cgMicOn = document.getElementById('cg-mic-on');
+    cgMicOff = document.getElementById('cg-mic-off');
+    cgEnd = document.getElementById('cg-end');
+
     fileIn = document.getElementById('hidden-file-input'); 
     preview = document.getElementById('image-preview-container');
 
+    const normalBar = document.getElementById('normal-mode-bar');
+    const callBar = document.getElementById('call-mode-bar');
+
+    // 🌟 ماسٹر UI اپڈیٹر 🌟
     function updateUIState() {
-        const text = input.value.trim();
+        const activeInput = isCallActive ? inputCall : inputNormal;
+        const text = activeInput.value.trim();
 
-        // 1. Reset
-        outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
-        outSend.classList.add('btn-collapse'); outSend.classList.remove('btn-expand');
-        inPlus.classList.add('btn-collapse');
-        inSend.classList.add('btn-collapse');
-        inMic.classList.add('btn-collapse');
-        inCall.classList.add('btn-collapse');
-        waveArea.classList.add('btn-collapse');
-        
-        mainPill.classList.remove('gemini-glow');
-        input.classList.remove('btn-collapse');
-        inMic.classList.remove('bg-red-500/20');
-        iMicNormal.classList.remove('hidden');
-        iMicStop.classList.add('hidden');
-
-        // 2. آپ کے بتائے ہوئے رولز اپلائی کریں
         if (isCallActive) {
-            // 🔴 لائیو کال کی حالت 🔴
-            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            input.classList.add('btn-collapse');
-            waveArea.classList.remove('btn-collapse'); 
-            
-            // رول 1: اگر لائیو کال میں تصویر سلیکٹ کریں تو باہر جہاز آ جائے گا
-            if (pendingImg) {
-                outSend.classList.remove('btn-collapse'); outSend.classList.add('btn-expand');
+            // 🟢 لائیو کال موڈ 🟢
+            normalBar.classList.add('hidden'); normalBar.classList.remove('flex');
+            callBar.classList.remove('hidden'); callBar.classList.add('flex');
+
+            // کال میں جہاز صرف تب نظر آئے گا جب کچھ ٹائپ ہو یا تصویر ہو
+            if (text.length > 0 || pendingImg) {
+                cgSend.classList.remove('hidden'); cgSend.classList.add('flex');
+            } else {
+                cgSend.classList.add('hidden'); cgSend.classList.remove('flex');
             }
-        } 
-        else if (window.isAyeshaRecording) {
-            // 🎤 مائیک چلنے کی حالت 🎤
-            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            mainPill.classList.add('gemini-glow');
-            inMic.classList.remove('btn-collapse');
-            inMic.classList.add('bg-red-500/20');
-            iMicNormal.classList.add('hidden');
-            iMicStop.classList.remove('hidden');
-        } 
-        else if (text.length > 0) {
-            // ⌨️ رول 3: نارمل موڈ میں ٹائپنگ شروع ہو جائے تو مائیک غائب، اندر والا جہاز شو ⌨️
-            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            mainPill.classList.add('gemini-glow');
-            inSend.classList.remove('btn-collapse');
-        } 
-        else if (pendingImg) {
-            // 🖼️ رول 2: نارمل موڈ میں صرف تصویر سلیکٹ ہو (ٹائپنگ نہ ہو) تو مائیک ہی رہے گا 🖼️
-            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            mainPill.classList.add('gemini-glow');
-            inMic.classList.remove('btn-collapse');
-        }
-        else {
-            // 🏠 ڈیفالٹ نارمل موڈ 🏠
-            inPlus.classList.remove('btn-collapse');
-            inMic.classList.remove('btn-collapse');
-            inCall.classList.remove('btn-collapse');
+
+            // کال میوٹ کا سٹیٹس
+            cgMicOn.classList.toggle('hidden', isCallMuted);
+            cgMicOff.classList.toggle('hidden', !isCallMuted);
+
+        } else {
+            // 🔵 نارمل موڈ 🔵
+            callBar.classList.add('hidden'); callBar.classList.remove('flex');
+            normalBar.classList.remove('hidden'); normalBar.classList.add('flex');
+
+            // ری سیٹ نارمل بار
+            outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
+            inPlus.classList.add('btn-collapse'); inSend.classList.add('btn-collapse');
+            inMic.classList.add('btn-collapse'); inCall.classList.add('btn-collapse');
+            mainPill.classList.remove('gemini-glow'); inputNormal.classList.remove('btn-collapse');
+            inMic.classList.remove('bg-red-500/20'); iMicNormal.classList.remove('hidden'); iMicStop.classList.add('hidden');
+
+            if (window.isAyeshaRecording) {
+                // مائیک ریکارڈنگ (نارمل موڈ)
+                outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
+                mainPill.classList.add('gemini-glow');
+                inMic.classList.remove('btn-collapse');
+                inMic.classList.add('bg-red-500/20');
+                iMicNormal.classList.add('hidden'); iMicStop.classList.remove('hidden');
+            } 
+            else if (text.length > 0) {
+                // ٹائپنگ (نارمل موڈ): مائیک غائب، جہاز آ جائے گا
+                outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
+                mainPill.classList.add('gemini-glow');
+                inSend.classList.remove('btn-collapse');
+            } 
+            else if (pendingImg) {
+                // صرف تصویر سلیکٹ ہے (ٹائپنگ نہیں): مائیک ہی رہے گا
+                outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
+                mainPill.classList.add('gemini-glow');
+                inMic.classList.remove('btn-collapse');
+            }
+            else {
+                // ڈیفالٹ حالت
+                inPlus.classList.remove('btn-collapse');
+                inMic.classList.remove('btn-collapse');
+                inCall.classList.remove('btn-collapse');
+            }
         }
     }
 
-    input.addEventListener('input', updateUIState);
+    // ان پٹس کو سنک (Sync) کرنا
+    inputNormal.addEventListener('input', (e) => { inputCall.value = e.target.value; updateUIState(); });
+    inputCall.addEventListener('input', (e) => { inputNormal.value = e.target.value; updateUIState(); });
 
     const handlePlusClick = (e) => {
         e.preventDefault();
         if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
         else fileIn.click();
     };
-    outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick;
+    outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick; cgPlus.onclick = handlePlusClick;
 
     fileIn.onchange = (e) => {
         if(e.target.files[0]) {
@@ -142,45 +162,63 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
 
+    // مائیک کلک (نارمل موڈ)
     inMic.onclick = () => { 
-        if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
-            window.AndroidBridge.toggleInlineMic(); 
-        }
+        if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); 
+    };
+
+    // مائیک کلک (کال موڈ - میوٹ کرنے کے لیے)
+    cgMic.onclick = () => {
+        isCallMuted = !isCallMuted; updateUIState();
+        if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted);
     };
 
     window.onInlineMicState = function(isRecording) {
         window.isAyeshaRecording = isRecording;
-        if(isRecording) { input.placeholder = "سن رہی ہوں..."; } 
-        else { input.placeholder = "Ask something..."; }
+        if(isRecording) { inputNormal.placeholder = "سن رہی ہوں..."; } 
+        else { inputNormal.placeholder = "Ask something..."; }
         updateUIState();
     };
 
     window.updateInputFromJava = function(text, finalResult) {
-        input.value = text;
+        inputNormal.value = text; inputCall.value = text;
         updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
             voiceTimeout = setTimeout(() => { 
-                if (input.value.trim().length > 0 || pendingImg) {
-                    // اگر ٹیکسٹ ہو تو اندر والا جہاز کلک کرے گا، کال میں باہر والا
-                    if(isCallActive && pendingImg) outSend.click();
-                    else inSend.click(); 
+                if (inputNormal.value.trim().length > 0 || pendingImg) {
+                    if(isCallActive) cgSend.click(); else inSend.click(); 
                 }
             }, 1500); 
         }
     };
 
-    inCall.onclick = () => { isCallActive = true; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
+    // کال شروع اور بند کرنا
+    inCall.onclick = () => { 
+        isCallActive = true; 
+        isCallMuted = false; 
+        updateUIState(); 
+        if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); 
+    };
     
-    inEnd.onclick = () => { isCallActive = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
+    cgEnd.onclick = () => { 
+        isCallActive = false; 
+        updateUIState(); 
+        if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
+    };
     
+    // میسج سینڈ کرنا
     const handleSendClick = (e) => {
-        e.preventDefault(); const text = input.value.trim();
+        e.preventDefault(); 
+        const activeInput = isCallActive ? inputCall : inputNormal;
+        const text = activeInput.value.trim();
+        
         if (text || pendingImg) {
             let imgUrl = pendingImg ? URL.createObjectURL(pendingImg) : null;
             addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
             
-            input.value = ''; pendingImg = null; preview.classList.add('hidden'); 
+            inputNormal.value = ''; inputCall.value = ''; 
+            pendingImg = null; preview.classList.add('hidden'); 
             window.isAyeshaRecording = false;
             updateUIState();
             
@@ -201,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
-    inSend.onclick = handleSendClick; outSend.onclick = handleSendClick;
+    inSend.onclick = handleSendClick; cgSend.onclick = handleSendClick;
 });
 
 function addMessage(text, sender, imgUrl = null) {
@@ -235,5 +273,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return msgDiv.querySelector('.gemini-speaker-btn');
     }
-           }
-        
+                                       }
+    
