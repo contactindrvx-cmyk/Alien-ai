@@ -10,11 +10,12 @@
         .wave-bar:nth-child(2) { animation-delay: 0.2s; } .wave-bar:nth-child(3) { animation-delay: 0.4s; } .wave-bar:nth-child(4) { animation-delay: 0.6s; }
         @keyframes wave { 0%, 100% { height: 8px; } 50% { height: 22px; } }
         
+        /* اینیمیشن کی جان: جب بٹن غائب ہوگا تو سکڑ کر غائب ہوگا (سلائیڈ ایفیکٹ) */
         .btn-collapse { width: 0 !important; padding: 0 !important; border-width: 0 !important; opacity: 0 !important; overflow: hidden !important; margin: 0 !important; pointer-events: none; }
         .btn-expand { width: 56px !important; opacity: 1 !important; pointer-events: auto; }
         .btn-expand-auto { width: auto !important; padding: 0 16px !important; opacity: 1 !important; pointer-events: auto; }
         
-        .transition-layout { transition: width 0.4s ease, opacity 0.3s ease, margin 0.4s ease, border-width 0.4s ease, padding 0.4s ease; }
+        .transition-layout { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .gemini-glow { box-shadow: 0 0 15px rgba(58, 143, 247, 0.15); border-color: #3a8ff7 !important; }
     </style>
 </head>
@@ -36,13 +37,6 @@
                     <span class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span> 
                     <span class="font-semibold">Ayesha AI</span>
                 </button>
-            </div>
-        </div>
-        <div class="p-4 border-t border-[#2f3037] bg-[#0a0a0a]">
-            <button class="w-full mb-4 py-2.5 bg-gradient-to-r from-[#3a8ff7] to-purple-600 rounded-xl font-bold text-white transition-transform active:scale-95 flex items-center justify-center gap-2">Upgrade Premium</button>
-            <div class="flex items-center gap-3 mt-2">
-                <div class="w-8 h-8 rounded-full bg-[#3a8ff7] flex items-center justify-center font-bold text-white shadow-md">R</div>
-                <span class="font-medium text-sm text-gray-200">Ali Raza</span>
             </div>
         </div>
     </aside>
@@ -112,7 +106,7 @@
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
                         </button>
 
-                        <button id="in-end" class="btn-collapse transition-layout h-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0 border-l border-[#2f3037] px-8">
+                        <button id="in-end" class="btn-collapse transition-layout h-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0 border-l border-[#2f3037] px-6">
                             <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div> End
                         </button>
 
