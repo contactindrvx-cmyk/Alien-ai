@@ -5,13 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ayesha AI Premium</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css">
     <style>
         .wave-bar { width: 3px; height: 12px; background-color: #3a8ff7; border-radius: 4px; animation: wave 1.2s ease-in-out infinite; margin: 0 1.5px; }
         .wave-bar:nth-child(2) { animation-delay: 0.2s; } .wave-bar:nth-child(3) { animation-delay: 0.4s; } .wave-bar:nth-child(4) { animation-delay: 0.6s; }
         @keyframes wave { 0%, 100% { height: 8px; } 50% { height: 22px; } }
         
-        /* بٹنز کی اینیمیشنز */
         .btn-collapse { width: 0 !important; padding: 0 !important; border-width: 0 !important; opacity: 0 !important; overflow: hidden !important; margin: 0 !important; pointer-events: none; }
         .btn-expand { width: 56px !important; opacity: 1 !important; pointer-events: auto; }
         .btn-expand-auto { width: auto !important; padding: 0 16px !important; opacity: 1 !important; pointer-events: auto; }
@@ -90,7 +88,7 @@
 
                     <div id="main-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center transition-layout overflow-hidden shadow-lg">
                         
-                        <button id="in-plus" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] border-r border-[#2f3037] flex-shrink-0 cursor-pointer z-10">
+                        <button id="in-plus" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] border-r border-[#2f3037] flex-shrink-0 cursor-pointer">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
 
@@ -114,7 +112,7 @@
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
                         </button>
 
-                        <button id="in-end" class="btn-collapse transition-layout h-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0 border-l border-[#2f3037] px-4">
+                        <button id="in-end" class="btn-collapse transition-layout h-full bg-red-500/20 text-red-500 font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0 border-l border-[#2f3037] px-8">
                             <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div> End
                         </button>
 
@@ -125,5 +123,4 @@
     </div>
     <script src="script.js"></script>
 </body>
-    </html>
-                                                                                                                                   
+</html>
