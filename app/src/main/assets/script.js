@@ -5,7 +5,6 @@ window.isAyeshaRecording = false;
 let input, outPlus, outSend, mainPill, inPlus, waveArea, inSend, inMic, inCall, inEnd;
 let iMicNormal, iMicStop, fileIn, preview, pendingImg = null, voiceTimeout;
 
-// 🌟 عائشہ کی آٹو پلے وائس کا لاجک (Restore کر دیا گیا ہے) 🌟
 window.stopAyeshaCompletely = function() {
     if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
     window.AyeshaAudio.queue = []; 
@@ -24,7 +23,14 @@ function playCloudQueue(btn) {
     let chunk = window.AyeshaAudio.queue.shift();
     window.AyeshaAudio.audioObj = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`);
     window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btn); 
-    window.AyeshaAudio.audioObj.play();
+    
+    // آٹو پلے ایرر کو ہینڈل کرنے کے لیے
+    let playPromise = window.AyeshaAudio.audioObj.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.log("Auto-play blocked by Android WebView. Please enable setMediaPlaybackRequiresUserGesture(false) in MainActivity.java");
+        });
+    }
 }
 
 window.toggleVoiceMessage = function(btn) {
@@ -152,7 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleSendClick = (e) => {
         e.preventDefault(); const text = input.value.trim();
         if (text || pendingImg) {
-            // فکس: تصویر کا URL بنا کر میسج فنکشن کو بھیجیں
             let imgUrl = pendingImg ? URL.createObjectURL(pendingImg) : null;
             addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
             
@@ -169,9 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
                 let btn = addMessage(d.response, 'assistant');
                 
-                // فکس: نارمل میسج پر آٹو پلے
+                // 🌟 آٹو وائس کو یقینی بنانے کے لیے ٹائمر کو مضبوط کیا گیا ہے 🌟
                 if(btn && !isCallActive) {
-                    setTimeout(() => window.toggleVoiceMessage(btn), 300);
+                    setTimeout(() => window.toggleVoiceMessage(btn), 500);
                 }
             }).catch(e => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
@@ -182,12 +187,10 @@ document.addEventListener('DOMContentLoaded', () => {
     inSend.onclick = handleSendClick; outSend.onclick = handleSendClick;
 });
 
-// فکس: اب یہ فنکشن تصویر بھی وصول کر کے چیٹ میں دکھائے گا
 function addMessage(text, sender, imgUrl = null) {
     const chatBox = document.getElementById('chat-box'); 
     const msgDiv = document.createElement('div');
     
-    // اگر تصویر موجود ہے تو اس کا HTML ٹیگ بنائیں
     let imgHTML = imgUrl ? `<img src="${imgUrl}" class="w-48 h-48 object-cover rounded-xl mb-3 border-2 border-[#3a8ff7] shadow-sm">` : '';
 
     if (sender === 'user') {
@@ -215,4 +218,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return msgDiv.querySelector('.gemini-speaker-btn');
     }
-}
+        }
+                                                                      
