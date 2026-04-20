@@ -5,5 +5,4 @@
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews|flagRequestTouchExplorationMode"
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="true"
-    android:description="Ayesha AI needs this permission to control your phone and perform tasks like opening apps and typing messages."
     android:notificationTimeout="100" />
