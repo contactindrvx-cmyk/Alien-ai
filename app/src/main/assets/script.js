@@ -58,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
     inMic = document.getElementById('in-mic');
     inCall = document.getElementById('in-call'); 
     
-    // نوٹ: in-end اب waveArea کے اندر مستقل ہے، الگ سے btn-collapse نہیں ہے
     let inEnd = document.getElementById('in-end'); 
     
     iMicNormal = document.getElementById('icon-mic-normal'); 
@@ -69,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUIState() {
         const text = input.value.trim();
 
-        // 1. Reset all states
+        // 1. Reset
         outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
         outSend.classList.add('btn-collapse'); outSend.classList.remove('btn-expand');
         inPlus.classList.add('btn-collapse');
@@ -84,14 +83,20 @@ document.addEventListener('DOMContentLoaded', () => {
         iMicNormal.classList.remove('hidden');
         iMicStop.classList.add('hidden');
 
-        // 2. Apply active state
+        // 2. آپ کے بتائے ہوئے رولز اپلائی کریں
         if (isCallActive) {
+            // 🔴 لائیو کال کی حالت 🔴
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-            outSend.classList.remove('btn-collapse'); outSend.classList.add('btn-expand');
             input.classList.add('btn-collapse');
-            waveArea.classList.remove('btn-collapse'); // پوری لہر اور اینڈ بٹن شو ہو جائے گا
+            waveArea.classList.remove('btn-collapse'); 
+            
+            // رول 1: اگر لائیو کال میں تصویر سلیکٹ کریں تو باہر جہاز آ جائے گا
+            if (pendingImg) {
+                outSend.classList.remove('btn-collapse'); outSend.classList.add('btn-expand');
+            }
         } 
         else if (window.isAyeshaRecording) {
+            // 🎤 مائیک چلنے کی حالت 🎤
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
             inMic.classList.remove('btn-collapse');
@@ -99,12 +104,20 @@ document.addEventListener('DOMContentLoaded', () => {
             iMicNormal.classList.add('hidden');
             iMicStop.classList.remove('hidden');
         } 
-        else if (text.length > 0 || pendingImg) {
+        else if (text.length > 0) {
+            // ⌨️ رول 3: نارمل موڈ میں ٹائپنگ شروع ہو جائے تو مائیک غائب، اندر والا جہاز شو ⌨️
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
             inSend.classList.remove('btn-collapse');
         } 
+        else if (pendingImg) {
+            // 🖼️ رول 2: نارمل موڈ میں صرف تصویر سلیکٹ ہو (ٹائپنگ نہ ہو) تو مائیک ہی رہے گا 🖼️
+            outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
+            mainPill.classList.add('gemini-glow');
+            inMic.classList.remove('btn-collapse');
+        }
         else {
+            // 🏠 ڈیفالٹ نارمل موڈ 🏠
             inPlus.classList.remove('btn-collapse');
             inMic.classList.remove('btn-collapse');
             inCall.classList.remove('btn-collapse');
@@ -147,13 +160,18 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            voiceTimeout = setTimeout(() => { inSend.click(); }, 1500); 
+            voiceTimeout = setTimeout(() => { 
+                if (input.value.trim().length > 0 || pendingImg) {
+                    // اگر ٹیکسٹ ہو تو اندر والا جہاز کلک کرے گا، کال میں باہر والا
+                    if(isCallActive && pendingImg) outSend.click();
+                    else inSend.click(); 
+                }
+            }, 1500); 
         }
     };
 
     inCall.onclick = () => { isCallActive = true; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
     
-    // فکس: اب inEnd براہ راست waveArea کا حصہ ہے
     inEnd.onclick = () => { isCallActive = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
     
     const handleSendClick = (e) => {
@@ -217,4 +235,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return msgDiv.querySelector('.gemini-speaker-btn');
     }
-            }
+           }
+        
