@@ -157,7 +157,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }).start();
     }
 
-    // آواز کی طاقت (Volume) چیک کرنے کا فنکشن
     private double calculateRMS(byte[] buffer, int length) {
         long sum = 0;
         for (int i = 0; i < length; i += 2) {
@@ -167,9 +166,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         return Math.sqrt(sum / (length / 2.0));
     }
 
-    // AI کو بھیجنے سے پہلے آڈیو کو WAV فارمیٹ میں پیک کرنا (بہت ضروری)
     private void sendRawAudioToAI(byte[] pcmData) {
-        if (pcmData.length < 8000) return; // چھوٹی موٹی کھانسی یا شور کو اگنور کرو
+        if (pcmData.length < 8000) return; 
         
         byte[] wavData = addWavHeader(pcmData);
         String base64Audio = Base64.encodeToString(wavData, Base64.NO_WRAP);
@@ -184,7 +182,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }
     }
 
-    // WAV ہیڈر بنانے والا کوڈ
     private byte[] addWavHeader(byte[] pcmData) {
         int totalAudioLen = pcmData.length;
         int totalDataLen = totalAudioLen + 36;
@@ -263,4 +260,3 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
 
     @Override public IBinder onBind(Intent intent) { return null; }
                         }
-                
