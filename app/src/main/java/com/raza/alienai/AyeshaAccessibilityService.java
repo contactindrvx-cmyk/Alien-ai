@@ -2,24 +2,24 @@ package com.raza.alienai;
 
 import android.accessibilityservice.AccessibilityService;
 import android.view.accessibility.AccessibilityEvent;
+import android.widget.Toast;
 
 public class AyeshaAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // 🚀 یہ عائشہ کے "ہاتھ" ہیں 🚀
-        // جب کالنگ بالکل پرفیکٹ ہو جائے گی، تو ہم یہاں واٹس ایپ، یوٹیوب، اور ایپس کو 
-        // کنٹرول کرنے والا ماسٹر کوڈ لکھیں گے!
+        // جب ہم پائتھون سے کمانڈ بھیجیں گے تو موبائل کنٹرول کرنے کا سارا کوڈ یہاں آئے گا
     }
 
     @Override
     public void onInterrupt() {
-        // اگر سروس میں کوئی رکاوٹ آئے
+        // اگر سسٹم سروس کو زبردستی روک دے
     }
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
-        // جب Accessibility Service ایکٹو ہو جائے گی
+        // جیسے ہی یوزر سیٹنگز سے سروس آن کرے گا، یہ میسج آئے گا
+        Toast.makeText(this, "عائشہ کے ہاتھ ایکٹو ہو گئے ہیں! 🦾", Toast.LENGTH_LONG).show();
     }
 }
