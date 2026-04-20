@@ -11,20 +11,21 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
+import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioRecord;
 import android.media.MediaPlayer;
+import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.speech.RecognitionListener;
-import android.speech.RecognizerIntent;
-import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -37,7 +38,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
+import java.io.ByteArrayOutputStream;
 import java.util.Locale;
 
 import okhttp3.OkHttpClient;
@@ -51,7 +52,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private WindowManager windowManager;
     private View bubbleView;
     private WindowManager.LayoutParams params;
-    private SpeechRecognizer speechRecognizer;
     private TextToSpeech tts;
     private MediaPlayer mediaPlayer;
     private AudioManager audioManager;
@@ -60,12 +60,17 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private Handler mainHandler = new Handler(Looper.getMainLooper());
     
     private boolean isAyeshaReady = false;
-    private boolean isCommandMode = false;
     private boolean isAyeshaSpeaking = false;
     private boolean isAyeshaPausedBySystem = false;
 
     private OkHttpClient client;
     private WebSocket webSocket;
+
+    // 🚀 لائیو کالنگ کے نئے ہتھیار (No More Beeps) 🚀
+    private AudioRecord audioRecord;
+    private Thread recordingThread;
+    private boolean isRecording = false;
+    private static final int SAMPLE_RATE = 16000;
 
     @Override
     public IBinder onBind(Intent intent) { return null; }
@@ -85,51 +90,161 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         
         setupAudioFocusListener();
         
-        // 🚀 صرف تب کال لسنر لگاؤ جب پرمیشن ہو 🚀
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
             setupCallListener();
         }
         
         connectLiveWebSocket();
-        mainHandler.postDelayed(this::startListeningLoop, 2000);
+        
+        // 🚀 کالنگ مائیک سٹارٹ کرو 🚀
+        startSilentLiveCall();
     }
 
+    // ==========================================
+    // 🎙️ خالص لائیو کالنگ مائیک (ChatGPT Style)
+    // ==========================================
+    private void startSilentLiveCall() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return;
+        
+        int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        
+        // VOICE_COMMUNICATION اسے ایک فون کال بنا دیتا ہے (کوئی بیپ نہیں، ایکو کینسلر آن)
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, 
+                SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        
+        audioRecord.startRecording();
+        isRecording = true;
+
+        recordingThread = new Thread(() -> {
+            byte[] audioBuffer = new byte[bufferSize];
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            boolean userIsSpeaking = false;
+            int silenceFrames = 0;
+
+            while (isRecording) {
+                if (isAyeshaPausedBySystem || isAyeshaSpeaking) {
+                    continue; // اگر واٹس ایپ چل رہا ہے یا عائشہ بول رہی ہے تو چپ رہو
+                }
+
+                int read = audioRecord.read(audioBuffer, 0, audioBuffer.length);
+                if (read > 0) {
+                    double rms = calculateRMS(audioBuffer, read);
+                    
+                    if (rms > 800) { // 🚀 آواز کی طاقت (Threshold)
+                        userIsSpeaking = true;
+                        silenceFrames = 0;
+                        try { baos.write(audioBuffer, 0, read); } catch (Exception e) {}
+                    } else if (userIsSpeaking) {
+                        silenceFrames++;
+                        try { baos.write(audioBuffer, 0, read); } catch (Exception e) {}
+                        
+                        // جب آپ بات ختم کر کے 1.5 سیکنڈ چپ رہیں گے تو آڈیو سرور کو جائے گی
+                        if (silenceFrames > 25) { 
+                            userIsSpeaking = false;
+                            sendRawAudioToAI(baos.toByteArray());
+                            baos.reset();
+                        }
+                    }
+                }
+            }
+        });
+        recordingThread.start();
+    }
+
+    // آواز کا والیوم چیک کرنے والا جادو
+    private double calculateRMS(byte[] buffer, int length) {
+        long sum = 0;
+        for (int i = 0; i < length; i += 2) {
+            short sample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xFF));
+            sum += sample * sample;
+        }
+        return Math.sqrt(sum / (length / 2.0));
+    }
+
+    // لائیو آڈیو کو سرور پر بھیجنا
+    private void sendRawAudioToAI(byte[] pcmData) {
+        if (pcmData.length < 4000) return; // کھانسی یا شور کو اگنور کرو
+        
+        byte[] wavData = addWavHeader(pcmData);
+        String base64Audio = Base64.encodeToString(wavData, Base64.NO_WRAP);
+        
+        mainHandler.post(() -> Toast.makeText(FloatingBubbleService.this, "آواز بھیجی جا رہی ہے...", Toast.LENGTH_SHORT).show());
+        
+        if (webSocket != null) {
+            try {
+                JSONObject json = new JSONObject();
+                json.put("audio", base64Audio);
+                json.put("email", "alirazasabir007@gmail.com");
+                webSocket.send(json.toString());
+            } catch (Exception e) { e.printStackTrace(); }
+        } else {
+            connectLiveWebSocket();
+        }
+    }
+
+    // AI کے لیے آڈیو کو درست فارمیٹ (WAV) میں کنورٹ کرنا
+    private byte[] addWavHeader(byte[] pcmData) {
+        int totalAudioLen = pcmData.length;
+        int totalDataLen = totalAudioLen + 36;
+        int byteRate = SAMPLE_RATE * 2;
+
+        byte[] header = new byte[44];
+        header[0] = 'R'; header[1] = 'I'; header[2] = 'F'; header[3] = 'F';
+        header[4] = (byte) (totalDataLen & 0xff); header[5] = (byte) ((totalDataLen >> 8) & 0xff);
+        header[6] = (byte) ((totalDataLen >> 16) & 0xff); header[7] = (byte) ((totalDataLen >> 24) & 0xff);
+        header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
+        header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
+        header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0;
+        header[20] = 1; header[21] = 0; header[22] = 1; header[23] = 0;
+        header[24] = (byte) (SAMPLE_RATE & 0xff); header[25] = (byte) ((SAMPLE_RATE >> 8) & 0xff);
+        header[26] = (byte) ((SAMPLE_RATE >> 16) & 0xff); header[27] = (byte) ((SAMPLE_RATE >> 24) & 0xff);
+        header[28] = (byte) (byteRate & 0xff); header[29] = (byte) ((byteRate >> 8) & 0xff);
+        header[30] = (byte) ((byteRate >> 16) & 0xff); header[31] = (byte) ((byteRate >> 24) & 0xff);
+        header[32] = 2; header[33] = 0; header[34] = 16; header[35] = 0;
+        header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
+        header[40] = (byte) (totalAudioLen & 0xff); header[41] = (byte) ((totalAudioLen >> 8) & 0xff);
+        header[42] = (byte) ((totalAudioLen >> 16) & 0xff); header[43] = (byte) ((totalAudioLen >> 24) & 0xff);
+
+        byte[] wavData = new byte[header.length + pcmData.length];
+        System.arraycopy(header, 0, wavData, 0, header.length);
+        System.arraycopy(pcmData, 0, wavData, header.length, pcmData.length);
+        return wavData;
+    }
+
+    // ==========================================
+    // 📞 فون کالز کنٹرول (Telephony)
+    // ==========================================
     private void setupCallListener() {
         try {
             PhoneStateListener phoneStateListener = new PhoneStateListener() {
                 @Override
                 public void onCallStateChanged(int state, String phoneNumber) {
-                    switch (state) {
-                        case TelephonyManager.CALL_STATE_OFFHOOK:
-                            pauseAyesha("فون کال کی وجہ سے عائشہ رک گئی");
-                            break;
-                        case TelephonyManager.CALL_STATE_IDLE:
-                            if (isAyeshaPausedBySystem) resumeAyesha("کال ختم، عائشہ واپس کنیکٹ ہو گئی");
-                            break;
+                    if (state == TelephonyManager.CALL_STATE_OFFHOOK) {
+                        pauseAyesha("فون کال کی وجہ سے عائشہ رک گئی");
+                    } else if (state == TelephonyManager.CALL_STATE_IDLE) {
+                        if (isAyeshaPausedBySystem) resumeAyesha("کال ختم، عائشہ واپس کنیکٹ ہو گئی");
                     }
                 }
             };
             telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {}
     }
 
+    // ==========================================
+    // 🎧 واٹس ایپ/میڈیا کنٹرول (Audio Focus)
+    // ==========================================
     private void setupAudioFocusListener() {
         AudioManager.OnAudioFocusChangeListener focusChangeListener = focusChange -> {
-            switch (focusChange) {
-                case AudioManager.AUDIOFOCUS_LOSS:
-                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                    pauseAyesha("واٹس ایپ/میڈیا چل رہا ہے...");
-                    break;
-                case AudioManager.AUDIOFOCUS_GAIN:
-                    if (isAyeshaPausedBySystem) resumeAyesha("عائشہ دوبارہ ایکٹو");
-                    break;
+            if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                pauseAyesha("واٹس ایپ/میڈیا چل رہا ہے...");
+            } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+                if (isAyeshaPausedBySystem) resumeAyesha("عائشہ دوبارہ ایکٹو");
             }
         };
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             audioManager.requestAudioFocus(new android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                    .setOnAudioFocusChangeListener(focusChangeListener)
-                    .build());
+                    .setOnAudioFocusChangeListener(focusChangeListener).build());
         } else {
             audioManager.requestAudioFocus(focusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
         }
@@ -138,7 +253,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private void pauseAyesha(String reason) {
         isAyeshaPausedBySystem = true;
         mainHandler.post(() -> Toast.makeText(FloatingBubbleService.this, reason, Toast.LENGTH_SHORT).show());
-        if (speechRecognizer != null) speechRecognizer.cancel();
         if (tts != null && tts.isSpeaking()) tts.stop();
         if (webSocket != null) {
             webSocket.close(1000, "Paused");
@@ -150,9 +264,11 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         isAyeshaPausedBySystem = false;
         mainHandler.post(() -> Toast.makeText(FloatingBubbleService.this, reason, Toast.LENGTH_SHORT).show());
         connectLiveWebSocket();
-        startListeningLoop();
     }
 
+    // ==========================================
+    // 🌐 لائیو کالنگ پائپ (WebSocket)
+    // ==========================================
     private void connectLiveWebSocket() {
         if (isAyeshaPausedBySystem) return;
         client = new OkHttpClient();
@@ -164,7 +280,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                     JSONObject json = new JSONObject(text);
                     String reply = json.getString("response");
                     mainHandler.post(() -> speak(reply));
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) {}
             }
             @Override
             public void onClosed(WebSocket webSocket, int code, String reason) {
@@ -175,17 +291,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 if (!isAyeshaPausedBySystem) mainHandler.postDelayed(() -> connectLiveWebSocket(), 5000);
             }
         });
-    }
-
-    private void sendToAiLive(String msg) {
-        if (webSocket != null) {
-            try {
-                JSONObject json = new JSONObject();
-                json.put("message", msg);
-                json.put("email", "alirazasabir007@gmail.com");
-                webSocket.send(json.toString());
-            } catch (Exception e) { e.printStackTrace(); }
-        } else { connectLiveWebSocket(); }
     }
 
     private void startMyForeground() {
@@ -212,73 +317,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         windowManager.addView(bubbleView, params);
     }
 
-    private void muteSystemBeep(boolean mute) {
-        if (audioManager != null) {
-            int direction = mute ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE;
-            audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, direction, 0);
-            audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, direction, 0);
-        }
-    }
-
-    private void startListeningLoop() {
-        if (isAyeshaPausedBySystem || isAyeshaSpeaking) return;
-        if (speechRecognizer != null) speechRecognizer.destroy();
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
-        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-
-        speechRecognizer.setRecognitionListener(new RecognitionListener() {
-            @Override
-            public void onReadyForSpeech(Bundle params) { muteSystemBeep(false); }
-            @Override
-            public void onPartialResults(Bundle partialResults) {
-                ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) {
-                    String text = matches.get(0).toLowerCase();
-                    if (text.contains("ayesha") || text.contains("عائشہ")) {
-                        if (isAyeshaSpeaking && tts != null) { tts.stop(); isAyeshaSpeaking = false; }
-                        if (!isCommandMode) {
-                            isCommandMode = true;
-                            speechRecognizer.cancel(); 
-                            speak("جی، سن رہی ہوں");
-                            mainHandler.postDelayed(() -> startListeningLoop(), 2000); 
-                        }
-                    }
-                }
-            }
-            @Override
-            public void onResults(Bundle results) {
-                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) {
-                    String text = matches.get(0).toLowerCase();
-                    if (!isCommandMode) {
-                        if (text.contains("ayesha") || text.contains("عائشہ")) {
-                            isCommandMode = true; speak("جی، سن رہی ہوں");
-                        } else restartMicQuietly();
-                    } else { isCommandMode = false; sendToAiLive(text); }
-                } else restartMicQuietly();
-            }
-            @Override public void onError(int error) { 
-                muteSystemBeep(false); 
-                if (!isAyeshaPausedBySystem) restartMicQuietly(); 
-            }
-            @Override public void onBeginningOfSpeech() {}
-            @Override public void onRmsChanged(float rmsdB) {}
-            @Override public void onBufferReceived(byte[] buffer) {}
-            @Override public void onEndOfSpeech() {}
-            @Override public void onEvent(int eventType, Bundle params) {}
-        });
-        muteSystemBeep(true);
-        try { speechRecognizer.startListening(intent); } catch (Exception e) { muteSystemBeep(false); }
-    }
-
-    private void restartMicQuietly() {
-        mainHandler.removeCallbacksAndMessages(null);
-        mainHandler.postDelayed(this::startListeningLoop, 800);
-    }
-
     @Override
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
@@ -286,8 +324,8 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
             isAyeshaReady = true;
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String utteranceId) { isAyeshaSpeaking = true; }
-                @Override public void onDone(String utteranceId) { isAyeshaSpeaking = false; mainHandler.post(() -> startListeningLoop()); }
-                @Override public void onError(String utteranceId) { isAyeshaSpeaking = false; mainHandler.post(() -> startListeningLoop()); }
+                @Override public void onDone(String utteranceId) { isAyeshaSpeaking = false; }
+                @Override public void onError(String utteranceId) { isAyeshaSpeaking = false; }
             });
         }
     }
@@ -340,12 +378,15 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     public void onDestroy() {
         super.onDestroy();
         mainHandler.removeCallbacksAndMessages(null); 
-        muteSystemBeep(false);
+        isRecording = false;
+        if (audioRecord != null) {
+            audioRecord.stop();
+            audioRecord.release();
+        }
         if (webSocket != null) webSocket.close(1000, "Destroyed");
-        if (speechRecognizer != null) speechRecognizer.destroy();
         if (tts != null) tts.shutdown();
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
             }
-                                
+                            
