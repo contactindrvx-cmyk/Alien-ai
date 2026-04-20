@@ -2,18 +2,17 @@ window.AyeshaAudio = { audioObj: null, queue: [], lang: 'ur' };
 let isCallActive = false; 
 window.isAyeshaRecording = false;
 
-// UI Elements
 let input, outPlus, outSend, mainPill, inPlus, waveArea, inSend, inMic, inCall, inEnd;
 let iMicNormal, iMicStop, fileIn, preview, pendingImg = null, voiceTimeout;
 
 document.addEventListener('DOMContentLoaded', () => {
     input = document.getElementById('user-input'); 
     outPlus = document.getElementById('out-plus'); 
-    outSend = document.getElementById('out-send'); // لائیو کال میں باہر والا جہاز
+    outSend = document.getElementById('out-send'); 
     mainPill = document.getElementById('main-pill');
     inPlus = document.getElementById('in-plus'); 
     waveArea = document.getElementById('wave-area');
-    inSend = document.getElementById('in-send'); // ٹائپنگ میں اندر والا جہاز
+    inSend = document.getElementById('in-send'); 
     inMic = document.getElementById('in-mic');
     inCall = document.getElementById('in-call'); 
     inEnd = document.getElementById('in-end');
@@ -23,50 +22,60 @@ document.addEventListener('DOMContentLoaded', () => {
     fileIn = document.getElementById('hidden-file-input'); 
     preview = document.getElementById('image-preview-container');
 
-    // 🌟 ماسٹر UI کنٹرولر 🌟
+    // 🌟 100% پرفیکٹ سٹیٹ مینیجر 🌟
     function updateUIState() {
-        // ری سیٹ (Hide All)
-        outPlus.classList.add('btn-collapse'); outSend.classList.add('btn-collapse');
-        inPlus.classList.add('btn-collapse'); inSend.classList.add('btn-collapse');
-        inMic.classList.add('btn-collapse'); inCall.classList.add('btn-collapse');
-        waveArea.classList.add('btn-collapse'); inEnd.classList.add('btn-collapse');
-        mainPill.classList.remove('gemini-glow'); input.classList.remove('btn-collapse');
+        const text = input.value.trim();
 
+        // سٹیپ 1: سب سے پہلے ہر چیز کو زبردستی چھپا دیں (Reset All)
+        outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
+        outSend.classList.add('btn-collapse'); outSend.classList.remove('btn-expand');
+        inPlus.classList.add('btn-collapse');
+        inSend.classList.add('btn-collapse');
+        inMic.classList.add('btn-collapse');
+        inCall.classList.add('btn-collapse');
+        waveArea.classList.add('btn-collapse');
+        inEnd.classList.add('btn-collapse'); inEnd.classList.remove('btn-expand-auto');
+        
+        mainPill.classList.remove('gemini-glow');
+        input.classList.remove('btn-collapse');
+        inMic.classList.remove('bg-red-500/20');
+        iMicNormal.classList.remove('hidden');
+        iMicStop.classList.add('hidden');
+
+        // سٹیپ 2: جو ایکشن ہو رہا ہے، صرف اس کے بٹن آن کریں
         if (isCallActive) {
-            // حالت 4: لائیو کال
+            // 🔴 لائیو کال سٹیٹ
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             outSend.classList.remove('btn-collapse'); outSend.classList.add('btn-expand');
-            input.classList.add('btn-collapse'); 
-            waveArea.classList.remove('btn-collapse'); 
+            input.classList.add('btn-collapse');
+            waveArea.classList.remove('btn-collapse');
             inEnd.classList.remove('btn-collapse'); inEnd.classList.add('btn-expand-auto');
         } 
         else if (window.isAyeshaRecording) {
-            // حالت 3: مائیک چل رہا ہے
+            // 🎤 مائیک ریکارڈنگ سٹیٹ
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
-            inMic.classList.remove('btn-collapse'); 
-            iMicNormal.classList.add('hidden'); iMicStop.classList.remove('hidden');
-            inMic.classList.add('bg-red-500/20'); 
+            inMic.classList.remove('btn-collapse');
+            inMic.classList.add('bg-red-500/20');
+            iMicNormal.classList.add('hidden');
+            iMicStop.classList.remove('hidden');
         } 
-        else if (input.value.trim().length > 0 || pendingImg) {
-            // حالت 2: ٹائپنگ یا تصویر
+        else if (text.length > 0 || pendingImg) {
+            // ⌨️ ٹائپنگ سٹیٹ (جہاز بٹن)
             outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
             mainPill.classList.add('gemini-glow');
-            inSend.classList.remove('btn-collapse'); inSend.classList.add('btn-expand');
+            inSend.classList.remove('btn-collapse');
         } 
         else {
-            // حالت 1: کچھ نہیں ہو رہا (سارے بٹن اندر)
+            // ✅ پرفیکٹ نارمل سٹیٹ (صرف 4 بٹن)
             inPlus.classList.remove('btn-collapse');
             inMic.classList.remove('btn-collapse');
             inCall.classList.remove('btn-collapse');
-            iMicNormal.classList.remove('hidden'); iMicStop.classList.add('hidden');
-            inMic.classList.remove('bg-red-500/20');
         }
     }
 
     input.addEventListener('input', updateUIState);
 
-    // پلس بٹن کلک (اندر والا ہو یا باہر والا)
     const handlePlusClick = (e) => {
         e.preventDefault();
         if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
@@ -83,14 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
 
-    // مائیک بٹن کلک
     inMic.onclick = () => { 
         if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
-            window.AndroidBridge.toggleInlineMic(); // یہ نیا فنکشن جاوا میں بنے گا
+            window.AndroidBridge.toggleInlineMic(); 
         }
     };
 
-    // جاوا سے آنے والی اپڈیٹس (مائیک شروع ہوا یا بند ہوا)
     window.onInlineMicState = function(isRecording) {
         window.isAyeshaRecording = isRecording;
         if(isRecording) { input.placeholder = "سن رہی ہوں..."; } 
@@ -98,26 +105,27 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState();
     };
 
-    // جاوا سے ٹیکسٹ ملنا (لائیو ٹائپنگ)
     window.updateInputFromJava = function(text, finalResult) {
         input.value = text;
         updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            voiceTimeout = setTimeout(() => { inSend.click(); }, 1500); // 1.5 سیکنڈ بعد آٹو سینڈ
+            voiceTimeout = setTimeout(() => { inSend.click(); }, 1500); 
         }
     };
 
-    // لائیو کال کلکس
     inCall.onclick = () => { isCallActive = true; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
     inEnd.onclick = () => { isCallActive = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); };
     
-    // سینڈ بٹن (اندر والا ٹائپنگ کے لیے، باہر والا لائیو کال کے لیے)
     const handleSendClick = (e) => {
         e.preventDefault(); const text = input.value.trim();
         if (text || pendingImg) {
             addMessage(text || "تصویر بھیجی گئی", 'user');
-            input.value = ''; pendingImg = null; preview.classList.add('hidden'); updateUIState();
+            input.value = ''; pendingImg = null; preview.classList.add('hidden'); 
+            
+            // سینڈ کے فوراً بعد UI کو نارمل حالت پر لے آئیں
+            window.isAyeshaRecording = false;
+            updateUIState();
             
             document.getElementById('thinking-indicator').classList.remove('hidden');
             fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
@@ -143,4 +151,5 @@ function addMessage(text, sender) {
     }
     chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator'));
     chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-}
+                                                              }
+                    
