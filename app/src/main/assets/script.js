@@ -1,11 +1,12 @@
-window.AyeshaAudio = { audioObj: null, queue: [], lang: 'ur', currentBtn: null,
+window.AyeshaAudio = {
+    audioObj: null, queue: [], lang: 'ur',
     playIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`,
-    pauseIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`
+    pauseIcon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
+    currentBtn: null
 };
 
 let isCallActive = false;
 let isCallMuted = false;
-window.isAyeshaRecording = false;
 
 window.stopAyeshaCompletely = function() {
     if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause();
@@ -36,7 +37,7 @@ function executeHardwareCommandLocally(text) {
     if (cmd.includes("پلے سٹور") || cmd.includes("play store")) window.open("https://play.google.com", '_blank');
 }
 
-// 🔊 کلاؤڈ پلے بیک
+// 🔊 کلاؤڈ پلے بیک لاجک
 function playCloudQueue(btnElement) {
     if (window.AyeshaAudio.queue.length === 0) {
         btnElement.innerHTML = window.AyeshaAudio.playIcon;
@@ -86,16 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const normalChatUI = document.getElementById('normal-chat-ui');
     const activeCallUI = document.getElementById('active-call-ui');
+    
     const muteCallBtn = document.getElementById('mute-call-btn');
     const endCallBtn = document.getElementById('end-call-btn');
     const unmutedIcon = document.getElementById('unmuted-icon-call');
     const mutedIcon = document.getElementById('muted-icon-call');
-    
-    const micIcon = document.getElementById('mic-icon');
-    const stopIcon = document.getElementById('stop-icon');
-    const previewContainer = document.getElementById('image-preview-container');
-    const previewImg = document.getElementById('preview-img');
-    const removeImgBtn = document.getElementById('remove-img-btn');
     const chatBox = document.getElementById('chat-box');
     const thinkingIndicator = document.getElementById('thinking-indicator');
 
@@ -104,52 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUI() {
         if(isCallActive) return; 
         const hasText = input.value.trim().length > 0;
-        const hasImage = pendingImageFile !== null;
-        
-        if (window.isAyeshaRecording) {
-            micIcon.classList.add('hidden'); stopIcon.classList.remove('hidden');
-            micActionBtn.classList.remove('hidden');
+        if (hasText) {
+            sendActionBtn.classList.remove('hidden'); 
+            micActionBtn.classList.add('hidden');
             startCallBtn.classList.add('hidden');
-            sendActionBtn.classList.add('hidden');
         } else {
-            stopIcon.classList.add('hidden'); micIcon.classList.remove('hidden');
-            if (hasText || hasImage) {
-                sendActionBtn.classList.remove('hidden'); 
-                micActionBtn.classList.add('hidden');
-                startCallBtn.classList.add('hidden');
-            } else {
-                sendActionBtn.classList.add('hidden'); 
-                micActionBtn.classList.add('hidden'); // نارمل حالت میں وائس مائیک چھپا دیں
-                startCallBtn.classList.remove('hidden'); // صرف کال بٹن دکھائیں
-            }
+            sendActionBtn.classList.add('hidden'); 
+            micActionBtn.classList.remove('hidden');
+            startCallBtn.classList.remove('hidden');
         }
     }
-
     input.addEventListener('input', updateUI);
-
-    // 🖼️ امیج ہینڈلنگ (اب 100% ورکنگ)
-    const handlePlusClick = () => fileInput.click();
-    plusBtn.onclick = handlePlusClick;
-    callPlusBtn.onclick = handlePlusClick;
-
-    fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if(file) {
-            pendingImageFile = file;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                previewImg.src = event.target.result;
-                previewContainer.classList.remove('hidden');
-                updateUI(); 
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    removeImgBtn.onclick = () => {
-        pendingImageFile = null; previewImg.src = "";
-        previewContainer.classList.add('hidden'); fileInput.value = ""; updateUI();
-    };
 
     // 🚀 کال شروع کرنے کی اینیمیشن 🚀
     startCallBtn.onclick = (e) => {
@@ -204,125 +165,51 @@ document.addEventListener('DOMContentLoaded', () => {
             unmutedIcon.classList.remove('hidden'); mutedIcon.classList.add('hidden');
             muteCallBtn.classList.replace('bg-red-500/20', 'bg-[#16243d]');
         }
+        
         if (window.AndroidBridge && window.AndroidBridge.muteCall) {
             window.AndroidBridge.muteCall(isCallMuted);
         }
     };
 
-    function addMessage(text, sender, imgSrc = null) {
-        const msgDiv = document.createElement('div');
-        let imgHtml = imgSrc ? `<img src="${imgSrc}" class="w-full max-w-[220px] rounded-lg mb-3 border-2 border-[#3a8ff7]">` : '';
-        let cleanText = text ? `<p dir="auto" style="white-space: pre-wrap;">${text}</p>` : '';
+    const handlePlusClick = () => fileInput.click();
+    plusBtn.onclick = handlePlusClick;
+    callPlusBtn.onclick = handlePlusClick;
 
+    function addMessage(text, sender) {
+        const msgDiv = document.createElement('div');
+        let cleanText = text ? `<p dir="auto" style="white-space: pre-wrap;">${text}</p>` : '';
         if (sender === 'user') {
             msgDiv.className = 'w-full flex justify-end mt-4';
-            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]">${imgHtml}${cleanText}</div>`;
+            msgDiv.innerHTML = `<div class="chat-bubble user-bubble border border-[#3a8ff7]">${cleanText}</div>`;
         } else {
             const encodedText = encodeURIComponent(text);
             msgDiv.className = 'w-full flex justify-start mt-4 relative';
-            msgDiv.innerHTML = `<div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10">${imgHtml}${cleanText}<button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)">${window.AyeshaAudio.playIcon}</button></div>`;
+            msgDiv.innerHTML = `<div class="chat-bubble ayesha-bubble border border-[#3a8ff7] z-10">${cleanText}<button class="gemini-speaker-btn" data-text="${encodedText}" onclick="window.toggleVoiceMessage(this)">${window.AyeshaAudio.playIcon}</button></div>`;
         }
         chatBox.insertBefore(msgDiv, thinkingIndicator);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // 🎤 آپ کا ماسٹر مائیک کوڈ (Auto-Send کے ساتھ)
-    let recognition;
-    if ('webkitSpeechRecognition' in window) {
-        recognition = new webkitSpeechRecognition();
-        recognition.continuous = false; 
-        recognition.interimResults = true;
-        recognition.lang = 'ur-PK'; 
-
-        recognition.onstart = () => {
-            window.stopAyeshaCompletely();
-            window.isAyeshaRecording = true;
-            input.value = ''; updateUI();
-            input.placeholder = "سن رہی ہوں...";
-        };
-
-        recognition.onresult = (event) => {
-            let transcript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                transcript += event.results[i][0].transcript;
-            }
-            input.value = transcript;
-            updateUI();
-        };
-
-        recognition.onend = () => {
-            window.isAyeshaRecording = false;
-            input.placeholder = "Ask something...";
-            updateUI();
-            // 🚀 اٹو سینڈ ٹائمر (Auto Send Logic) 🚀
-            if (input.value.trim().length > 0) {
-                setTimeout(() => { sendActionBtn.click(); }, 600);
-            }
-        };
-    }
-
-    micActionBtn.onclick = (e) => {
-        e.preventDefault();
-        if (window.isAyeshaRecording) {
-            recognition.stop();
-        } else {
-            // کال کو بند کرو اگر چل رہی ہے
-            if (isCallActive) endCallBtn.click();
-            recognition.start();
-        }
-    };
-
     sendActionBtn.onclick = (e) => {
         e.preventDefault();
-        window.stopAyeshaCompletely();
         const text = input.value.trim();
-        const imageToSend = pendingImageFile;
-        const imageSrc = pendingImageFile ? previewImg.src : null;
-        
-        if (text || imageToSend) {
-            if(text) executeHardwareCommandLocally(text);
-            addMessage(text, 'user', imageSrc);
-            
-            input.value = ''; pendingImageFile = null;
-            previewContainer.classList.add('hidden');
-            updateUI();
+        if (text) {
+            executeHardwareCommandLocally(text);
+            addMessage(text, 'user');
+            input.value = ''; updateUI();
             
             thinkingIndicator.classList.remove('hidden'); thinkingIndicator.classList.add('flex');
-            
-            // Image to Base64 logic
-            let base64Image = null;
-            if (imageToSend) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    base64Image = e.target.result;
-                    sendRequest(text, base64Image);
-                };
-                reader.readAsDataURL(imageToSend);
-            } else {
-                sendRequest(text, null);
-            }
+            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" })
+            }).then(res => res.json()).then(data => {
+                thinkingIndicator.classList.add('hidden');
+                addMessage(data.response, 'assistant');
+            }).catch(e => {
+                thinkingIndicator.classList.add('hidden');
+            });
         }
     };
-
-    function sendRequest(text, base64Image) {
-        let payload = { message: text || "", email: "alirazasabir007@gmail.com" };
-        if (base64Image) payload.image = base64Image;
-
-        fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        }).then(res => res.json()).then(data => {
-            thinkingIndicator.classList.add('hidden');
-            addMessage(data.response, 'assistant');
-            setTimeout(() => {
-                const allBtns = document.querySelectorAll('.gemini-speaker-btn');
-                if(allBtns.length > 0) window.toggleVoiceMessage(allBtns[allBtns.length - 1]);
-            }, 300);
-        }).catch(e => {
-            thinkingIndicator.classList.add('hidden');
-            addMessage("سرور آف لائن ہے۔", 'assistant');
-        });
-    }
 
     document.getElementById('menu-btn').onclick = () => { 
         document.getElementById('sidebar').classList.toggle('-translate-x-full'); 
@@ -333,4 +220,4 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('sidebar-overlay').classList.add('hidden');
     };
 });
-                    
+            
