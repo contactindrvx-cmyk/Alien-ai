@@ -31,12 +31,15 @@ import android.view.WindowManager;
 import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 import org.json.JSONObject;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+
 import java.util.ArrayList;
 import java.util.Locale;
-import java.util.Scanner;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
 
 public class FloatingBubbleService extends Service implements TextToSpeech.OnInitListener {
 
@@ -53,6 +56,10 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private boolean isCommandMode = false;
     private boolean isAyeshaSpeaking = false;
 
+    // 🚀 لائیو کالنگ کے ویری ایبلز 🚀
+    private OkHttpClient client;
+    private WebSocket webSocket;
+
     @Override
     public IBinder onBind(Intent intent) { return null; }
 
@@ -63,30 +70,86 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         startMyForeground();
         tts = new TextToSpeech(this, this);
         
-        // 🚀 یہ فنکشن مسنگ تھا، اب شامل کر دیا گیا ہے 🚀
         setupFloatingBubble();
         setupVideoPlayer();
         setupMovement();
         
+        // 🚀 لائیو کالنگ کا پائپ جوڑیں 🚀
+        connectLiveWebSocket();
+        
         mainHandler.postDelayed(this::startListeningLoop, 2000);
     }
+
+    // ==========================================
+    // 🌐 لائیو کالنگ (WebSocket) کا جادو
+    // ==========================================
+    private void connectLiveWebSocket() {
+        client = new OkHttpClient();
+        // نوٹ: Hugging Face کے لیے wss:// استعمال ہوتا ہے
+        Request request = new Request.Builder().url("wss://aigrowthbox-ayesha-ai.hf.space/ws/live").build();
+        
+        webSocket = client.newWebSocket(request, new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket webSocket, Response response) {
+                mainHandler.post(() -> Toast.makeText(FloatingBubbleService.this, "لائیو کال کنیکٹ ہو گئی!", Toast.LENGTH_SHORT).show());
+            }
+
+            @Override
+            public void onMessage(WebSocket webSocket, String text) {
+                // سرور سے جیسے ہی جواب آئے، فوراً بول دو
+                try {
+                    JSONObject json = new JSONObject(text);
+                    String reply = json.getString("response");
+                    mainHandler.post(() -> speak(reply));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onClosed(WebSocket webSocket, int code, String reason) {
+                mainHandler.post(() -> connectLiveWebSocket()); // اگر کنکشن ٹوٹے تو دوبارہ جوڑو
+            }
+
+            @Override
+            public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                mainHandler.postDelayed(() -> connectLiveWebSocket(), 5000); // 5 سیکنڈ بعد دوبارہ کوشش کرو
+            }
+        });
+    }
+
+    private void sendToAiLive(String msg) {
+        if (webSocket != null) {
+            try {
+                JSONObject json = new JSONObject();
+                json.put("message", msg);
+                json.put("email", "alirazasabir007@gmail.com");
+                webSocket.send(json.toString()); // ⚡ بجلی کی سپیڈ سے میسج سینڈ!
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
+            speak("لائیو کال ڈس کنیکٹ ہو گئی ہے، دوبارہ کوشش کر رہی ہوں۔");
+            connectLiveWebSocket();
+        }
+    }
+    // ==========================================
 
     private void startMyForeground() {
         String channelId = "AyeshaChannel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId, "Ayesha AI", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(channelId, "Ayesha AI Live", NotificationManager.IMPORTANCE_LOW);
             channel.setSound(null, null); 
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("عائشہ ایکٹو ہے")
+                .setContentTitle("عائشہ لائیو کال پر ہے")
                 .setContentText("سن رہی ہوں...")
                 .setSmallIcon(R.drawable.app_logo)
                 .build();
         startForeground(1, notification);
     }
 
-    // 🚀 مسنگ فنکشن کی واپسی 🚀
     private void setupFloatingBubble() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         bubbleView = LayoutInflater.from(this).inflate(R.layout.bubble_layout, null);
@@ -166,7 +229,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                         }
                     } else {
                         isCommandMode = false;
-                        sendToAiServer(text);
+                        sendToAiLive(text); // 🚀 اب لائیو پائپ کے ذریعے بھیجو!
                     }
                 } else {
                     restartMicQuietly();
@@ -197,32 +260,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private void restartMicQuietly() {
         mainHandler.removeCallbacksAndMessages(null);
         mainHandler.postDelayed(this::startListeningLoop, 800);
-    }
-
-    private void sendToAiServer(String msg) {
-        new Thread(() -> {
-            try {
-                URL url = new URL("https://aigrowthbox-ayesha-ai.hf.space/chat");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json");
-                conn.setDoOutput(true);
-                JSONObject json = new JSONObject();
-                json.put("message", msg);
-                json.put("email", "alirazasabir007@gmail.com");
-                OutputStream os = conn.getOutputStream();
-                os.write(json.toString().getBytes("UTF-8"));
-                os.close();
-                Scanner s = new Scanner(conn.getInputStream()).useDelimiter("\\A");
-                String reply = new JSONObject(s.hasNext() ? s.next() : "").getString("response");
-                mainHandler.post(() -> speak(reply));
-            } catch (Exception e) {
-                mainHandler.post(() -> {
-                    speak("انٹرنیٹ کا مسئلہ ہے۔");
-                    restartMicQuietly();
-                });
-            }
-        }).start();
     }
 
     @Override
@@ -303,6 +340,12 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         super.onDestroy();
         mainHandler.removeCallbacksAndMessages(null); 
         muteSystemBeep(false);
+        
+        // 🚀 بند کرتے وقت لائیو کال بھی کاٹ دو 🚀
+        if (webSocket != null) {
+            webSocket.close(1000, "Service Destroyed");
+        }
+        
         if (speechRecognizer != null) {
             speechRecognizer.cancel();
             speechRecognizer.destroy();
@@ -311,4 +354,5 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-}
+                    }
+            
