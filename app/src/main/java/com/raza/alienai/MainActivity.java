@@ -1,44 +1,27 @@
 package com.raza.alienai;
 
 import android.Manifest;
-import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.webkit.JavascriptInterface;
-import android.webkit.PermissionRequest;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-
     private WebView webView;
-    private SharedPreferences sharedPreferences;
-    private ValueCallback<Uri[]> mFilePathCallback;
-    private final static int FILECHOOSER_RESULTCODE = 1;
 
-    private BroadcastReceiver wakeWordReceiver = new BroadcastReceiver() {
+    BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String agentName = intent.getStringExtra("agentName");
-            if (webView != null) {
-                webView.evaluateJavascript("javascript:if(window.onWakeWordDetected) window.onWakeWordDetected('" + agentName + "');", null);
+            String msg = intent.getStringExtra("message");
+            if (webView != null && msg != null) {
+                webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + msg.replace("'", "\\'") + "');", null);
             }
         }
     };
@@ -47,147 +30,37 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        sharedPreferences = getSharedPreferences("AyeshaPrefs", MODE_PRIVATE);
         webView = findViewById(R.id.webView);
-
-        requestRuntimePermissions();
-
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
-        webSettings.setMediaPlaybackRequiresUserGesture(false); 
-
+        webView.getSettings().setJavaScriptEnabled(true);
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
-        
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onPermissionRequest(final PermissionRequest request) {
-                runOnUiThread(() -> request.grant(request.getResources()));
-            }
-            @Override
-            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (mFilePathCallback != null) mFilePathCallback.onReceiveValue(null);
-                mFilePathCallback = filePathCallback;
-                Intent intent = null;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    intent = fileChooserParams.createIntent();
-                }
-                try {
-                    startActivityForResult(intent, FILECHOOSER_RESULTCODE);
-                } catch (ActivityNotFoundException e) {
-                    mFilePathCallback = null;
-                    return false;
-                }
-                return true;
-            }
-        });
-
         webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("file:///android_asset/index.html"); 
-        
-        IntentFilter filter = new IntentFilter("com.raza.alienai.WAKE_WORD_DETECTED");
+        webView.loadUrl("file:///android_asset/index.html");
+
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO, Manifest.permission.READ_PHONE_STATE}, 1);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(wakeWordReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            registerReceiver(messageReceiver, new IntentFilter("NEW_MESSAGE_FROM_CALL"), Context.RECEIVER_NOT_EXPORTED);
         } else {
-            registerReceiver(wakeWordReceiver, filter);
+            registerReceiver(messageReceiver, new IntentFilter("NEW_MESSAGE_FROM_CALL"));
         }
     }
 
-    private void requestRuntimePermissions() {
-        List<String> permissionsNeeded = new ArrayList<>();
-        permissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
-        permissionsNeeded.add(Manifest.permission.CAMERA);
-        permissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-        permissionsNeeded.add(Manifest.permission.READ_PHONE_STATE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS);
+    public class WebAppInterface {
+        @JavascriptInterface
+        public void toggleCall(boolean start) {
+            Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
+            if (start) startService(intent); else stopService(intent);
         }
-
-        List<String> listPermissionsNeeded = new ArrayList<>();
-        for (String p : permissionsNeeded) {
-            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
-                listPermissionsNeeded.add(p);
-            }
-        }
-
-        if (!listPermissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toArray(new String[0]), 100);
-        }
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        // ایپ اوپن ہونے پر کالنگ سروس بند کر دیں تاکہ ایپ کے اندر بات ہو سکے
-        stopService(new Intent(this, AyeshaCallService.class));
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        // ایپ بند ہونے پر کالنگ سروس خود بخود شروع ہو جائے
-        manageCallService();
-    }
-
-    private void manageCallService() {
-        boolean isEnabled = sharedPreferences.getBoolean("bubbleEnabled", true); // نام bubbleEnabled ہی رہنے دیا تاکہ JS نہ چھیڑنی پڑے
-        if (isEnabled) {
-            Intent serviceIntent = new Intent(this, AyeshaCallService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent);
-            } else {
-                startService(serviceIntent);
-            }
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == FILECHOOSER_RESULTCODE) {
-            if (mFilePathCallback == null) return;
-            Uri[] results = null;
-            if (resultCode == RESULT_OK && data != null && data.getDataString() != null) {
-                results = new Uri[]{Uri.parse(data.getDataString())};
-            }
-            mFilePathCallback.onReceiveValue(results);
-            mFilePathCallback = null;
+        @JavascriptInterface
+        public void muteCall(boolean isMuted) {
+            Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
+            intent.putExtra("isMuted", isMuted); startService(intent);
         }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        try { unregisterReceiver(wakeWordReceiver); } catch (Exception e) {}
-    }
-
-    public class WebAppInterface {
-        @JavascriptInterface
-        public void toggleBubble(boolean isEnabled) {
-            // نام toggleBubble ہی ہے، لیکن یہ اب Call Service کو کنٹرول کرے گا!
-            sharedPreferences.edit().putBoolean("bubbleEnabled", isEnabled).apply();
-            runOnUiThread(() -> {
-                if (isEnabled) {
-                    manageCallService();
-                } else {
-                    stopService(new Intent(MainActivity.this, AyeshaCallService.class));
-                }
-            });
-        }
-        @JavascriptInterface
-        public void setAgent(String agentName) {
-            sharedPreferences.edit().putString("selectedAgent", agentName).apply();
-        }
-        @JavascriptInterface
-        public void startBubbleVideo() {
-            // ان کی اب ضرورت نہیں، لیکن ایپ کو کریش ہونے سے بچانے کے لیے انہیں خالی چھوڑ دیا ہے
-        }
-        @JavascriptInterface
-        public void stopBubbleVideo() {
-        }
+        unregisterReceiver(messageReceiver);
     }
 }
