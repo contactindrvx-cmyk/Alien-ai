@@ -21,6 +21,8 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -50,13 +52,15 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     private TextToSpeech tts;
     private MediaPlayer mediaPlayer;
     private AudioManager audioManager;
+    private TelephonyManager telephonyManager;
     private Surface currentSurface;
     private Handler mainHandler = new Handler(Looper.getMainLooper());
+    
     private boolean isAyeshaReady = false;
     private boolean isCommandMode = false;
     private boolean isAyeshaSpeaking = false;
+    private boolean isAyeshaPausedBySystem = false; // 🚀 یہ فلیگ واٹس ایپ اور کالز کو ہینڈل کرے گا
 
-    // 🚀 لائیو کالنگ کے ویری ایبلز 🚀
     private OkHttpClient client;
     private WebSocket webSocket;
 
@@ -67,6 +71,8 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     public void onCreate() {
         super.onCreate();
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        
         startMyForeground();
         tts = new TextToSpeech(this, this);
         
@@ -74,46 +80,127 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         setupVideoPlayer();
         setupMovement();
         
-        // 🚀 لائیو کالنگ کا پائپ جوڑیں 🚀
-        connectLiveWebSocket();
+        // 🚀 کال اور آڈیو کے جاسوس ایکٹو کریں 🚀
+        setupAudioFocusListener();
+        setupCallListener();
         
+        connectLiveWebSocket();
         mainHandler.postDelayed(this::startListeningLoop, 2000);
     }
 
     // ==========================================
-    // 🌐 لائیو کالنگ (WebSocket) کا جادو
+    // 📞 1. فون کالز کو ہینڈل کرنے کا سسٹم (Telephony)
+    // ==========================================
+    private void setupCallListener() {
+        PhoneStateListener phoneStateListener = new PhoneStateListener() {
+            @Override
+            public void onCallStateChanged(int state, String phoneNumber) {
+                switch (state) {
+                    case TelephonyManager.CALL_STATE_RINGING:
+                        // کال آ رہی ہے، عائشہ جاگتی رہے گی
+                        break;
+                    case TelephonyManager.CALL_STATE_OFFHOOK:
+                        // کال اٹھا لی گئی ہے! عائشہ کو فوراً ڈس کنیکٹ کرو
+                        pauseAyesha("فون کال کی وجہ سے عائشہ رک گئی");
+                        break;
+                    case TelephonyManager.CALL_STATE_IDLE:
+                        // کال کٹ گئی ہے! عائشہ کو واپس لے آؤ
+                        if (isAyeshaPausedBySystem) {
+                            resumeAyesha("کال ختم، عائشہ واپس کنیکٹ ہو گئی");
+                        }
+                        break;
+                }
+            }
+        };
+        telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
+    }
+
+    // ==========================================
+    // 🎧 2. واٹس ایپ اور گانوں کو ہینڈل کرنے کا سسٹم (Audio Focus)
+    // ==========================================
+    private void setupAudioFocusListener() {
+        AudioManager.OnAudioFocusChangeListener focusChangeListener = focusChange -> {
+            switch (focusChange) {
+                case AudioManager.AUDIOFOCUS_LOSS:
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                    // واٹس ایپ مائیک یا یوٹیوب نے قبضہ کر لیا ہے
+                    pauseAyesha("واٹس ایپ/میڈیا چل رہا ہے...");
+                    break;
+                case AudioManager.AUDIOFOCUS_GAIN:
+                    // مائیک/سپیکر واپس فری ہو گیا ہے
+                    if (isAyeshaPausedBySystem) {
+                        resumeAyesha("عائشہ دوبارہ ایکٹو");
+                    }
+                    break;
+            }
+        };
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioManager.requestAudioFocus(new android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setOnAudioFocusChangeListener(focusChangeListener)
+                    .build());
+        } else {
+            audioManager.requestAudioFocus(focusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        }
+    }
+
+    // ==========================================
+    // ⏸️ عائشہ کو سلانے اور جگانے کے کنٹرولز
+    // ==========================================
+    private void pauseAyesha(String reason) {
+        isAyeshaPausedBySystem = true;
+        mainHandler.post(() -> Toast.makeText(FloatingBubbleService.this, reason, Toast.LENGTH_SHORT).show());
+        
+        if (speechRecognizer != null) {
+            speechRecognizer.cancel();
+        }
+        if (tts != null && tts.isSpeaking()) {
+            tts.stop();
+        }
+        if (webSocket != null) {
+            webSocket.close(1000, "Paused by User Activity");
+            webSocket = null;
+        }
+    }
+
+    private void resumeAyesha(String reason) {
+        isAyeshaPausedBySystem = false;
+        mainHandler.post(() -> Toast.makeText(FloatingBubbleService.this, reason, Toast.LENGTH_SHORT).show());
+        
+        connectLiveWebSocket();
+        startListeningLoop();
+    }
+
+    // ==========================================
+    // 🌐 لائیو کالنگ (WebSocket)
     // ==========================================
     private void connectLiveWebSocket() {
+        if (isAyeshaPausedBySystem) return;
+
         client = new OkHttpClient();
-        // نوٹ: Hugging Face کے لیے wss:// استعمال ہوتا ہے
         Request request = new Request.Builder().url("wss://aigrowthbox-ayesha-ai.hf.space/ws/live").build();
         
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
-            public void onOpen(WebSocket webSocket, Response response) {
-                mainHandler.post(() -> Toast.makeText(FloatingBubbleService.this, "لائیو کال کنیکٹ ہو گئی!", Toast.LENGTH_SHORT).show());
-            }
+            public void onOpen(WebSocket webSocket, Response response) {}
 
             @Override
             public void onMessage(WebSocket webSocket, String text) {
-                // سرور سے جیسے ہی جواب آئے، فوراً بول دو
                 try {
                     JSONObject json = new JSONObject(text);
                     String reply = json.getString("response");
                     mainHandler.post(() -> speak(reply));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                } catch (Exception e) { e.printStackTrace(); }
             }
 
             @Override
             public void onClosed(WebSocket webSocket, int code, String reason) {
-                mainHandler.post(() -> connectLiveWebSocket()); // اگر کنکشن ٹوٹے تو دوبارہ جوڑو
+                if (!isAyeshaPausedBySystem) mainHandler.postDelayed(() -> connectLiveWebSocket(), 2000);
             }
 
             @Override
             public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                mainHandler.postDelayed(() -> connectLiveWebSocket(), 5000); // 5 سیکنڈ بعد دوبارہ کوشش کرو
+                if (!isAyeshaPausedBySystem) mainHandler.postDelayed(() -> connectLiveWebSocket(), 5000);
             }
         });
     }
@@ -124,17 +211,16 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                 JSONObject json = new JSONObject();
                 json.put("message", msg);
                 json.put("email", "alirazasabir007@gmail.com");
-                webSocket.send(json.toString()); // ⚡ بجلی کی سپیڈ سے میسج سینڈ!
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+                webSocket.send(json.toString());
+            } catch (Exception e) { e.printStackTrace(); }
         } else {
-            speak("لائیو کال ڈس کنیکٹ ہو گئی ہے، دوبارہ کوشش کر رہی ہوں۔");
             connectLiveWebSocket();
         }
     }
-    // ==========================================
 
+    // ==========================================
+    // 🎤 مائیک کنٹرول
+    // ==========================================
     private void startMyForeground() {
         String channelId = "AyeshaChannel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -170,6 +256,8 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     }
 
     private void startListeningLoop() {
+        if (isAyeshaPausedBySystem || isAyeshaSpeaking) return;
+
         if (speechRecognizer != null) {
             speechRecognizer.cancel();
             speechRecognizer.destroy();
@@ -182,23 +270,21 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
-            public void onReadyForSpeech(Bundle params) {
-                muteSystemBeep(false); 
-            }
+            public void onReadyForSpeech(Bundle params) { muteSystemBeep(false); }
 
             @Override
             public void onPartialResults(Bundle partialResults) {
+                if (isAyeshaPausedBySystem) return;
+                
                 ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String text = matches.get(0).toLowerCase();
-                    
                     if (text.contains("ayesha") || text.contains("عائشہ") || text.contains("آشا")) {
                         if (isAyeshaSpeaking && tts != null) {
                             tts.stop(); 
                             if (mediaPlayer != null) mediaPlayer.pause();
                             isAyeshaSpeaking = false;
                         }
-                        
                         if (!isCommandMode) {
                             isCommandMode = true;
                             speechRecognizer.cancel(); 
@@ -211,15 +297,11 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
 
             @Override
             public void onResults(Bundle results) {
+                if (isAyeshaPausedBySystem) return;
+
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String text = matches.get(0).toLowerCase();
-
-                    if (isAyeshaSpeaking) {
-                        restartMicQuietly();
-                        return;
-                    }
-
                     if (!isCommandMode) {
                         if (text.contains("ayesha") || text.contains("عائشہ")) {
                             isCommandMode = true;
@@ -229,7 +311,7 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
                         }
                     } else {
                         isCommandMode = false;
-                        sendToAiLive(text); // 🚀 اب لائیو پائپ کے ذریعے بھیجو!
+                        sendToAiLive(text); 
                     }
                 } else {
                     restartMicQuietly();
@@ -239,10 +321,12 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
             @Override 
             public void onError(int error) { 
                 muteSystemBeep(false); 
-                if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_AUDIO) {
-                    mainHandler.postDelayed(() -> startListeningLoop(), 4000); 
-                } else {
-                    restartMicQuietly(); 
+                if (!isAyeshaPausedBySystem) {
+                    if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_AUDIO) {
+                        mainHandler.postDelayed(() -> startListeningLoop(), 4000); 
+                    } else {
+                        restartMicQuietly(); 
+                    }
                 }
             }
 
@@ -283,6 +367,8 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
     }
 
     private void speak(String text) {
+        if (isAyeshaPausedBySystem) return; // اگر سسٹم پاز ہے تو نہ بولو
+
         if (isAyeshaReady && tts != null) {
             isAyeshaSpeaking = true;
             if (mediaPlayer != null) mediaPlayer.start();
@@ -341,7 +427,6 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         mainHandler.removeCallbacksAndMessages(null); 
         muteSystemBeep(false);
         
-        // 🚀 بند کرتے وقت لائیو کال بھی کاٹ دو 🚀
         if (webSocket != null) {
             webSocket.close(1000, "Service Destroyed");
         }
@@ -354,5 +439,5 @@ public class FloatingBubbleService extends Service implements TextToSpeech.OnIni
         if (mediaPlayer != null) mediaPlayer.release();
         if (bubbleView != null) windowManager.removeView(bubbleView);
     }
-                    }
+    }
             
