@@ -145,8 +145,32 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 🚨 MISSING FUNCTION ADDED: اب جاوا کے ایرر یا میسج نظر آئیں گے 🚨
+    // 🚨 ہائبرڈ کیچر: جاوا سے آنے والا ریل ٹائم ڈیٹا اور میسجز 🚨
     window.addMessageFromJava = function(text) {
+        // 1. اگر جاوا نے سکرین کا ریل ٹائم ٹیکسٹ ڈیٹا بھیجا ہے
+        if (text.startsWith("SCREEN_DATA||")) {
+            let screenData = text.replace("SCREEN_DATA||", "");
+            document.getElementById('thinking-indicator').classList.remove('hidden');
+            
+            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
+                method: "POST", headers: { "Content-Type": "application/json" }, 
+                body: JSON.stringify({ 
+                    message: "صارف کی سکرین پر اس وقت یہ سب لکھا ہے: " + screenData + "\n\nاسے جلدی سے پڑھو اور صارف کو ایک لائن میں بتاؤ کہ وہ کیا دیکھ رہا ہے۔ کوئی لمبی کہانی مت سنانا۔", 
+                    email: "alirazasabir007@gmail.com" 
+                }) 
+            })
+            .then(res => res.json())
+            .then(d => {
+                document.getElementById('thinking-indicator').classList.add('hidden'); 
+                processAIResponse(d.response || "میں سکرین کا ڈیٹا نہیں پڑھ سکی۔");
+            }).catch(e => {
+                document.getElementById('thinking-indicator').classList.add('hidden'); 
+                addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
+            });
+            return;
+        }
+
+        // 2. اگر نارمل میسج یا جاوا کا ایرر ہے
         document.getElementById('thinking-indicator').classList.add('hidden');
         let btn = addMessage(text, 'assistant');
         if(btn) { 
@@ -155,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 🚀 سپر سائلنٹ سکرین شاٹ پلنگ 🚀
+    // 🚀 سپر سائلنٹ سکرین شاٹ پلنگ (صرف تصویر دیکھنے کے لیے) 🚀
     window.triggerScreenshot = function() {
         let base64Image = "";
         if (window.AndroidBridge && window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
@@ -164,16 +188,17 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addMessageFromJava("معذرت رضا بھائی، کیمرے سے تصویر نہیں مل سکی۔"); return;
         }
 
-        // کوئی درمیانی میسج پرنٹ نہیں ہوگا، صرف تھنکنگ (Thinking) چلتا رہے گا
+        document.getElementById('thinking-indicator').classList.remove('hidden');
         fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
             method: "POST", headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ message: "سکرین شاٹ دیکھو اور تفصیل بتاؤ۔", image: base64Image, email: "alirazasabir007@gmail.com" }) 
+            body: JSON.stringify({ message: "یہ سکرین شاٹ ہے۔ اسے دیکھو اور تفصیل بتاؤ۔", image: base64Image, email: "alirazasabir007@gmail.com" }) 
         })
         .then(res => res.json())
         .then(d => {
             document.getElementById('thinking-indicator').classList.add('hidden'); 
             processAIResponse(d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔");
         }).catch(e => {
+            document.getElementById('thinking-indicator').classList.add('hidden');
             window.addMessageFromJava("سرور سے رابطہ ٹوٹ گیا ہے۔");
         });
     };
@@ -193,8 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
 
-        // 🚨 خاموشی کا اصل راز: اگر سکرین شاٹ لے رہی ہے تو کچھ مت بولو، انتظار کرو! 🚨
-        if (action === "TAKE_SCREENSHOT") {
+        // 🚨 خاموشی کا اصل راز: اگر سکرین شاٹ لے رہی ہے یا ریڈ سکرین کر رہی ہے تو کچھ مت بولو! 🚨
+        if (action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
             return; 
         }
 
@@ -226,8 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json())
             .then(d => { 
                 let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
-                // 🚨 اگر سکرین شاٹ لے رہی ہے تو تھنکنگ ہائیڈ مت کرو
-                if (!/\[ACTION:\s*TAKE_SCREENSHOT/i.test(cleanText)) {
+                // 🚨 اگر خاموشی والا ایکشن ہے تو تھنکنگ ہائیڈ مت کرو
+                if (!/\[ACTION:\s*(TAKE_SCREENSHOT|READ_SCREEN)/i.test(cleanText)) {
                     document.getElementById('thinking-indicator').classList.add('hidden'); 
                 }
                 processAIResponse(cleanText); 
@@ -267,5 +292,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-                                  }
-                    
+}
+    
