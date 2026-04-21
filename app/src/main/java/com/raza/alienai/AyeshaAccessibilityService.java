@@ -25,6 +25,9 @@ import java.util.Queue;
 
 public class AyeshaAccessibilityService extends AccessibilityService {
 
+    // 🌟 ڈائریکٹ میموری برج (Intent Size Limit ختم کرنے کے لیے) 🌟
+    public static String latestScreenshotBase64 = "";
+
     private Queue<String> taskQueue = new LinkedList<>();
     private boolean isTaskRunning = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -65,7 +68,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             smartClick(parts.length > 1 ? parts[1].trim() : "");
             mainHandler.postDelayed(this::processNextTask, 2000);
         } else if (cmdType.equals("TAKE_SCREENSHOT")) {
-            // 📸 نیا سکرین شاٹ فنکشن 📸
             takeAndSendScreenshot();
             mainHandler.postDelayed(this::processNextTask, 3000);
         } else {
@@ -78,26 +80,32 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
                 @Override
                 public void onSuccess(ScreenshotResult screenshotResult) {
-                    Bitmap bitmap = Bitmap.wrapHardwareBuffer(screenshotResult.getHardwareBuffer(), screenshotResult.getColorSpace());
-                    if (bitmap != null) {
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        // 30% کوالٹی تاکہ سائز 100-200 KB رہے اور سرور پر بوجھ نہ پڑے
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 30, baos); 
-                        byte[] imageBytes = baos.toByteArray();
-                        String base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
-                        
-                        Intent intent = new Intent("SCREENSHOT_CAPTURED");
-                        intent.putExtra("image", base64Image);
-                        sendBroadcast(intent);
+                    try {
+                        Bitmap bitmap = Bitmap.wrapHardwareBuffer(screenshotResult.getHardwareBuffer(), screenshotResult.getColorSpace());
+                        if (bitmap != null) {
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            // 15% کوالٹی تاکہ تصویر فوراً سرور پر جائے اور کوئی لیگ (Lag) نہ آئے
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 15, baos); 
+                            byte[] imageBytes = baos.toByteArray();
+                            
+                            // 🚨 نیا طریقہ: تصویر کو ڈائریکٹ میموری میں رکھو 🚨
+                            latestScreenshotBase64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
+                            
+                            // صرف ایک خالی سگنل بھیجو کہ تصویر تیار ہے
+                            Intent intent = new Intent("SCREENSHOT_CAPTURED");
+                            sendBroadcast(intent);
+                        }
+                    } catch (Exception e) {
+                        sendResultToChat("سکرین شاٹ پروسیس کرنے میں ایرر آ گیا۔");
                     }
                 }
                 @Override
                 public void onFailure(int errorCode) {
-                    sendResultToChat("سکرین شاٹ لینے میں مسئلہ ہوا۔");
+                    sendResultToChat("سکرین شاٹ لینے میں مسئلہ ہوا۔ ایرر کوڈ: " + errorCode);
                 }
             });
         } else {
-            sendResultToChat("آپ کا اینڈرائیڈ ورژن سکرین شاٹ سپورٹ نہیں کرتا (Android 11+ درکار ہے)۔");
+            sendResultToChat("آپ کا اینڈرائیڈ ورژن سکرین شاٹ سپورٹ نہیں کرتا۔");
         }
     }
 
@@ -192,4 +200,5 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-             }
+                                                   }
+             
