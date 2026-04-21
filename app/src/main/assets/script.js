@@ -3,10 +3,43 @@ let isCallActive = false;
 let isCallMuted = false;
 window.isAyeshaRecording = false;
 
+// UI Elements
 let inputNormal, outPlus, mainPill, inPlus, waveArea, inEnd, inSend, inMic, inCall;
 let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
+
+let currentMsgId = null; 
+let currentSentenceBuffer = "";
+
+function processSentenceBuffer() {
+    let cleanText = currentSentenceBuffer.trim();
+    if (cleanText.length > 0) {
+        // 🚨 کمانڈ کیچر 🚨
+        let cmdMatch = cleanText.match(/\[ACTION:(.*?), DATA:(.*?)\]/);
+        if (cmdMatch) {
+            let action = cmdMatch[1];
+            let actionData = cmdMatch[2];
+            console.log("🔥 کمانڈ پکڑی گئی:", action, actionData);
+            
+            if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
+                window.AndroidBridge.sendAccessibilityCommand(action, actionData);
+            }
+            cleanText = cleanText.replace(/\[ACTION:.*\]/g, '').trim();
+            if (currentMsgId) {
+                let p = document.getElementById(currentMsgId);
+                if(p) p.innerHTML = p.innerHTML.replace(/\[ACTION:.*\]/g, '');
+            }
+        }
+        
+        // 🗣️ آڈیو پلے بیک 🗣️
+        if (cleanText) {
+            window.AyeshaAudio.queue.push(cleanText);
+            if (!window.AyeshaAudio.isPlaying) playCloudQueue(document.querySelector('.gemini-speaker-btn:last-child'));
+        }
+    }
+    currentSentenceBuffer = "";
+}
 
 function playCloudQueue(btn) {
     if (!btn || window.AyeshaAudio.queue.length === 0) { 
@@ -15,6 +48,8 @@ function playCloudQueue(btn) {
             btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
             btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
         }
+        
+        // عائشہ کے چپ ہونے کے بعد مائیک دوبارہ کھولیں
         if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
              window.AndroidBridge.toggleInlineMic(); 
         }
@@ -23,6 +58,7 @@ function playCloudQueue(btn) {
     
     window.AyeshaAudio.isPlaying = true;
     
+    // عائشہ بولے تو مائیک بند کر دیں تاکہ ایکو (Echo) نہ آئے
     if (window.isAyeshaRecording && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -45,6 +81,7 @@ window.stopAyeshaCompletely = function() {
     if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
     window.AyeshaAudio.queue = []; 
     window.AyeshaAudio.isPlaying = false;
+    currentSentenceBuffer = "";
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
         b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
         b.classList.remove('bg-[#3a8ff7]', 'text-white'); 
@@ -157,17 +194,19 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState();
     };
 
+    // 🚨 آٹو سینڈ لاجک (وائس ریکارڈنگ کے فوراً بعد خود میسج بھیجے گا) 🚨
     window.updateInputFromJava = function(text, finalResult) {
         inputNormal.value = text; inputCall.value = text; updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            if (isCallActive) {
-                voiceTimeout = setTimeout(() => { 
-                    if (inputCall.value.trim().length > 0) cgSend.click(); 
-                }, 1000); 
-            } else {
-                // نارمل موڈ میں آٹو سینڈ نہیں ہوگا
-            }
+            // یوزر کے چپ ہونے کے ٹھیک 1 سیکنڈ بعد بٹن خود کلک ہو جائے گا
+            voiceTimeout = setTimeout(() => { 
+                const activeInput = isCallActive ? inputCall : inputNormal;
+                if (activeInput.value.trim().length > 0 || pendingImg) {
+                    if (isCallActive) cgSend.click(); 
+                    else inSend.click();
+                }
+            }, 1000); 
         }
     };
 
@@ -185,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
     
-    const handleSendClick = (e) => {
+    const handleSendClick = async (e) => {
         e.preventDefault(); 
         const activeInput = isCallActive ? inputCall : inputNormal; 
         const text = activeInput.value.trim();
@@ -198,66 +237,74 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('thinking-indicator').classList.remove('hidden');
             
-            // 🚀 پرانا اور گارنٹیڈ FETCH طریقہ 🚀
-            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
-                method: "POST", headers: { "Content-Type": "application/json" }, 
-                body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
-            })
-            .then(res => res.json())
-            .then(d => { 
-                document.getElementById('thinking-indicator').classList.add('hidden'); 
-                
-                // کمانڈ ڈیٹیکٹ کرنا
-                let cleanText = d.response;
-                let cmdMatch = cleanText.match(/\[ACTION:(.*?), DATA:(.*?)\]/);
-                if (cmdMatch) {
-                    let action = cmdMatch[1];
-                    let actionData = cmdMatch[2];
-                    if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
-                        window.AndroidBridge.sendAccessibilityCommand(action, actionData);
-                    }
-                    cleanText = cleanText.replace(/\[ACTION:.*\]/g, '').trim();
-                }
+            // 🚀 پرفیکٹ اور پکا HTTP Streaming Fetch 🚀
+            try {
+                // نوٹ: اپنے پائتھون سرور کا URL چیک کر لیں (chat_stream والا)
+                const response = await fetch("https://aigrowthbox-ayesha-ai.hf.space/chat_stream", { 
+                    method: "POST", headers: { "Content-Type": "application/json" }, 
+                    body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
+                });
 
-                let btn = addMessage(cleanText, 'assistant');
-                
-                // آواز چلانا
-                if(btn) {
-                    window.AyeshaAudio.queue.push(cleanText);
-                    playCloudQueue(btn);
-                }
-            }).catch(e => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
-                addMessage("سرور سے رابطہ کٹ گیا ہے۔", 'assistant'); 
-            });
+                
+                if (!response.body) throw new Error("No Data");
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                
+                currentMsgId = 'msg-' + Date.now();
+                addMessage("", 'assistant', null, currentMsgId); 
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    let chunk = decoder.decode(value, { stream: true });
+                    let textElement = document.getElementById(currentMsgId);
+                    if (textElement) textElement.innerHTML += chunk;
+                    
+                    currentSentenceBuffer += chunk;
+                    if (/[.?!۔؟]/.test(chunk) || chunk.includes('\n')) {
+                        processSentenceBuffer();
+                    }
+                }
+                processSentenceBuffer(); 
+                currentMsgId = null;
+
+            } catch (error) {
+                document.getElementById('thinking-indicator').classList.add('hidden'); 
+                addMessage("انٹرنیٹ یا سرور کا مسئلہ ہے، دوبارہ کوشش کریں۔", 'assistant'); 
+            }
         }
     };
     inSend.onclick = handleSendClick; cgSend.onclick = handleSendClick;
 });
 
-function addMessage(text, sender, imgUrl = null) {
+function addMessage(text, sender, imgUrl = null, msgId = null) {
     const chatBox = document.getElementById('chat-box'); 
     const msgDiv = document.createElement('div');
     
     let imgHTML = imgUrl ? `<img src="${imgUrl}" class="w-48 h-48 object-cover rounded-xl mb-3 border-2 border-[#3a8ff7] shadow-sm">` : '';
+    let idAttr = msgId ? `id="${msgId}"` : '';
 
     if (sender === 'user') {
         msgDiv.className = 'w-full flex justify-end mt-4';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">${imgHTML}<p dir="auto">${text}</p></div>`;
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">${imgHTML}<p ${idAttr} dir="auto">${text}</p></div>`;
     } else {
         const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex justify-start mt-4 group';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]">${imgHTML}<p dir="auto">${text}</p><div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div></div>`;
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]">${imgHTML}<p ${idAttr} dir="auto">${text}</p><div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div></div>`;
         
         let btn = msgDiv.querySelector('.gemini-speaker-btn');
         btn.onclick = function() {
             if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
-            window.AyeshaAudio.queue.push(text);
+            let fullText = msgDiv.querySelector('p').innerText;
+            window.AyeshaAudio.queue.push(fullText);
             playCloudQueue(this);
         };
         return btn;
     }
     chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
     return null;
-            }
-            
+}
+    
