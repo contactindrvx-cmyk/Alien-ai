@@ -172,9 +172,21 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 🚀 سپر فاسٹ سکرین شاٹ بھیجنے والا نیا فنکشن 🚀
-    window.processScreenshot = function(base64Image) {
-        console.log("Screenshot received from Java, sending to Python...");
+    // 🚀 محفوظ اور تیز پلنگ (Pulling) سسٹم 🚀
+    window.triggerScreenshot = function() {
+        console.log("Trigger received from Java");
+        let base64Image = "";
+        
+        // جاوا سے تصویر خود مانگ کر لاؤ
+        if (window.AndroidBridge && window.AndroidBridge.pullScreenshot) {
+            base64Image = window.AndroidBridge.pullScreenshot();
+        }
+        
+        if (!base64Image) {
+            processAIResponse("معذرت رضا بھائی، کیمرے سے تصویر نہیں مل سکی۔");
+            return;
+        }
+
         document.getElementById('thinking-indicator').classList.remove('hidden');
         addMessage("سکرین چیک کر رہی ہوں...", 'assistant');
         
@@ -188,27 +200,24 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(res => res.json())
         .then(d => {
-            console.log("Python response received!");
             document.getElementById('thinking-indicator').classList.add('hidden'); 
             let cleanText = d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔";
             processAIResponse(cleanText);
         }).catch(e => {
-            console.error("Fetch error:", e);
             document.getElementById('thinking-indicator').classList.add('hidden'); 
-            addMessage("سکرین چیک کرنے میں سرور نے جواب نہیں دیا۔", 'assistant');
+            // 🚨 اب وہ چپ نہیں رہے گی، بلکہ بول کر ایرر بتائے گی 🚨
+            processAIResponse("معذرت رضا بھائی، سرور سے رابطہ ٹوٹ گیا ہے یا انٹرنیٹ سلو ہے۔");
         });
     };
     
     // 🧠 فائنل اور بلٹ پروف کمانڈ کیچر فنکشن 🧠
     function processAIResponse(cleanText) {
-        // 1. پہلے کمانڈ کو پکڑنے کی کوشش کرو (چاہے وہ آدھی لکھی ہو یا پوری)
         let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?)(?:,\s*DATA:\s*(.*?))?\]/i);
         
         if (cmdMatch) {
             let action = cmdMatch[1] ? cmdMatch[1].trim() : "";
             let actionData = cmdMatch[2] ? cmdMatch[2].trim() : "none";
 
-            // اگر عائشہ شارٹ کٹ مارے جیسے [ACTION:APP||Facebook]
             if (action.includes("||") && !action.includes("MULTI_TASK")) {
                 actionData = action;
                 action = "MULTI_TASK";
@@ -219,10 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // 2. سکرین سے کمانڈ کو مکمل غائب کر دو (تاکہ یوزر کو نظر نہ آئے)
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
-        
-        // اگر کمانڈ غائب کرنے کے بعد جواب خالی ہو جائے تو ڈیفالٹ میسج
         if (cleanText === "") cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
 
         let btn = addMessage(cleanText, 'assistant');
@@ -252,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(d => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
                 let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
-                processAIResponse(cleanText); // نیا فنکشن کال کیا
+                processAIResponse(cleanText); 
             }).catch(e => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
                 addMessage("سرور سے رابطہ کٹ گیا ہے۔", 'assistant'); 
@@ -289,5 +295,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-        }
-            
+                }
+                
