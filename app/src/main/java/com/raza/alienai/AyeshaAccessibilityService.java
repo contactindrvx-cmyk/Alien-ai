@@ -9,6 +9,7 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.graphics.Path;
 import android.media.AudioManager;
 import android.os.Build;
@@ -25,9 +26,7 @@ import java.util.Queue;
 
 public class AyeshaAccessibilityService extends AccessibilityService {
 
-    // 🌟 ڈائریکٹ میموری برج (Intent Size Limit ختم کرنے کے لیے) 🌟
     public static String latestScreenshotBase64 = "";
-
     private Queue<String> taskQueue = new LinkedList<>();
     private boolean isTaskRunning = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -37,7 +36,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getStringExtra("action");
             String rawData = intent.getStringExtra("data"); 
-
             if (action != null && rawData != null) {
                 if (action.equals("MULTI_TASK") || action.equals("TAKE_SCREENSHOT")) {
                     String[] tasks = rawData.split("&&");
@@ -83,29 +81,29 @@ public class AyeshaAccessibilityService extends AccessibilityService {
                     try {
                         Bitmap bitmap = Bitmap.wrapHardwareBuffer(screenshotResult.getHardwareBuffer(), screenshotResult.getColorSpace());
                         if (bitmap != null) {
+                            // 🚀 تصویر کو 50% چھوٹا کرو (Resize) 🚀
+                            int width = bitmap.getWidth();
+                            int height = bitmap.getHeight();
+                            Matrix matrix = new Matrix();
+                            matrix.postScale(0.5f, 0.5f);
+                            Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
+
                             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            // 15% کوالٹی تاکہ تصویر فوراً سرور پر جائے اور کوئی لیگ (Lag) نہ آئے
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 15, baos); 
+                            // 🚀 کوالٹی 10% تاکہ اپلوڈنگ سپر فاسٹ ہو 🚀
+                            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 10, baos); 
                             byte[] imageBytes = baos.toByteArray();
-                            
-                            // 🚨 نیا طریقہ: تصویر کو ڈائریکٹ میموری میں رکھو 🚨
                             latestScreenshotBase64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
                             
-                            // صرف ایک خالی سگنل بھیجو کہ تصویر تیار ہے
-                            Intent intent = new Intent("SCREENSHOT_CAPTURED");
-                            sendBroadcast(intent);
+                            sendBroadcast(new Intent("SCREENSHOT_CAPTURED"));
+                            
+                            // ریم بچانے کے لیے بٹ میپس کو میموری سے فارغ کرو
+                            if (!bitmap.isRecycled()) bitmap.recycle();
+                            if (!resizedBitmap.isRecycled()) resizedBitmap.recycle();
                         }
-                    } catch (Exception e) {
-                        sendResultToChat("سکرین شاٹ پروسیس کرنے میں ایرر آ گیا۔");
-                    }
+                    } catch (Exception e) {}
                 }
-                @Override
-                public void onFailure(int errorCode) {
-                    sendResultToChat("سکرین شاٹ لینے میں مسئلہ ہوا۔ ایرر کوڈ: " + errorCode);
-                }
+                @Override public void onFailure(int errorCode) { sendResultToChat("سکرین شاٹ فیل ہو گیا۔"); }
             });
-        } else {
-            sendResultToChat("آپ کا اینڈرائیڈ ورژن سکرین شاٹ سپورٹ نہیں کرتا۔");
         }
     }
 
@@ -135,7 +133,7 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         CharSequence desc = node.getContentDescription();
         if (desc != null && desc.toString().toLowerCase().contains(targetText.toLowerCase())) {
             clickFirstClickable(node);
-            sendResultToChat("میں نے سکرین پر آپ کے مطلوبہ بٹن پر کلک کر دیا ہے۔");
+            sendResultToChat("میں نے بٹن پر کلک کر دیا ہے۔");
             return;
         }
         for (int i = 0; i < node.getChildCount(); i++) deepSearchByDescription(node.getChild(i), targetText);
@@ -151,11 +149,8 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         int height = getResources().getDisplayMetrics().heightPixels;
         int width = getResources().getDisplayMetrics().widthPixels;
         Path path = new Path();
-        if (direction.equals("DOWN")) {
-            path.moveTo(width / 2f, height * 0.8f); path.lineTo(width / 2f, height * 0.2f);
-        } else {
-            path.moveTo(width / 2f, height * 0.2f); path.lineTo(width / 2f, height * 0.8f);
-        }
+        if (direction.equals("DOWN")) { path.moveTo(width / 2f, height * 0.8f); path.lineTo(width / 2f, height * 0.2f); }
+        else { path.moveTo(width / 2f, height * 0.2f); path.lineTo(width / 2f, height * 0.8f); }
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(new GestureDescription.StrokeDescription(path, 100, 500));
         dispatchGesture(builder.build(), null, null);
@@ -200,5 +195,5 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-                                                   }
+                        }
              
