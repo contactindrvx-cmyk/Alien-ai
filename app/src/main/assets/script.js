@@ -8,43 +8,8 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-let ws = null;
 let currentMsgId = null; 
 let currentSentenceBuffer = "";
-
-function connectWebSocket() {
-    ws = new WebSocket("wss://aigrowthbox-ayesha-ai.hf.space/ws/live");
-    
-    ws.onmessage = function(event) {
-        let data = JSON.parse(event.data);
-        
-        if (data.chunk) {
-            document.getElementById('thinking-indicator').classList.add('hidden');
-            
-            // 🚨 100% پکا علاج: ہر میسج کو ایک خاص ID دی ہے تاکہ جاوا سکرپٹ کریش نہ ہو 🚨
-            if (!currentMsgId) {
-                currentMsgId = 'msg-' + Date.now();
-                addMessage("", 'assistant', null, currentMsgId); 
-            }
-            
-            let textElement = document.getElementById(currentMsgId);
-            if(textElement) {
-                textElement.innerHTML += data.chunk; 
-            }
-            
-            currentSentenceBuffer += data.chunk;
-            
-            if (/[.?!۔؟]/.test(data.chunk) || data.chunk.includes('\n')) {
-                processSentenceBuffer();
-            }
-        }
-        if (data.status === "done") {
-            processSentenceBuffer(); 
-            currentMsgId = null; 
-        }
-    };
-    ws.onclose = () => { setTimeout(connectWebSocket, 3000); }; 
-}
 
 function processSentenceBuffer() {
     let cleanText = currentSentenceBuffer.trim();
@@ -65,6 +30,7 @@ function processSentenceBuffer() {
             }
         }
         
+        // 🗣️ عائشہ کی آواز چلانے کا کوڈ 🗣️
         if (cleanText) {
             window.AyeshaAudio.queue.push(cleanText);
             if (!window.AyeshaAudio.isPlaying) playCloudQueue(document.querySelector('.gemini-speaker-btn:last-child'));
@@ -80,12 +46,18 @@ function playCloudQueue(btn) {
             btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
             btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
         }
+        
+        // کال موڈ میں عائشہ کے چپ ہونے کے بعد مائیک دوبارہ کھولیں
+        if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
+             window.AndroidBridge.toggleInlineMic(); 
+        }
         return; 
     }
     
     window.AyeshaAudio.isPlaying = true;
     
-    if (!isCallActive && window.isAyeshaRecording && window.AndroidBridge) {
+    // عائشہ بولے تو مائیک بند کر دیں تاکہ ایکو (Echo) نہ آئے
+    if (window.isAyeshaRecording && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
 
@@ -115,8 +87,6 @@ window.stopAyeshaCompletely = function() {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    connectWebSocket(); 
-
     inputNormal = document.getElementById('user-input'); 
     outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill');
@@ -205,12 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
 
+    // مائیک کنٹرول
     inMic.onclick = () => { 
         if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
             window.AndroidBridge.toggleInlineMic(); 
         }
     };
-    
     cgMic.onclick = () => { 
         isCallMuted = !isCallMuted; updateUIState(); 
         if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); 
@@ -222,24 +192,27 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState();
     };
 
+    // 🚨 نارمل اور کال موڈ کے لیے پرفیکٹ لاجک 🚨
     window.updateInputFromJava = function(text, finalResult) {
         inputNormal.value = text; inputCall.value = text; updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            // 🚨 فکس: اب کال موڈ میں بھی یوزر کے چپ ہونے کے 1 سیکنڈ بعد آٹو سینڈ ہوگا! 🚨
-            voiceTimeout = setTimeout(() => { 
-                const activeInput = isCallActive ? inputCall : inputNormal;
-                if (activeInput.value.trim().length > 0 || pendingImg) {
-                    if (isCallActive) cgSend.click(); 
-                    else inSend.click();
-                }
-            }, 1000); 
+            if (isCallActive) {
+                // لائیو کال موڈ: یوزر کے چپ ہونے کے 1 سیکنڈ بعد آٹو سینڈ
+                voiceTimeout = setTimeout(() => { 
+                    if (inputCall.value.trim().length > 0) cgSend.click(); 
+                }, 1000); 
+            } else {
+                // نارمل موڈ: آٹو سینڈ نہیں ہوگا، یوزر خود نیلے بٹن پر کلک کرے گا
+            }
         }
     };
 
     inCall.onclick = () => { 
         isCallActive = true; isCallMuted = false; updateUIState(); 
         if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); 
+        // کال شروع ہوتے ہی مائیک آن ہو جائے گا
+        if(!window.isAyeshaRecording && window.AndroidBridge) window.AndroidBridge.toggleInlineMic();
     };
     
     cgEnd.onclick = () => { 
@@ -250,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
     
-    const handleSendClick = (e) => {
+    const handleSendClick = async (e) => {
         e.preventDefault(); 
         const activeInput = isCallActive ? inputCall : inputNormal; 
         const text = activeInput.value.trim();
@@ -263,33 +236,48 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('thinking-indicator').classList.remove('hidden');
             
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                let payload = { message: text, email: "alirazasabir007@gmail.com" };
-                ws.send(JSON.stringify(payload));
-            } else {
-                fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
+            // 🚀 100% بلٹ پروف HTTP Streaming (ویب ساکٹ کا جھنجھٹ ختم) 🚀
+            try {
+                const response = await fetch("https://aigrowthbox-ayesha-ai.hf.space/chat_stream", { 
                     method: "POST", headers: { "Content-Type": "application/json" }, 
                     body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
-                })
-                .then(async res => {
-                    if (!res.ok) throw new Error("Server Error");
-                    return res.json();
-                })
-                .then(d => { 
-                    document.getElementById('thinking-indicator').classList.add('hidden'); 
-                    let btn = addMessage(d.response, 'assistant');
-                    if(btn && !isCallActive) { setTimeout(() => window.toggleVoiceMessage(btn), 500); }
-                }).catch(e => { 
-                    document.getElementById('thinking-indicator').classList.add('hidden'); 
-                    addMessage("سرور آف لائن ہے۔", 'assistant'); 
                 });
+
+                document.getElementById('thinking-indicator').classList.add('hidden'); 
+                
+                if (!response.body) throw new Error("No Data");
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                
+                currentMsgId = 'msg-' + Date.now();
+                addMessage("", 'assistant', null, currentMsgId); 
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    let chunk = decoder.decode(value, { stream: true });
+                    let textElement = document.getElementById(currentMsgId);
+                    if (textElement) textElement.innerHTML += chunk;
+                    
+                    currentSentenceBuffer += chunk;
+                    if (/[.?!۔؟]/.test(chunk) || chunk.includes('\n')) {
+                        processSentenceBuffer();
+                    }
+                }
+                processSentenceBuffer(); // آخری جملہ
+                currentMsgId = null;
+
+            } catch (error) {
+                document.getElementById('thinking-indicator').classList.add('hidden'); 
+                addMessage("انٹرنیٹ یا سرور کا مسئلہ ہے، دوبارہ کوشش کریں۔", 'assistant'); 
             }
         }
     };
     inSend.onclick = handleSendClick; cgSend.onclick = handleSendClick;
 });
 
-// 🚨 فنکشن کو اپڈیٹ کر دیا ہے تاکہ یہ ID کے ساتھ کام کرے 🚨
 function addMessage(text, sender, imgUrl = null, msgId = null) {
     const chatBox = document.getElementById('chat-box'); 
     const msgDiv = document.createElement('div');
