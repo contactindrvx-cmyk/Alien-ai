@@ -229,19 +229,14 @@ public class MainActivity extends AppCompatActivity {
             startService(intent);
         }
 
-        // 🚀 یہ ہے وہ نیا ماسٹر برج جس کا ہم انتظار کر رہے تھے! 🚀
         @JavascriptInterface
         public void sendAccessibilityCommand(String action, String data) {
             runOnUiThread(() -> {
-                // یہ لائن عائشہ کے "ہاتھوں" کو جگا دے گی
                 Intent intent = new Intent("AI_COMMAND_BROADCAST");
                 intent.putExtra("action", action);
                 intent.putExtra("data", data);
-                intent.setPackage(getPackageName()); // سیکیورٹی کے لیے
+                intent.setPackage(getPackageName()); 
                 sendBroadcast(intent);
-                
-                // ٹیسٹنگ کے لیے ایک چھوٹا سا میسج سکرین پر دکھائیں گے
-                Toast.makeText(MainActivity.this, "عائشہ عمل کر رہی ہے: " + action, Toast.LENGTH_SHORT).show();
             });
         }
     }
@@ -265,5 +260,5 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-    }
-                                   
+        }
+                              
