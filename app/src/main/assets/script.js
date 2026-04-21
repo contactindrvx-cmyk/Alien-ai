@@ -9,7 +9,6 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-// 🗣️ عائشہ کی آواز پلے کرنے کا کوڈ 🗣️
 function playCloudQueue(btn) {
     if (!btn || window.AyeshaAudio.queue.length === 0) { 
         window.AyeshaAudio.isPlaying = false;
@@ -24,9 +23,7 @@ function playCloudQueue(btn) {
     }
     
     window.AyeshaAudio.isPlaying = true;
-    if (window.isAyeshaRecording && window.AndroidBridge) {
-        window.AndroidBridge.toggleInlineMic(); 
-    }
+    if (window.isAyeshaRecording && window.AndroidBridge) window.AndroidBridge.toggleInlineMic(); 
 
     let chunk = window.AyeshaAudio.queue.shift();
     window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(chunk) ? 'ur' : 'en';
@@ -39,18 +36,12 @@ function playCloudQueue(btn) {
     }
 
     let playPromise = window.AyeshaAudio.audioObj.play();
-    if (playPromise !== undefined) {
-        playPromise.catch(error => { 
-            console.log("Auto-play blocked."); 
-            playCloudQueue(btn); 
-        });
-    }
+    if (playPromise !== undefined) playPromise.catch(e => playCloudQueue(btn));
 }
 
 window.stopAyeshaCompletely = function() {
     if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
-    window.AyeshaAudio.queue = []; 
-    window.AyeshaAudio.isPlaying = false;
+    window.AyeshaAudio.queue = []; window.AyeshaAudio.isPlaying = false;
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
         b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
         b.classList.remove('bg-[#3a8ff7]', 'text-white'); 
@@ -58,30 +49,17 @@ window.stopAyeshaCompletely = function() {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    inputNormal = document.getElementById('user-input'); 
-    outPlus = document.getElementById('out-plus'); 
-    mainPill = document.getElementById('main-pill');
-    inPlus = document.getElementById('in-plus'); 
-    inSend = document.getElementById('in-send'); 
-    inMic = document.getElementById('in-mic');
-    inCall = document.getElementById('in-call'); 
-    iMicNormal = document.getElementById('icon-mic-normal'); 
-    iMicStop = document.getElementById('icon-mic-stop');
-
-    inputCall = document.getElementById('cg-input');
-    cgPlus = document.getElementById('cg-plus');
-    cgSend = document.getElementById('cg-send');
-    cgMic = document.getElementById('cg-mic');
-    cgMicOn = document.getElementById('cg-mic-on');
-    cgMicOff = document.getElementById('cg-mic-off');
-    cgEnd = document.getElementById('cg-end');
-
-    liveGlowBg = document.getElementById('live-glow-bg'); 
-    fileIn = document.getElementById('hidden-file-input'); 
+    inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
+    mainPill = document.getElementById('main-pill'); inPlus = document.getElementById('in-plus'); 
+    inSend = document.getElementById('in-send'); inMic = document.getElementById('in-mic'); inCall = document.getElementById('in-call'); 
+    iMicNormal = document.getElementById('icon-mic-normal'); iMicStop = document.getElementById('icon-mic-stop');
+    inputCall = document.getElementById('cg-input'); cgPlus = document.getElementById('cg-plus');
+    cgSend = document.getElementById('cg-send'); cgMic = document.getElementById('cg-mic');
+    cgMicOn = document.getElementById('cg-mic-on'); cgMicOff = document.getElementById('cg-mic-off'); cgEnd = document.getElementById('cg-end');
+    liveGlowBg = document.getElementById('live-glow-bg'); fileIn = document.getElementById('hidden-file-input'); 
     preview = document.getElementById('image-preview-container');
 
-    const normalBar = document.getElementById('normal-mode-bar');
-    const callBar = document.getElementById('call-mode-bar');
+    const normalBar = document.getElementById('normal-mode-bar'); const callBar = document.getElementById('call-mode-bar');
 
     function updateUIState() {
         const activeInput = isCallActive ? inputCall : inputNormal;
@@ -109,11 +87,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 inMic.classList.remove('btn-collapse'); inMic.classList.add('bg-red-500/20');
                 iMicNormal.classList.add('hidden'); iMicStop.classList.remove('hidden');
             } else if (text.length > 0) {
-                outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-                inSend.classList.remove('btn-collapse');
+                outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand'); inSend.classList.remove('btn-collapse');
             } else if (pendingImg) {
-                outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
-                inMic.classList.remove('btn-collapse');
+                outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand'); inMic.classList.remove('btn-collapse');
             } else {
                 inPlus.classList.remove('btn-collapse'); inMic.classList.remove('btn-collapse'); inCall.classList.remove('btn-collapse');
             }
@@ -125,20 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handlePlusClick = (e) => {
         e.preventDefault();
-        if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
-        else fileIn.click();
+        if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else fileIn.click();
     };
     outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick; cgPlus.onclick = handlePlusClick;
 
     fileIn.onchange = (e) => {
         if(e.target.files[0]) {
-            pendingImg = e.target.files[0];
-            document.getElementById('preview-img').src = URL.createObjectURL(pendingImg);
+            pendingImg = e.target.files[0]; document.getElementById('preview-img').src = URL.createObjectURL(pendingImg);
             preview.classList.remove('hidden'); updateUIState();
         }
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
-
     inMic.onclick = () => { if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); };
     cgMic.onclick = () => { isCallMuted = !isCallMuted; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); };
 
@@ -172,63 +145,59 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 🚀 محفوظ اور تیز پلنگ (Pulling) سسٹم 🚀
-    window.triggerScreenshot = function() {
-        console.log("Trigger received from Java");
-        let base64Image = "";
-        
-        // جاوا سے تصویر خود مانگ کر لاؤ
-        if (window.AndroidBridge && window.AndroidBridge.pullScreenshot) {
-            base64Image = window.AndroidBridge.pullScreenshot();
+    // 🚨 MISSING FUNCTION ADDED: اب جاوا کے ایرر یا میسج نظر آئیں گے 🚨
+    window.addMessageFromJava = function(text) {
+        document.getElementById('thinking-indicator').classList.add('hidden');
+        let btn = addMessage(text, 'assistant');
+        if(btn) { 
+            window.AyeshaAudio.queue = text.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
+            playCloudQueue(btn);
         }
+    };
+
+    // 🚀 سپر سائلنٹ سکرین شاٹ پلنگ 🚀
+    window.triggerScreenshot = function() {
+        let base64Image = "";
+        if (window.AndroidBridge && window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
         
         if (!base64Image) {
-            processAIResponse("معذرت رضا بھائی، کیمرے سے تصویر نہیں مل سکی۔");
-            return;
+            window.addMessageFromJava("معذرت رضا بھائی، کیمرے سے تصویر نہیں مل سکی۔"); return;
         }
 
-        document.getElementById('thinking-indicator').classList.remove('hidden');
-        addMessage("سکرین چیک کر رہی ہوں...", 'assistant');
-        
+        // کوئی درمیانی میسج پرنٹ نہیں ہوگا، صرف تھنکنگ (Thinking) چلتا رہے گا
         fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
             method: "POST", headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ 
-                message: "یہ میری سکرین کا سکرین شاٹ ہے۔ اسے بغور دیکھو اور تفصیل سے بتاؤ کہ اس سکرین پر یا اس پوسٹ میں کون ہے، کیا لکھا ہے اور کیا ہو رہا ہے؟", 
-                image: base64Image, 
-                email: "alirazasabir007@gmail.com" 
-            }) 
+            body: JSON.stringify({ message: "سکرین شاٹ دیکھو اور تفصیل بتاؤ۔", image: base64Image, email: "alirazasabir007@gmail.com" }) 
         })
         .then(res => res.json())
         .then(d => {
             document.getElementById('thinking-indicator').classList.add('hidden'); 
-            let cleanText = d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔";
-            processAIResponse(cleanText);
+            processAIResponse(d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔");
         }).catch(e => {
-            document.getElementById('thinking-indicator').classList.add('hidden'); 
-            // 🚨 اب وہ چپ نہیں رہے گی، بلکہ بول کر ایرر بتائے گی 🚨
-            processAIResponse("معذرت رضا بھائی، سرور سے رابطہ ٹوٹ گیا ہے یا انٹرنیٹ سلو ہے۔");
+            window.addMessageFromJava("سرور سے رابطہ ٹوٹ گیا ہے۔");
         });
     };
     
-    // 🧠 فائنل اور بلٹ پروف کمانڈ کیچر فنکشن 🧠
     function processAIResponse(cleanText) {
         let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?)(?:,\s*DATA:\s*(.*?))?\]/i);
+        let action = ""; let actionData = "none";
         
         if (cmdMatch) {
-            let action = cmdMatch[1] ? cmdMatch[1].trim() : "";
-            let actionData = cmdMatch[2] ? cmdMatch[2].trim() : "none";
-
-            if (action.includes("||") && !action.includes("MULTI_TASK")) {
-                actionData = action;
-                action = "MULTI_TASK";
-            }
-
+            action = cmdMatch[1] ? cmdMatch[1].trim() : "";
+            actionData = cmdMatch[2] ? cmdMatch[2].trim() : "none";
+            if (action.includes("||") && !action.includes("MULTI_TASK")) { actionData = action; action = "MULTI_TASK"; }
             if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
                 window.AndroidBridge.sendAccessibilityCommand(action, actionData);
             }
         }
         
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
+
+        // 🚨 خاموشی کا اصل راز: اگر سکرین شاٹ لے رہی ہے تو کچھ مت بولو، انتظار کرو! 🚨
+        if (action === "TAKE_SCREENSHOT") {
+            return; 
+        }
+
         if (cleanText === "") cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
 
         let btn = addMessage(cleanText, 'assistant');
@@ -256,8 +225,11 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(res => res.json())
             .then(d => { 
-                document.getElementById('thinking-indicator').classList.add('hidden'); 
                 let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
+                // 🚨 اگر سکرین شاٹ لے رہی ہے تو تھنکنگ ہائیڈ مت کرو
+                if (!/\[ACTION:\s*TAKE_SCREENSHOT/i.test(cleanText)) {
+                    document.getElementById('thinking-indicator').classList.add('hidden'); 
+                }
                 processAIResponse(cleanText); 
             }).catch(e => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
@@ -295,5 +267,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-                }
-                
+                                  }
+                    
