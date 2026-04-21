@@ -9,7 +9,7 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-// 🗣️ عائشہ کی آواز پلے کرنے کا پرانا اور پرفیکٹ طریقہ 🗣️
+// 🗣️ عائشہ کی آواز پلے کرنے کا کوڈ 🗣️
 function playCloudQueue(btn) {
     if (!btn || window.AyeshaAudio.queue.length === 0) { 
         window.AyeshaAudio.isPlaying = false;
@@ -18,7 +18,7 @@ function playCloudQueue(btn) {
             btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
         }
         if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
-            window.AndroidBridge.toggleInlineMic(); 
+             window.AndroidBridge.toggleInlineMic(); 
         }
         return; 
     }
@@ -63,8 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill');
     inPlus = document.getElementById('in-plus'); 
-    waveArea = document.getElementById('wave-area'); 
-    inEnd = document.getElementById('in-end');
     inSend = document.getElementById('in-send'); 
     inMic = document.getElementById('in-mic');
     inCall = document.getElementById('in-call'); 
@@ -112,8 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
             inSend.classList.add('btn-collapse');
             inMic.classList.add('btn-collapse'); 
             inCall.classList.add('btn-collapse');
-            if(waveArea) waveArea.classList.add('btn-collapse'); 
-            if(inEnd) inEnd.classList.add('btn-collapse');
             
             inputNormal.classList.remove('btn-collapse');
             inMic.classList.remove('bg-red-500/20'); 
@@ -133,8 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (pendingImg) {
                 outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
                 inMic.classList.remove('btn-collapse');
-            }
-            else {
+            } else {
                 inPlus.classList.remove('btn-collapse');
                 inMic.classList.remove('btn-collapse');
                 inCall.classList.remove('btn-collapse');
@@ -163,7 +158,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
 
-    inMic.onclick = () => { if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); };
+    inMic.onclick = () => { 
+        if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
+            window.AndroidBridge.toggleInlineMic(); 
+        }
+    };
+    
     cgMic.onclick = () => { 
         isCallMuted = !isCallMuted; 
         updateUIState(); 
@@ -176,17 +176,17 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState();
     };
 
-    // 🚨 پرفیکٹ آٹو-سینڈ لاجک (وائس ریکارڈنگ کے فوراً بعد خود میسج بھیجے گا) 🚨
+    // 🚨 آٹو سینڈ لاجک 🚨
     window.updateInputFromJava = function(text, finalResult) {
         inputNormal.value = text; inputCall.value = text; updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            voiceTimeout = setTimeout(() => { 
-                const activeInput = isCallActive ? inputCall : inputNormal;
-                if (activeInput.value.trim().length > 0 || pendingImg) {
-                    if(isCallActive) cgSend.click(); else inSend.click(); 
-                }
-            }, 1000); 
+            // یوزر کے چپ ہونے کے ٹھیک 1 سیکنڈ بعد بٹن خود کلک ہو جائے گا (لائیو کال موڈ میں)
+            if (isCallActive) {
+                voiceTimeout = setTimeout(() => { 
+                    if (inputCall.value.trim().length > 0) cgSend.click(); 
+                }, 1000); 
+            }
         }
     };
 
@@ -197,8 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     cgEnd.onclick = () => { 
-        isCallActive = false; 
-        window.stopAyeshaCompletely(); 
+        isCallActive = false; window.stopAyeshaCompletely(); 
         inputNormal.value = ''; inputCall.value = ''; pendingImg = null; preview.classList.add('hidden'); fileIn.value = '';
         if(window.isAyeshaRecording && window.AndroidBridge) window.AndroidBridge.toggleInlineMic(); 
         updateUIState(); 
@@ -218,15 +217,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('thinking-indicator').classList.remove('hidden');
             
-            // 🚀 ROCK SOLID FETCH 🚀
+            // 🚀 پرانا اور مضبوط FETCH طریقہ 🚀
             fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
                 method: "POST", headers: { "Content-Type": "application/json" }, 
                 body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
             })
-            .then(res => res.json()).then(d => { 
+            .then(res => res.json())
+            .then(d => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
                 
-                let cleanText = d.response || "معذرت، سمجھ نہیں آئی۔";
+                let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
                 
                 // 🚨 کمانڈ کیچر 🚨
                 let cmdMatch = cleanText.match(/\[ACTION:(.*?), DATA:(.*?)\]/);
@@ -241,13 +241,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let btn = addMessage(cleanText, 'assistant');
                 if(btn) { 
-                    // ٹیکسٹ کو چھوٹے حصوں میں توڑ کر کیو (Queue) میں ڈالیں تاکہ گوگل TTS صحیح بولے
                     window.AyeshaAudio.queue = cleanText.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
                     playCloudQueue(btn);
                 }
             }).catch(e => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
-                addMessage("سرور آف لائن ہے یا کنکشن میں مسئلہ ہے۔", 'assistant'); 
+                addMessage("سرور سے رابطہ کٹ گیا ہے۔", 'assistant'); 
             });
         }
     };
@@ -255,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cgSend.onclick = handleSendClick;
 });
 
+// 🚨 فائنل اور درست addMessage فنکشن (اب میسج لازمی شو ہوگا) 🚨
 function addMessage(text, sender, imgUrl = null) {
     const chatBox = document.getElementById('chat-box'); 
     const msgDiv = document.createElement('div');
@@ -264,6 +264,10 @@ function addMessage(text, sender, imgUrl = null) {
     if (sender === 'user') {
         msgDiv.className = 'w-full flex justify-end mt-4';
         msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">${imgHTML}<p dir="auto">${text}</p></div>`;
+        
+        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
+        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        return null;
     } else {
         const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex justify-start mt-4 group';
@@ -273,12 +277,15 @@ function addMessage(text, sender, imgUrl = null) {
         btn.onclick = function() {
             if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
             let fullText = msgDiv.querySelector('p').innerText;
-            window.AyeshaAudio.queue = fullText.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
+            window.AyeshaAudio.queue.push(fullText);
             playCloudQueue(this);
         };
+
+        // 🚨 یہ وہ لائن ہے جو پہلے مسنگ تھی۔ اب میسج سکرین پر پرنٹ ہوگا! 🚨
+        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
+        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        
         return btn;
     }
-    chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
-    return sender === 'user' ? null : msgDiv.querySelector('.gemini-speaker-btn');
-            }
-                          
+                          }
+                    
