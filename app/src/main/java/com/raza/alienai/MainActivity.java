@@ -38,7 +38,6 @@ public class MainActivity extends AppCompatActivity {
     private Intent speechRecognizerIntent;
     private boolean isRecording = false;
 
-    // 📸 اپڈیٹڈ رسیور جو میسج اور تصویر دونوں پکڑے گا 📸
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -48,9 +47,12 @@ public class MainActivity extends AppCompatActivity {
                     webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + msg.replace("'", "\\'") + "');", null);
                 }
             } else if ("SCREENSHOT_CAPTURED".equals(intent.getAction())) {
-                String base64 = intent.getStringExtra("image");
-                if (webView != null && base64 != null) {
+                // 🚨 ڈائریکٹ مشترکہ میموری سے تصویر اٹھائیں 🚨
+                String base64 = AyeshaAccessibilityService.latestScreenshotBase64;
+                if (webView != null && base64 != null && !base64.isEmpty()) {
                     webView.evaluateJavascript("javascript:if(window.processScreenshot) window.processScreenshot('" + base64 + "');", null);
+                    // میموری کو خالی کر دیں تاکہ ریم فری ہو جائے
+                    AyeshaAccessibilityService.latestScreenshotBase64 = ""; 
                 }
             }
         }
@@ -89,7 +91,6 @@ public class MainActivity extends AppCompatActivity {
         requestPermissions();
         setupSpeechRecognizer();
 
-        // 📸 فلٹر میں SCREENSHOT_CAPTURED کا اضافہ 📸
         IntentFilter filter = new IntentFilter();
         filter.addAction("NEW_MESSAGE_FROM_CALL");
         filter.addAction("SCREENSHOT_CAPTURED");
@@ -234,5 +235,5 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-                                          }
-                
+                }
+                                                                                   
