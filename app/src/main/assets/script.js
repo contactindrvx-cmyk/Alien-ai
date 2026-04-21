@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 📸 جاوا سے ملنے والے سکرین شاٹ کو پائتھون سرور تک بھیجنے کا نیا فنکشن 📸
+    // 🚀 سکرین شاٹ بھیجنے والا فنکشن 🚀
     window.processScreenshot = function(base64Image) {
         document.getElementById('thinking-indicator').classList.remove('hidden');
         addMessage("سکرین چیک کر رہی ہوں...", 'assistant');
@@ -184,26 +184,46 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(d => {
             document.getElementById('thinking-indicator').classList.add('hidden'); 
             let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
-            let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?),\s*DATA:\s*(.*?)\]/);
-            if (cmdMatch) {
-                let action = cmdMatch[1].trim();
-                let actionData = cmdMatch[2].trim();
-                if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
-                    window.AndroidBridge.sendAccessibilityCommand(action, actionData);
-                }
-                cleanText = cleanText.replace(/\[ACTION:.*\]/g, '').trim();
-            }
-            let btn = addMessage(cleanText, 'assistant');
-            if(btn) { 
-                window.AyeshaAudio.queue = cleanText.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
-                playCloudQueue(btn);
-            }
+            processAIResponse(cleanText);
         }).catch(e => {
             document.getElementById('thinking-indicator').classList.add('hidden'); 
             addMessage("سکرین شاٹ بھیجنے میں ایرر آیا۔", 'assistant');
         });
     };
     
+    // 🧠 فائنل اور بلٹ پروف کمانڈ کیچر فنکشن 🧠
+    function processAIResponse(cleanText) {
+        // 1. پہلے کمانڈ کو پکڑنے کی کوشش کرو (چاہے وہ آدھی لکھی ہو یا پوری)
+        let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?)(?:,\s*DATA:\s*(.*?))?\]/i);
+        
+        if (cmdMatch) {
+            let action = cmdMatch[1] ? cmdMatch[1].trim() : "";
+            let actionData = cmdMatch[2] ? cmdMatch[2].trim() : "none";
+
+            // اگر عائشہ شارٹ کٹ مارے جیسے [ACTION:APP||Facebook]
+            if (action.includes("||") && !action.includes("MULTI_TASK")) {
+                actionData = action;
+                action = "MULTI_TASK";
+            }
+
+            if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
+                window.AndroidBridge.sendAccessibilityCommand(action, actionData);
+            }
+        }
+        
+        // 2. سکرین سے کمانڈ کو مکمل غائب کر دو (تاکہ یوزر کو نظر نہ آئے)
+        cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
+        
+        // اگر کمانڈ غائب کرنے کے بعد جواب خالی ہو جائے تو ڈیفالٹ میسج
+        if (cleanText === "") cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
+
+        let btn = addMessage(cleanText, 'assistant');
+        if(btn) { 
+            window.AyeshaAudio.queue = cleanText.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
+            playCloudQueue(btn);
+        }
+    }
+
     const handleSendClick = (e) => {
         e.preventDefault(); 
         const activeInput = isCallActive ? inputCall : inputNormal; 
@@ -224,20 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(d => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
                 let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
-                let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?),\s*DATA:\s*(.*?)\]/);
-                if (cmdMatch) {
-                    let action = cmdMatch[1].trim();
-                    let actionData = cmdMatch[2].trim();
-                    if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
-                        window.AndroidBridge.sendAccessibilityCommand(action, actionData);
-                    }
-                    cleanText = cleanText.replace(/\[ACTION:.*\]/g, '').trim();
-                }
-                let btn = addMessage(cleanText, 'assistant');
-                if(btn) { 
-                    window.AyeshaAudio.queue = cleanText.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
-                    playCloudQueue(btn);
-                }
+                processAIResponse(cleanText); // نیا فنکشن کال کیا
             }).catch(e => { 
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
                 addMessage("سرور سے رابطہ کٹ گیا ہے۔", 'assistant'); 
@@ -275,4 +282,4 @@ function addMessage(text, sender, imgUrl = null) {
         return btn;
     }
         }
-                                                                  
+                                    
