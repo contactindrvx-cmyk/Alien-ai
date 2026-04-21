@@ -3,13 +3,11 @@ let isCallActive = false;
 let isCallMuted = false;
 window.isAyeshaRecording = false;
 
-// UI Elements
 let inputNormal, outPlus, mainPill, inPlus, waveArea, inEnd, inSend, inMic, inCall;
 let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-// WebSocket
 let ws = null;
 let currentAssistantMessageDiv = null;
 let currentSentenceBuffer = "";
@@ -75,14 +73,17 @@ function playCloudQueue(btn) {
             btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
             btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
         }
-        if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
-            window.AndroidBridge.toggleInlineMic(); 
+        // نارمل موڈ میں مائیک دوبارہ آن کریں اگر ریکارڈنگ چل رہی تھی
+        if (!isCallActive && !window.isAyeshaRecording && window.AndroidBridge) {
+             // Optional auto-resume mic logic here if needed
         }
         return; 
     }
     
     window.AyeshaAudio.isPlaying = true;
-    if (window.isAyeshaRecording && window.AndroidBridge) {
+    
+    // اگر نارمل مائیک آن تھا تو اسے میوٹ کریں تاکہ عائشہ کی آواز ریپیٹ نہ ہو
+    if (!isCallActive && window.isAyeshaRecording && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
 
@@ -202,11 +203,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
 
-    inMic.onclick = () => { if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); };
+    // 🚨 یہ صرف نارمل مائیک کے لیے ہے 🚨
+    inMic.onclick = () => { 
+        if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
+            window.AndroidBridge.toggleInlineMic(); 
+        }
+    };
+    
+    // 🚨 کال موڈ میں مائیک میوٹ/ان میوٹ 🚨
     cgMic.onclick = () => { 
         isCallMuted = !isCallMuted; updateUIState(); 
         if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); 
-        if (isCallMuted && window.isAyeshaRecording && window.AndroidBridge) window.AndroidBridge.toggleInlineMic();
     };
 
     window.onInlineMicState = function(isRecording) {
@@ -219,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inputNormal.value = text; inputCall.value = text; updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
+            // 🚨 آٹو سینڈ اب صرف نارمل موڈ میں ہوگا، لائیو کال موڈ میں نہیں! 🚨
             if (!isCallActive) {
                 voiceTimeout = setTimeout(() => { 
                     if (inputNormal.value.trim().length > 0 || pendingImg) {
@@ -229,10 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // 🚨 جادوئی فکس: اب کال کے بٹن پر ڈائریکٹ نارمل مائیک آن نہیں ہوگا 🚨
     inCall.onclick = () => { 
         isCallActive = true; isCallMuted = false; updateUIState(); 
         if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); 
-        if(!window.isAyeshaRecording && window.AndroidBridge) window.AndroidBridge.toggleInlineMic();
+        // ہم نے یہاں سے window.AndroidBridge.toggleInlineMic(); اڑا دیا ہے!
     };
     
     cgEnd.onclick = () => { 
@@ -256,7 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('thinking-indicator').classList.remove('hidden');
             
-            // 🚨 Safety Check: اگر WebSocket بند ہے تو Normal POST Request کرے 🚨
             if (ws && ws.readyState === WebSocket.OPEN) {
                 let payload = { message: text, email: "alirazasabir007@gmail.com" };
                 ws.send(JSON.stringify(payload));
@@ -275,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(btn && !isCallActive) { setTimeout(() => window.toggleVoiceMessage(btn), 500); }
                 }).catch(e => { 
                     document.getElementById('thinking-indicator').classList.add('hidden'); 
-                    addMessage("پائتھون سرور میں مسئلہ ہے، براہ کرم ہگنگ فیس پر ماڈل کا نام اور لاگز چیک کریں۔", 'assistant'); 
+                    addMessage("پائتھون سرور میں مسئلہ ہے۔ ماڈل یا انٹرنیٹ کنکشن چیک کریں۔", 'assistant'); 
                 });
             }
         }
@@ -308,4 +316,5 @@ function addMessage(text, sender, imgUrl = null) {
     }
     chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
     return null;
-}
+                                   }
+                
