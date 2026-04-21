@@ -15,7 +15,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.Toast;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -54,9 +53,11 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             openAppAndSearch(parts.length > 1 ? parts[1].trim() : "", parts.length > 2 ? parts[2].trim() : "none");
             mainHandler.postDelayed(this::processNextTask, 6000);
         } else if (cmdType.equals("SCROLL")) {
+            // 🚀 نیا انسانی سوائپ (Gesture) 🚀
             performSmoothScroll(parts.length > 1 ? parts[1].trim() : "DOWN");
             mainHandler.postDelayed(this::processNextTask, 1500);
         } else if (cmdType.equals("CLICK")) {
+            // 🚀 ڈیپ سرچ کلکر 🚀
             smartClick(parts.length > 1 ? parts[1].trim() : "");
             mainHandler.postDelayed(this::processNextTask, 2000);
         } else {
@@ -74,8 +75,15 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) return;
         List<AccessibilityNodeInfo> nodes = rootNode.findAccessibilityNodeInfosByText(targetText);
+        
+        // اگر مطلوبہ ٹیکسٹ براہ راست نہ ملے تو، اگر "Profile" کا لفظ ہو تو اپنا نام ڈھونڈنے کی کوشش کرو
+        if (nodes.isEmpty() && targetText.toLowerCase().contains("profile")) {
+             nodes = rootNode.findAccessibilityNodeInfosByText("Ali Raza"); // یہ آپ کے نام سے میچ کرے گا
+        }
+
         if (!nodes.isEmpty()) {
             clickFirstClickable(nodes.get(0));
+            // کام مکمل ہونے کا سگنل واپس بھیجو
             sendResultToChat("میں نے '" + targetText + "' پر کلک کر دیا ہے۔");
         } else {
             deepSearchByDescription(rootNode, targetText);
@@ -99,12 +107,19 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         else clickFirstClickable(node.getParent());
     }
 
+    // 📱 سمارٹ سوائپ (بالکل جیسے انسان انگلی سے کرتا ہے) 📱
+    // 🚨 تصحیح کی گئی: ملٹی سٹیٹمنٹ بلاکس کے لیے بریکٹ لگائے گئے ہیں 🚨
     private void performSmoothScroll(String direction) {
         int height = getResources().getDisplayMetrics().heightPixels;
         int width = getResources().getDisplayMetrics().widthPixels;
         Path path = new Path();
-        if (direction.equals("DOWN")) path.moveTo(width / 2f, height * 0.8f); path.lineTo(width / 2f, height * 0.2f);
-        else path.moveTo(width / 2f, height * 0.2f); path.lineTo(width / 2f, height * 0.8f);
+        if (direction.equals("DOWN")) {
+            path.moveTo(width / 2f, height * 0.8f); 
+            path.lineTo(width / 2f, height * 0.2f);
+        } else {
+            path.moveTo(width / 2f, height * 0.2f); 
+            path.lineTo(width / 2f, height * 0.8f);
+        }
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(new GestureDescription.StrokeDescription(path, 100, 500));
         dispatchGesture(builder.build(), null, null);
@@ -149,4 +164,4 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-}
+    }
