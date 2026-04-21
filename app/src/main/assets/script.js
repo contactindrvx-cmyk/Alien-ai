@@ -9,7 +9,7 @@ let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
 let ws = null;
-let currentAssistantMessageDiv = null;
+let currentMsgId = null; 
 let currentSentenceBuffer = "";
 
 function connectWebSocket() {
@@ -21,12 +21,13 @@ function connectWebSocket() {
         if (data.chunk) {
             document.getElementById('thinking-indicator').classList.add('hidden');
             
-            if (!currentAssistantMessageDiv) {
-                currentAssistantMessageDiv = addMessage("", 'assistant'); 
+            // 🚨 100% پکا علاج: ہر میسج کو ایک خاص ID دی ہے تاکہ جاوا سکرپٹ کریش نہ ہو 🚨
+            if (!currentMsgId) {
+                currentMsgId = 'msg-' + Date.now();
+                addMessage("", 'assistant', null, currentMsgId); 
             }
             
-            // 🚨 سب سے بڑا بگ یہاں فکس کیا ہے! اب یہ بٹن کے بجائے صحیح پیراگراف ڈھونڈے گا 🚨
-            let textElement = currentAssistantMessageDiv.parentElement.parentElement.querySelector('p');
+            let textElement = document.getElementById(currentMsgId);
             if(textElement) {
                 textElement.innerHTML += data.chunk; 
             }
@@ -39,7 +40,7 @@ function connectWebSocket() {
         }
         if (data.status === "done") {
             processSentenceBuffer(); 
-            currentAssistantMessageDiv = null; 
+            currentMsgId = null; 
         }
     };
     ws.onclose = () => { setTimeout(connectWebSocket, 3000); }; 
@@ -58,16 +59,15 @@ function processSentenceBuffer() {
                 window.AndroidBridge.sendAccessibilityCommand(action, actionData);
             }
             cleanText = cleanText.replace(/\[ACTION:.*\]/g, '').trim();
-            if (currentAssistantMessageDiv) {
-                // 🚨 یہاں بھی بگ فکس کیا گیا ہے 🚨
-                let p = currentAssistantMessageDiv.parentElement.parentElement.querySelector('p');
+            if (currentMsgId) {
+                let p = document.getElementById(currentMsgId);
                 if(p) p.innerHTML = p.innerHTML.replace(/\[ACTION:.*\]/g, '');
             }
         }
         
         if (cleanText) {
             window.AyeshaAudio.queue.push(cleanText);
-            if (!window.AyeshaAudio.isPlaying) playCloudQueue(currentAssistantMessageDiv || document.querySelector('.gemini-speaker-btn:last-child'));
+            if (!window.AyeshaAudio.isPlaying) playCloudQueue(document.querySelector('.gemini-speaker-btn:last-child'));
         }
     }
     currentSentenceBuffer = "";
@@ -79,9 +79,6 @@ function playCloudQueue(btn) {
         if(btn) {
             btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
             btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
-        }
-        if (!isCallActive && !window.isAyeshaRecording && window.AndroidBridge) {
-             // Optional auto-resume mic logic
         }
         return; 
     }
@@ -229,13 +226,14 @@ document.addEventListener('DOMContentLoaded', () => {
         inputNormal.value = text; inputCall.value = text; updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            if (!isCallActive) {
-                voiceTimeout = setTimeout(() => { 
-                    if (inputNormal.value.trim().length > 0 || pendingImg) {
-                        inSend.click(); 
-                    }
-                }, 1500); 
-            }
+            // 🚨 فکس: اب کال موڈ میں بھی یوزر کے چپ ہونے کے 1 سیکنڈ بعد آٹو سینڈ ہوگا! 🚨
+            voiceTimeout = setTimeout(() => { 
+                const activeInput = isCallActive ? inputCall : inputNormal;
+                if (activeInput.value.trim().length > 0 || pendingImg) {
+                    if (isCallActive) cgSend.click(); 
+                    else inSend.click();
+                }
+            }, 1000); 
         }
     };
 
@@ -274,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
                 })
                 .then(async res => {
-                    if (!res.ok) throw new Error("Server Response Error");
+                    if (!res.ok) throw new Error("Server Error");
                     return res.json();
                 })
                 .then(d => { 
@@ -283,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(btn && !isCallActive) { setTimeout(() => window.toggleVoiceMessage(btn), 500); }
                 }).catch(e => { 
                     document.getElementById('thinking-indicator').classList.add('hidden'); 
-                    addMessage("پائتھون سرور میں مسئلہ ہے۔ ماڈل یا انٹرنیٹ کنکشن چیک کریں۔", 'assistant'); 
+                    addMessage("سرور آف لائن ہے۔", 'assistant'); 
                 });
             }
         }
@@ -291,19 +289,21 @@ document.addEventListener('DOMContentLoaded', () => {
     inSend.onclick = handleSendClick; cgSend.onclick = handleSendClick;
 });
 
-function addMessage(text, sender, imgUrl = null) {
+// 🚨 فنکشن کو اپڈیٹ کر دیا ہے تاکہ یہ ID کے ساتھ کام کرے 🚨
+function addMessage(text, sender, imgUrl = null, msgId = null) {
     const chatBox = document.getElementById('chat-box'); 
     const msgDiv = document.createElement('div');
     
     let imgHTML = imgUrl ? `<img src="${imgUrl}" class="w-48 h-48 object-cover rounded-xl mb-3 border-2 border-[#3a8ff7] shadow-sm">` : '';
+    let idAttr = msgId ? `id="${msgId}"` : '';
 
     if (sender === 'user') {
         msgDiv.className = 'w-full flex justify-end mt-4';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">${imgHTML}<p dir="auto">${text}</p></div>`;
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end">${imgHTML}<p ${idAttr} dir="auto">${text}</p></div>`;
     } else {
         const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex justify-start mt-4 group';
-        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]">${imgHTML}<p dir="auto">${text}</p><div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div></div>`;
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]">${imgHTML}<p ${idAttr} dir="auto">${text}</p><div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div></div>`;
         
         let btn = msgDiv.querySelector('.gemini-speaker-btn');
         btn.onclick = function() {
@@ -312,10 +312,9 @@ function addMessage(text, sender, imgUrl = null) {
             window.AyeshaAudio.queue.push(fullText);
             playCloudQueue(this);
         };
-        // 🚨 یہ فنکشن بٹن کو ریٹرن کرتا ہے، اسی لیے جاوا سکرپٹ کنفیوز ہو رہی تھی 🚨
         return btn;
     }
     chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
     return null;
-}
-    
+        }
+                
