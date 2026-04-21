@@ -19,21 +19,20 @@
         .transition-layout { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .gemini-glow { box-shadow: 0 0 12px rgba(58, 143, 247, 0.25); border-color: rgba(58, 143, 247, 0.5) !important; }
 
-        /* 🚀 نیا: Gemini Live جیسا زندہ بیک گراؤنڈ ایفیکٹ 🚀 */
+        /* 🚀 Gemini Live Breathing Glow 🚀 */
         .live-bg-container {
             position: absolute;
             bottom: 0; left: 0; right: 0;
-            height: 40vh; /* سکرین کا نچلا حصہ گھیرے گا */
+            height: 40vh; 
             background: linear-gradient(to top, rgba(10, 10, 10, 1) 0%, rgba(10, 10, 10, 0) 100%);
-            pointer-events: none; /* تاکہ بٹنز پر کلک ہو سکے */
-            z-index: 25; /* چیٹ کے اوپر، لیکن بٹنز کے پیچھے */
+            pointer-events: none; 
+            z-index: 25; 
             opacity: 0;
             transition: opacity 0.8s ease-in-out;
             overflow: hidden;
         }
         .live-bg-container.show { opacity: 1; }
 
-        /* سانس لیتی ہوئی روشنیاں (Blobs) */
         .glow-blob {
             position: absolute;
             border-radius: 50%;
@@ -108,7 +107,6 @@
             </div>
 
             <div class="px-4 md:px-6 pb-6 bg-transparent z-30 w-full max-w-4xl mx-auto">
-                
                 <div id="normal-mode-bar" class="flex items-center justify-between w-full h-14 transition-layout">
                     <button id="out-plus" class="btn-collapse transition-layout h-14 rounded-full bg-[#16243d] border border-[#2f3037] flex items-center justify-center text-[#3a8ff7] shadow-lg mr-2 flex-shrink-0 cursor-pointer hover:bg-[#2f3037] hover:border-[#3a8ff7]">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -155,11 +153,9 @@
                         End
                     </button>
                 </div>
-
             </div>
         </main>
     </div>
     <script src="script.js"></script>
 </body>
-    </html>
-                                                                                                                                                                                                                                                                                       
+</html>
