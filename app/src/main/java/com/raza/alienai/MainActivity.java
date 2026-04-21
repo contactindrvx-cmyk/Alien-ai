@@ -94,15 +94,13 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(messageReceiver, new IntentFilter("NEW_MESSAGE_FROM_CALL"));
         }
 
-        // 🚀 Accessibility سروس کی پرمیشن چیک اور ریکویسٹ 🚀
         if (!isAccessibilityServiceEnabled(this, AyeshaAccessibilityService.class)) {
-            Toast.makeText(this, "عائشہ کو موبائل کنٹرول دینے کے لیے Accessibility آن کریں", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "عائشہ کو کنٹرول دینے کے لیے Accessibility آن کریں", Toast.LENGTH_LONG).show();
             Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
         }
     }
 
-    // Accessibility چیک کرنے کا ہیلپر فنکشن
     private boolean isAccessibilityServiceEnabled(Context context, Class<?> accessibilityService) {
         android.content.ComponentName expectedComponentName = new android.content.ComponentName(context, accessibilityService);
         String enabledServicesSetting = android.provider.Settings.Secure.getString(context.getContentResolver(),  android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
@@ -230,6 +228,22 @@ public class MainActivity extends AppCompatActivity {
             intent.putExtra("isMuted", isMuted);
             startService(intent);
         }
+
+        // 🚀 یہ ہے وہ نیا ماسٹر برج جس کا ہم انتظار کر رہے تھے! 🚀
+        @JavascriptInterface
+        public void sendAccessibilityCommand(String action, String data) {
+            runOnUiThread(() -> {
+                // یہ لائن عائشہ کے "ہاتھوں" کو جگا دے گی
+                Intent intent = new Intent("AI_COMMAND_BROADCAST");
+                intent.putExtra("action", action);
+                intent.putExtra("data", data);
+                intent.setPackage(getPackageName()); // سیکیورٹی کے لیے
+                sendBroadcast(intent);
+                
+                // ٹیسٹنگ کے لیے ایک چھوٹا سا میسج سکرین پر دکھائیں گے
+                Toast.makeText(MainActivity.this, "عائشہ عمل کر رہی ہے: " + action, Toast.LENGTH_SHORT).show();
+            });
+        }
     }
 
     @Override
@@ -251,5 +265,5 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-                                                                }
-        
+    }
+                                   
