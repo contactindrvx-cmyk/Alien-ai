@@ -23,7 +23,7 @@
         .live-bg-container {
             position: absolute;
             bottom: 0; left: 0; right: 0;
-            height: 55vh; /* سکرین کے درمیان تک */
+            height: 55vh; 
             background: linear-gradient(to top, rgba(10, 10, 10, 1) 0%, rgba(10, 10, 10, 0) 100%);
             pointer-events: none; 
             z-index: 25; 
@@ -40,7 +40,6 @@
             opacity: 0.7;
             animation: breathe 5s infinite alternate ease-in-out;
         }
-        /* مائنس (-) bottom کا مطلب ہے کہ یہ سکرین کے بالکل کنارے کے اندر سے نکلیں گے */
         .blob-1 { width: 320px; height: 320px; background: #3a8ff7; left: -15%; bottom: -160px; animation-delay: 0s; }
         .blob-2 { width: 380px; height: 250px; background: #7abaff; right: -10%; bottom: -120px; animation-delay: -2s; }
         .blob-3 { width: 280px; height: 220px; background: #16243d; left: 25%; bottom: -140px; animation-delay: -4s; opacity: 0.9; }
@@ -131,20 +130,24 @@
                 </div>
 
                 <div id="call-mode-bar" class="hidden items-center justify-between w-full h-14 gap-2 transition-layout">
-                    <button id="cg-plus" class="w-12 h-12 rounded-full bg-[#16243d] border border-[#2f3037] text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-md hover:bg-[#2f3037] hover:border-[#3a8ff7] transition-all cursor-pointer gemini-glow">
+                    <button id="cg-plus" class="w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] hover:border-[#3a8ff7] transition-all cursor-pointer">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
-                    <div class="flex-1 h-12 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center px-4 relative shadow-md gemini-glow">
+                    
+                    <div class="flex-1 h-12 bg-black border border-[#3a8ff7]/40 rounded-full flex items-center px-4 relative shadow-[0_0_8px_rgba(58,143,247,0.3)] transition-all hover:border-[#3a8ff7]">
                          <input type="text" id="cg-input" class="flex-1 bg-transparent text-white outline-none w-full text-sm" placeholder="Type..." autocomplete="off">
-                         <button id="cg-send" class="hidden w-8 h-8 rounded-full bg-[#3a8ff7] text-white items-center justify-center absolute right-2 hover:bg-[#3a8ff7]/80 cursor-pointer">
-                             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                         
+                         <button id="cg-send" class="hidden w-8 h-8 text-[#3a8ff7] hover:text-[#7abaff] items-center justify-center absolute right-2 transition-colors cursor-pointer">
+                             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                          </button>
                     </div>
-                    <button id="cg-mic" class="w-12 h-12 rounded-full bg-[#16243d] border border-[#2f3037] text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-md hover:bg-[#2f3037] hover:border-[#3a8ff7] transition-all cursor-pointer gemini-glow">
+                    
+                    <button id="cg-mic" class="w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] hover:border-[#3a8ff7] transition-all cursor-pointer">
                         <svg id="cg-mic-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
                         <svg id="cg-mic-off" class="hidden text-red-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                     </button>
-                    <button id="cg-end" class="h-12 bg-[#16243d] border border-[#2f3037] text-[#3a8ff7] font-semibold text-sm px-5 rounded-full flex items-center gap-2 flex-shrink-0 shadow-md hover:bg-[#2f3037] hover:border-[#3a8ff7] transition-all cursor-pointer gemini-glow">
+                    
+                    <button id="cg-end" class="h-12 bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] font-semibold text-sm px-5 rounded-full flex items-center gap-2 flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] hover:border-[#3a8ff7] transition-all cursor-pointer">
                         <div class="flex items-center h-4">
                             <div class="cg-wave" style="animation-delay: 0s;"></div>
                             <div class="cg-wave" style="animation-delay: 0.2s;"></div>
