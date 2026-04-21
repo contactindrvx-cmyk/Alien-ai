@@ -5,63 +5,106 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.Uri;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
+
+import java.util.List;
 
 public class AyeshaAccessibilityService extends AccessibilityService {
 
     private String currentAction = "";
-    private String actionData = "";
-
-    // 🌟 سگنل ریسیور (یہاں دماغ سے آرڈر موصول ہوگا) 🌟
+    
     private final BroadcastReceiver commandReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            currentAction = intent.getStringExtra("action");
-            actionData = intent.getStringExtra("data"); 
-
-            if ("OPEN_YOUTUBE".equals(currentAction)) {
-                Toast.makeText(context, "عائشہ یوٹیوب کھول رہی ہے...", Toast.LENGTH_SHORT).show();
+            String action = intent.getStringExtra("action");
+            String rawData = intent.getStringExtra("data"); // اس میں APP اور TARGET دونوں ہوں گے
+            
+            if ("UNIVERSAL_CMD".equals(action) && rawData != null) {
+                // جاوا سکرپٹ سے ڈیٹا الگ کرنا (Format: APP_NAME|||TARGET)
+                String[] parts = rawData.split("\\|\\|\\|");
+                String targetApp = parts[0].trim();
+                String targetContent = parts.length > 1 ? parts[1].trim() : "none";
                 
-                try {
-                    // 🚀 نیا اور سمارٹ طریقہ: ڈائریکٹ ڈیپ لنک کے ذریعے یوٹیوب سرچ کھولنا 🚀
-                    Intent intentYt = new Intent(Intent.ACTION_VIEW);
-                    
-                    // اگر آپ نے کوئی گانا بولا ہے (مثلاً "DATA:دل دل پاکستان")، تو ڈائریکٹ وہی سرچ کر کے کھول دو!
-                    if (actionData != null && !actionData.trim().isEmpty() && !actionData.equals("none")) {
-                        intentYt.setData(Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(actionData)));
-                    } else {
-                        // اگر صرف "یوٹیوب کھولو" بولا ہے تو مین پیج کھلے گا
-                        intentYt.setData(Uri.parse("https://www.youtube.com/"));
+                Toast.makeText(context, "عائشہ " + targetApp + " کو ڈھونڈ رہی ہے...", Toast.LENGTH_SHORT).show();
+                
+                // 🚀 سٹیپ 1: یونیورسل ایپ فائنڈر (PackageManager) 🚀
+                PackageManager pm = getPackageManager();
+                List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+                String appPackageName = null;
+                
+                for (ApplicationInfo packageInfo : packages) {
+                    String appName = pm.getApplicationLabel(packageInfo).toString();
+                    // اگر ایپ کا نام میچ ہو جائے (مثلاً YouTube)
+                    if (appName.toLowerCase().contains(targetApp.toLowerCase())) {
+                        appPackageName = packageInfo.packageName;
+                        break;
                     }
-                    
-                    intentYt.setPackage("com.google.android.youtube");
-                    intentYt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    context.startActivity(intentYt);
-                    
-                    // چونکہ ہم نے ڈائریکٹ سرچ کر لیا ہے، تو کام مکمل ہو گیا
-                    currentAction = "";
-                    
-                } catch (Exception e) {
-                    // اگر موبائل میں یوٹیوب انسٹال ہی نہیں ہے
-                    Toast.makeText(context, "معذرت، موبائل میں یوٹیوب ایپ نہیں مل رہی!", Toast.LENGTH_SHORT).show();
-                    currentAction = "";
+                }
+                
+                if (appPackageName != null) {
+                    // ایپ مل گئی! اسے اوپن کرو
+                    Intent launchIntent = pm.getLaunchIntentForPackage(appPackageName);
+                    if (launchIntent != null) {
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(launchIntent);
+                        
+                        // 🚀 سٹیپ 2: سکرین ریڈر (اگر کوئی ٹارگٹ دیا گیا ہے) 🚀
+                        if (!targetContent.equals("none") && !targetContent.isEmpty()) {
+                            Toast.makeText(context, "سکرین پڑھ رہی ہے...", Toast.LENGTH_LONG).show();
+                            
+                            // عائشہ کو 4 سیکنڈ کا ٹائم دیں تاکہ ایپ پوری طرح اوپن ہو جائے
+                            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                                universalScreenReaderAndClicker(targetContent);
+                            }, 4000); // 4 Seconds Delay (آرام سے کام کرنے کے لیے)
+                        }
+                    }
+                } else {
+                    Toast.makeText(context, "عائشہ کو آپ کے موبائل میں '" + targetApp + "' نہیں ملی۔", Toast.LENGTH_LONG).show();
                 }
             }
         }
     };
 
-    @Override
-    public void onAccessibilityEvent(AccessibilityEvent event) {
-        // یوٹیوب کے لیے اب ہمیں مینوئل کلک کرنے کی ضرورت نہیں، ڈیپ لنک نے ہمارا کام آسان کر دیا ہے۔
-        // مستقبل میں واٹس ایپ کے لیے ہم یہاں لاجک لکھیں گے۔
+    // 🧠 یونیورسل سکرین ریڈر اور کلکر (یہ پوری سکرین کو سکین کرے گا) 🧠
+    private void universalScreenReaderAndClicker(String targetText) {
+        AccessibilityNodeInfo rootNode = getRootInActiveWindow();
+        if (rootNode == null) return;
+
+        // پہلے ٹیکسٹ کے ذریعے ڈھونڈنے کی کوشش کرو
+        List<AccessibilityNodeInfo> foundNodes = rootNode.findAccessibilityNodeInfosByText(targetText);
+        
+        if (!foundNodes.isEmpty()) {
+            AccessibilityNodeInfo target = foundNodes.get(0);
+            
+            // ہو سکتا ہے جو ٹیکسٹ ملا ہو وہ خود کلک ایبل نہ ہو، تو ہم اس کے Parent (بٹن) کو ڈھونڈ کر کلک کریں گے
+            while (target != null && !target.isClickable()) {
+                target = target.getParent();
+            }
+            
+            if (target != null) {
+                target.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                Toast.makeText(getApplicationContext(), "عائشہ نے ٹارگٹ پر کلک کر دیا!", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            // اگر پہلی بار نہ ملے، تو ہو سکتا ہے سکرین ابھی لوڈ ہو رہی ہو
+            Toast.makeText(getApplicationContext(), "عائشہ کو سکرین پر '" + targetText + "' نظر نہیں آیا۔", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
-    public void onInterrupt() {
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+        // سارا کام اب یونیورسل سکرین ریڈر کر رہا ہے۔
     }
+
+    @Override
+    public void onInterrupt() {}
 
     @Override
     protected void onServiceConnected() {
@@ -71,7 +114,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         } else {
             registerReceiver(commandReceiver, new IntentFilter("AI_COMMAND_BROADCAST"));
         }
-        Toast.makeText(this, "عائشہ کے ہاتھ ایکٹو ہو گئے ہیں! 🦾", Toast.LENGTH_LONG).show();
     }
 
     @Override
