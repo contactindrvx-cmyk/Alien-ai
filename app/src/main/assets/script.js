@@ -172,22 +172,30 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 🚀 سکرین شاٹ بھیجنے والا فنکشن 🚀
+    // 🚀 سپر فاسٹ سکرین شاٹ بھیجنے والا نیا فنکشن 🚀
     window.processScreenshot = function(base64Image) {
+        console.log("Screenshot received from Java, sending to Python...");
         document.getElementById('thinking-indicator').classList.remove('hidden');
         addMessage("سکرین چیک کر رہی ہوں...", 'assistant');
+        
         fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
             method: "POST", headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ message: "یہ میری سکرین کی تصویر ہے، اسے دیکھ کر بتاؤ کہ سکرین پر کیا ہے۔", image: base64Image, email: "alirazasabir007@gmail.com" }) 
+            body: JSON.stringify({ 
+                message: "یہ میری سکرین کا سکرین شاٹ ہے۔ اسے بغور دیکھو اور تفصیل سے بتاؤ کہ اس سکرین پر یا اس پوسٹ میں کون ہے، کیا لکھا ہے اور کیا ہو رہا ہے؟", 
+                image: base64Image, 
+                email: "alirazasabir007@gmail.com" 
+            }) 
         })
         .then(res => res.json())
         .then(d => {
+            console.log("Python response received!");
             document.getElementById('thinking-indicator').classList.add('hidden'); 
-            let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
+            let cleanText = d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔";
             processAIResponse(cleanText);
         }).catch(e => {
+            console.error("Fetch error:", e);
             document.getElementById('thinking-indicator').classList.add('hidden'); 
-            addMessage("سکرین شاٹ بھیجنے میں ایرر آیا۔", 'assistant');
+            addMessage("سکرین چیک کرنے میں سرور نے جواب نہیں دیا۔", 'assistant');
         });
     };
     
@@ -282,4 +290,4 @@ function addMessage(text, sender, imgUrl = null) {
         return btn;
     }
         }
-                                    
+            
