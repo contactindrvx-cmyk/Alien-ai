@@ -9,6 +9,7 @@ let iMicNormal, iMicStop;
 
 // کال موڈ کے ایلیمنٹس (ChatGPT Style)
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd;
+let liveGlowBg; // 🚀 نیا ویری ایبل بیک گراؤنڈ کے لیے 🚀
 
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
@@ -75,6 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cgMicOff = document.getElementById('cg-mic-off');
     cgEnd = document.getElementById('cg-end');
 
+    liveGlowBg = document.getElementById('live-glow-bg'); // 🚀 لنک کر دیا 🚀
+
     fileIn = document.getElementById('hidden-file-input'); 
     preview = document.getElementById('image-preview-container');
 
@@ -86,9 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = activeInput.value.trim();
 
         if (isCallActive) {
-            // 🟢 لائیو کال موڈ 🟢
             normalBar.classList.add('hidden'); normalBar.classList.remove('flex');
             callBar.classList.remove('hidden'); callBar.classList.add('flex');
+            
+            // 🚀 زندہ بیک گراؤنڈ شو کریں 🚀
+            liveGlowBg.classList.add('show');
 
             if (text.length > 0 || pendingImg) {
                 cgSend.classList.remove('hidden'); cgSend.classList.add('flex');
@@ -98,18 +103,17 @@ document.addEventListener('DOMContentLoaded', () => {
             cgMicOn.classList.toggle('hidden', isCallMuted);
             cgMicOff.classList.toggle('hidden', !isCallMuted);
         } else {
-            // 🔵 نارمل موڈ 🔵
             callBar.classList.add('hidden'); callBar.classList.remove('flex');
             normalBar.classList.remove('hidden'); normalBar.classList.add('flex');
 
-            // 1. Reset: پہلے سب کچھ چھپائیں
+            // 🚀 زندہ بیک گراؤنڈ چھپا دیں 🚀
+            liveGlowBg.classList.remove('show');
+
             outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand');
             inPlus.classList.add('btn-collapse'); 
             inSend.classList.add('btn-collapse');
             inMic.classList.add('btn-collapse'); 
             inCall.classList.add('btn-collapse');
-            
-            // Note:waveArea اور inEnd اب UI میں موجود نہیں ہیں، انہیں کنٹرول کرنے کی ضرورت نہیں
             if(waveArea) waveArea.classList.add('btn-collapse'); 
             if(inEnd) inEnd.classList.add('btn-collapse');
             
@@ -118,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
             iMicNormal.classList.remove('hidden'); 
             iMicStop.classList.add('hidden');
 
-            // 2. متعلقہ بٹن ظاہر کریں
             if (window.isAyeshaRecording) {
                 outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand');
                 inMic.classList.remove('btn-collapse');
@@ -134,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 inMic.classList.remove('btn-collapse');
             }
             else {
-                // ڈیفالٹ حالت
                 inPlus.classList.remove('btn-collapse');
                 inMic.classList.remove('btn-collapse');
                 inCall.classList.remove('btn-collapse');
@@ -150,7 +152,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
         else fileIn.click();
     };
-    outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick; cgPlus.onclick = handlePlusClick;
+    outPlus.onclick = handlePlusClick; 
+    inPlus.onclick = handlePlusClick; 
+    cgPlus.onclick = handlePlusClick;
 
     fileIn.onchange = (e) => {
         if(e.target.files[0]) {
@@ -182,33 +186,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // کال شروع کرنا
-    inCall.onclick = () => { 
-        isCallActive = true; 
-        isCallMuted = false; 
-        updateUIState(); 
-        if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); 
-    };
+    inCall.onclick = () => { isCallActive = true; isCallMuted = false; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(true); };
     
-    // 🚀 فکس: کال اینڈ کرنے کا پکا لاجک (سٹیٹ کلین اپ) 🚀
     cgEnd.onclick = () => { 
         isCallActive = false; 
-        
-        // 1. تمام ان پٹس اور تصویروں کو کلین کریں (تاکہ پرانی سٹیٹ نہ رہے)
-        inputNormal.value = '';
-        inputCall.value = '';
-        pendingImg = null;
-        preview.classList.add('hidden');
-        fileIn.value = ''; // file input کو بھی ری سیٹ کریں
-
-        // 2. UI کو ری سیٹ کریں
+        inputNormal.value = ''; inputCall.value = ''; pendingImg = null; preview.classList.add('hidden'); fileIn.value = '';
         updateUIState(); 
-        
-        // 3. اینڈرائیڈ کو کال بند کرنے کا آرڈر دیں
         if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
     
-    // سینڈ کرنا
     const handleSendClick = (e) => {
         e.preventDefault(); 
         const activeInput = isCallActive ? inputCall : inputNormal; 
@@ -235,7 +221,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
-    inSend.onclick = handleSendClick; cgSend.onclick = handleSendClick;
+    inSend.onclick = handleSendClick; 
+    cgSend.onclick = handleSendClick;
 });
 
 function addMessage(text, sender, imgUrl = null) {
@@ -254,5 +241,5 @@ function addMessage(text, sender, imgUrl = null) {
     }
     chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
     return sender === 'user' ? null : msgDiv.querySelector('.gemini-speaker-btn');
-    }
-        
+        }
+                               
