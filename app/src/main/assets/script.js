@@ -147,15 +147,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 🚨 ہائبرڈ کیچر: جاوا سے آنے والا ریل ٹائم ڈیٹا اور میسجز 🚨
     window.addMessageFromJava = function(text) {
-        // 1. اگر جاوا نے سکرین کا ریل ٹائم ٹیکسٹ ڈیٹا بھیجا ہے
         if (text.startsWith("SCREEN_DATA||")) {
             let screenData = text.replace("SCREEN_DATA||", "");
             document.getElementById('thinking-indicator').classList.remove('hidden');
             
+            // 🚨 بگ فکس: ٹرگر ورڈز ہٹا دیے گئے 🚨
             fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
                 method: "POST", headers: { "Content-Type": "application/json" }, 
                 body: JSON.stringify({ 
-                    message: "صارف کی سکرین پر اس وقت یہ سب لکھا ہے: " + screenData + "\n\nاسے جلدی سے پڑھو اور صارف کو ایک لائن میں بتاؤ کہ وہ کیا دیکھ رہا ہے۔ کوئی لمبی کہانی مت سنانا۔", 
+                    message: "صارف کی سکرین پر اس وقت یہ سب لکھا ہے:\n" + screenData + "\n\n[SYSTEM WARNING: اب کوئی ایکشن کمانڈ مت دینا، صرف یہ پڑھ کر یوزر کو جواب دو کہ سکرین پر کیا ہے۔]", 
                     email: "alirazasabir007@gmail.com" 
                 }) 
             })
@@ -170,7 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 2. اگر نارمل میسج یا جاوا کا ایرر ہے
         document.getElementById('thinking-indicator').classList.add('hidden');
         let btn = addMessage(text, 'assistant');
         if(btn) { 
@@ -179,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 🚀 سپر سائلنٹ سکرین شاٹ پلنگ (صرف تصویر دیکھنے کے لیے) 🚀
+    // 🚀 سپر سائلنٹ سکرین شاٹ پلنگ 🚀
     window.triggerScreenshot = function() {
         let base64Image = "";
         if (window.AndroidBridge && window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
@@ -189,9 +188,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('thinking-indicator').classList.remove('hidden');
+        
+        // 🚨 بگ فکس: یہاں سے "اسے دیکھو" والا قاتل لفظ اڑا دیا گیا ہے 🚨
         fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
             method: "POST", headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ message: "یہ سکرین شاٹ ہے۔ اسے دیکھو اور تفصیل بتاؤ۔", image: base64Image, email: "alirazasabir007@gmail.com" }) 
+            body: JSON.stringify({ 
+                message: "یہ سکرین شاٹ کی تصویر ہے۔ [SYSTEM WARNING: تصویر موصول ہو گئی ہے۔ اب مزید کوئی ایکشن کمانڈ مت دینا، صرف اور صرف اس تصویر کی تفصیل اردو میں بتاؤ۔]", 
+                image: base64Image, 
+                email: "alirazasabir007@gmail.com" 
+            }) 
         })
         .then(res => res.json())
         .then(d => {
@@ -218,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
 
-        // 🚨 خاموشی کا اصل راز: اگر سکرین شاٹ لے رہی ہے یا ریڈ سکرین کر رہی ہے تو کچھ مت بولو! 🚨
+        // 🚨 خاموشی کا اصل راز: اگر سکرین شاٹ لے رہی ہے تو کچھ مت بولو، انتظار کرو! 🚨
         if (action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
             return; 
         }
@@ -251,7 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json())
             .then(d => { 
                 let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
-                // 🚨 اگر خاموشی والا ایکشن ہے تو تھنکنگ ہائیڈ مت کرو
                 if (!/\[ACTION:\s*(TAKE_SCREENSHOT|READ_SCREEN)/i.test(cleanText)) {
                     document.getElementById('thinking-indicator').classList.add('hidden'); 
                 }
@@ -292,5 +296,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-}
-    
+            }
+            
