@@ -8,13 +8,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Path;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
+import android.view.Display;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import java.io.ByteArrayOutputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -31,10 +35,12 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             String action = intent.getStringExtra("action");
             String rawData = intent.getStringExtra("data"); 
 
-            if ("MULTI_TASK".equals(action) && rawData != null) {
-                String[] tasks = rawData.split("&&");
-                for (String task : tasks) taskQueue.add(task.trim());
-                if (!isTaskRunning) processNextTask();
+            if (action != null && rawData != null) {
+                if (action.equals("MULTI_TASK") || action.equals("TAKE_SCREENSHOT")) {
+                    String[] tasks = rawData.split("&&");
+                    for (String task : tasks) taskQueue.add(task.trim());
+                    if (!isTaskRunning) processNextTask();
+                }
             }
         }
     };
@@ -53,15 +59,45 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             openAppAndSearch(parts.length > 1 ? parts[1].trim() : "", parts.length > 2 ? parts[2].trim() : "none");
             mainHandler.postDelayed(this::processNextTask, 6000);
         } else if (cmdType.equals("SCROLL")) {
-            // 🚀 نیا انسانی سوائپ (Gesture) 🚀
             performSmoothScroll(parts.length > 1 ? parts[1].trim() : "DOWN");
             mainHandler.postDelayed(this::processNextTask, 1500);
         } else if (cmdType.equals("CLICK")) {
-            // 🚀 ڈیپ سرچ کلکر 🚀
             smartClick(parts.length > 1 ? parts[1].trim() : "");
             mainHandler.postDelayed(this::processNextTask, 2000);
+        } else if (cmdType.equals("TAKE_SCREENSHOT")) {
+            // 📸 نیا سکرین شاٹ فنکشن 📸
+            takeAndSendScreenshot();
+            mainHandler.postDelayed(this::processNextTask, 3000);
         } else {
             processNextTask();
+        }
+    }
+
+    private void takeAndSendScreenshot() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
+                @Override
+                public void onSuccess(ScreenshotResult screenshotResult) {
+                    Bitmap bitmap = Bitmap.wrapHardwareBuffer(screenshotResult.getHardwareBuffer(), screenshotResult.getColorSpace());
+                    if (bitmap != null) {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        // 30% کوالٹی تاکہ سائز 100-200 KB رہے اور سرور پر بوجھ نہ پڑے
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 30, baos); 
+                        byte[] imageBytes = baos.toByteArray();
+                        String base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
+                        
+                        Intent intent = new Intent("SCREENSHOT_CAPTURED");
+                        intent.putExtra("image", base64Image);
+                        sendBroadcast(intent);
+                    }
+                }
+                @Override
+                public void onFailure(int errorCode) {
+                    sendResultToChat("سکرین شاٹ لینے میں مسئلہ ہوا۔");
+                }
+            });
+        } else {
+            sendResultToChat("آپ کا اینڈرائیڈ ورژن سکرین شاٹ سپورٹ نہیں کرتا (Android 11+ درکار ہے)۔");
         }
     }
 
@@ -75,15 +111,11 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) return;
         List<AccessibilityNodeInfo> nodes = rootNode.findAccessibilityNodeInfosByText(targetText);
-        
-        // اگر مطلوبہ ٹیکسٹ براہ راست نہ ملے تو، اگر "Profile" کا لفظ ہو تو اپنا نام ڈھونڈنے کی کوشش کرو
         if (nodes.isEmpty() && targetText.toLowerCase().contains("profile")) {
-             nodes = rootNode.findAccessibilityNodeInfosByText("Ali Raza"); // یہ آپ کے نام سے میچ کرے گا
+             nodes = rootNode.findAccessibilityNodeInfosByText("Ali Raza"); 
         }
-
         if (!nodes.isEmpty()) {
             clickFirstClickable(nodes.get(0));
-            // کام مکمل ہونے کا سگنل واپس بھیجو
             sendResultToChat("میں نے '" + targetText + "' پر کلک کر دیا ہے۔");
         } else {
             deepSearchByDescription(rootNode, targetText);
@@ -107,18 +139,14 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         else clickFirstClickable(node.getParent());
     }
 
-    // 📱 سمارٹ سوائپ (بالکل جیسے انسان انگلی سے کرتا ہے) 📱
-    // 🚨 تصحیح کی گئی: ملٹی سٹیٹمنٹ بلاکس کے لیے بریکٹ لگائے گئے ہیں 🚨
     private void performSmoothScroll(String direction) {
         int height = getResources().getDisplayMetrics().heightPixels;
         int width = getResources().getDisplayMetrics().widthPixels;
         Path path = new Path();
         if (direction.equals("DOWN")) {
-            path.moveTo(width / 2f, height * 0.8f); 
-            path.lineTo(width / 2f, height * 0.2f);
+            path.moveTo(width / 2f, height * 0.8f); path.lineTo(width / 2f, height * 0.2f);
         } else {
-            path.moveTo(width / 2f, height * 0.2f); 
-            path.lineTo(width / 2f, height * 0.8f);
+            path.moveTo(width / 2f, height * 0.2f); path.lineTo(width / 2f, height * 0.8f);
         }
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(new GestureDescription.StrokeDescription(path, 100, 500));
@@ -164,4 +192,4 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-    }
+             }
