@@ -62,16 +62,26 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         if (cmdType.equals("VOLUME")) {
             String level = parts.length > 1 ? parts[1].trim() : "MAX";
             changeVolume(level);
-            // والیوم بدلنے کے بعد 1 سیکنڈ رکیں اور اگلا کام شروع کریں
             mainHandler.postDelayed(this::processNextTask, 1000);
             
         } else if (cmdType.equals("APP")) {
             String appName = parts.length > 1 ? parts[1].trim() : "";
             String targetData = parts.length > 2 ? parts[2].trim() : "none";
-            
             openAppAndSearch(appName, targetData);
-            // ایپ کھلنے اور سرچ ہونے میں ٹائم لگتا ہے، اس لیے 6 سیکنڈ بعد اگلا کام شروع کریں
             mainHandler.postDelayed(this::processNextTask, 6000);
+            
+        } else if (cmdType.equals("SCROLL")) {
+            // 🌟 نیا سکرول فنکشن 🌟
+            String direction = parts.length > 1 ? parts[1].trim() : "DOWN";
+            performScroll(direction);
+            mainHandler.postDelayed(this::processNextTask, 1500); // سکرول کے بعد 1.5 سیکنڈ رکو
+            
+        } else if (cmdType.equals("CLICK")) {
+            // 🌟 نیا ڈائنامک کلک فنکشن 🌟
+            String targetData = parts.length > 1 ? parts[1].trim() : "";
+            universalScreenClicker(targetData);
+            mainHandler.postDelayed(this::processNextTask, 2000); // کلک کے بعد 2 سیکنڈ رکو
+            
         } else {
             // اگر کمانڈ سمجھ نہ آئے تو اگلا کام پکڑیں
             processNextTask();
@@ -93,7 +103,7 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         }
     }
 
-    // 📱 یونیورسل ایپ اوپنر اور سکرین ریڈر 📱
+    // 📱 یونیورسل ایپ اوپنر 📱
     private void openAppAndSearch(String targetApp, String targetContent) {
         PackageManager pm = getPackageManager();
         List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
@@ -115,7 +125,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
                 Toast.makeText(this, "عائشہ " + targetApp + " کھول رہی ہے...", Toast.LENGTH_SHORT).show();
                 
                 if (!targetContent.equals("none") && !targetContent.isEmpty()) {
-                    // ایپ کو پوری طرح لوڈ ہونے کے لیے 4 سیکنڈ کا ٹائم دیں، پھر سکرین ریڈ کریں
                     mainHandler.postDelayed(() -> universalScreenClicker(targetContent), 4000);
                 }
             }
@@ -124,7 +133,37 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         }
     }
 
-    // 👁️ سکرین کو پڑھ کر کلک کرنے والا فنکشن 👁️
+    // 📜 نیا سکرولنگ فنکشن (Scroll Magic) 📜
+    private void performScroll(String direction) {
+        AccessibilityNodeInfo rootNode = getRootInActiveWindow();
+        if (rootNode == null) return;
+
+        AccessibilityNodeInfo scrollableNode = findScrollableNode(rootNode);
+        if (scrollableNode != null) {
+            if (direction.equals("DOWN")) {
+                scrollableNode.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+                Toast.makeText(this, "عائشہ سکرول ڈاؤن کر رہی ہے ⬇️", Toast.LENGTH_SHORT).show();
+            } else if (direction.equals("UP")) {
+                scrollableNode.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+                Toast.makeText(this, "عائشہ سکرول اپ کر رہی ہے ⬆️", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "اس سکرین پر سکرول نہیں ہو سکتا۔", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // سکرول ہونے والی جگہ (لسٹ یا پیج) کو ڈھونڈنے کے لیے
+    private AccessibilityNodeInfo findScrollableNode(AccessibilityNodeInfo node) {
+        if (node == null) return null;
+        if (node.isScrollable()) return node;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo result = findScrollableNode(node.getChild(i));
+            if (result != null) return result;
+        }
+        return null;
+    }
+
+    // 👁️ سکرین کو پڑھ کر ڈائنامک کلک کرنے والا فنکشن 👁️
     private void universalScreenClicker(String targetText) {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) return;
@@ -138,10 +177,10 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             }
             if (target != null) {
                 target.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                Toast.makeText(this, "عائشہ نے ٹارگٹ پر کلک کر دیا! ✅", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "عائشہ نے '" + targetText + "' پر کلک کر دیا! ✅", Toast.LENGTH_SHORT).show();
             }
         } else {
-            Toast.makeText(this, "سکرین پر ٹارگٹ نہیں ملا، شاید ایپ ابھی لوڈ ہو رہی ہے۔", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "سکرین پر '" + targetText + "' نہیں ملا۔", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -167,4 +206,4 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-                           }
+}
