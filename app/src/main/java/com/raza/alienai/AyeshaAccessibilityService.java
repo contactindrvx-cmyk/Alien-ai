@@ -9,8 +9,8 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.Matrix;
 import android.graphics.Path;
+import android.hardware.HardwareBuffer;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
@@ -79,31 +79,44 @@ public class AyeshaAccessibilityService extends AccessibilityService {
                 @Override
                 public void onSuccess(ScreenshotResult screenshotResult) {
                     try {
-                        Bitmap bitmap = Bitmap.wrapHardwareBuffer(screenshotResult.getHardwareBuffer(), screenshotResult.getColorSpace());
-                        if (bitmap != null) {
-                            // 🚀 تصویر کو 50% چھوٹا کرو (Resize) 🚀
-                            int width = bitmap.getWidth();
-                            int height = bitmap.getHeight();
-                            Matrix matrix = new Matrix();
-                            matrix.postScale(0.5f, 0.5f);
-                            Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
+                        HardwareBuffer hardwareBuffer = screenshotResult.getHardwareBuffer();
+                        Bitmap hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshotResult.getColorSpace());
+                        
+                        if (hardwareBitmap != null) {
+                            // 🚨 اصل حل: ہارڈویئر بٹ میپ کو سافٹ ویئر میں بدلیں تاکہ کریش نہ ہو 🚨
+                            Bitmap softwareBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false);
+                            
+                            // تصویر کو آدھا (50%) چھوٹا کریں تاکہ میموری اور انٹرنیٹ بچے
+                            int width = softwareBitmap.getWidth() / 2;
+                            int height = softwareBitmap.getHeight() / 2;
+                            Bitmap resizedBitmap = Bitmap.createScaledBitmap(softwareBitmap, width, height, true);
 
                             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            // 🚀 کوالٹی 10% تاکہ اپلوڈنگ سپر فاسٹ ہو 🚀
-                            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 10, baos); 
-                            byte[] imageBytes = baos.toByteArray();
-                            latestScreenshotBase64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
+                            // 20% کوالٹی پر کمپریس کریں
+                            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 20, baos); 
                             
+                            latestScreenshotBase64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+                            
+                            // جاوا سکرپٹ کو سگنل بھیجیں
                             sendBroadcast(new Intent("SCREENSHOT_CAPTURED"));
                             
-                            // ریم بچانے کے لیے بٹ میپس کو میموری سے فارغ کرو
-                            if (!bitmap.isRecycled()) bitmap.recycle();
+                            // ریم (RAM) کو فوراً فارغ کریں
+                            hardwareBuffer.close();
+                            if (!softwareBitmap.isRecycled()) softwareBitmap.recycle();
                             if (!resizedBitmap.isRecycled()) resizedBitmap.recycle();
                         }
-                    } catch (Exception e) {}
+                    } catch (Exception e) {
+                        // 🚨 اب اگر کوئی مسئلہ ہوا تو وہ چپ نہیں رہے گی، بلکہ بول کر بتائے گی 🚨
+                        sendResultToChat("رضا بھائی، تصویر پروسیس کرنے میں مسئلہ آیا ہے۔");
+                    }
                 }
-                @Override public void onFailure(int errorCode) { sendResultToChat("سکرین شاٹ فیل ہو گیا۔"); }
+                @Override 
+                public void onFailure(int errorCode) { 
+                    sendResultToChat("سکرین شاٹ لینے میں کیمرے کا ایرر آ گیا۔ کوڈ: " + errorCode); 
+                }
             });
+        } else {
+            sendResultToChat("آپ کا اینڈرائیڈ ورژن پرانا ہے، اس میں سکرین شاٹ کام نہیں کرے گا۔");
         }
     }
 
@@ -195,5 +208,5 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-                        }
-             
+                }
+            
