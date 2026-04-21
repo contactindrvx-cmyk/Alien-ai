@@ -38,12 +38,20 @@ public class MainActivity extends AppCompatActivity {
     private Intent speechRecognizerIntent;
     private boolean isRecording = false;
 
+    // 📸 اپڈیٹڈ رسیور جو میسج اور تصویر دونوں پکڑے گا 📸
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String msg = intent.getStringExtra("message");
-            if (webView != null && msg != null) {
-                webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + msg.replace("'", "\\'") + "');", null);
+            if ("NEW_MESSAGE_FROM_CALL".equals(intent.getAction())) {
+                String msg = intent.getStringExtra("message");
+                if (webView != null && msg != null) {
+                    webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + msg.replace("'", "\\'") + "');", null);
+                }
+            } else if ("SCREENSHOT_CAPTURED".equals(intent.getAction())) {
+                String base64 = intent.getStringExtra("image");
+                if (webView != null && base64 != null) {
+                    webView.evaluateJavascript("javascript:if(window.processScreenshot) window.processScreenshot('" + base64 + "');", null);
+                }
             }
         }
     };
@@ -69,35 +77,32 @@ public class MainActivity extends AppCompatActivity {
                     MainActivity.this.filePathCallback.onReceiveValue(null);
                 }
                 MainActivity.this.filePathCallback = filePathCallback;
-                try { 
-                    startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); 
-                } catch (Exception e) { 
-                    MainActivity.this.filePathCallback = null; 
-                    return false; 
-                }
+                try { startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); } 
+                catch (Exception e) { MainActivity.this.filePathCallback = null; return false; }
                 return true;
             }
             @Override
-            public void onPermissionRequest(final PermissionRequest request) { 
-                request.grant(request.getResources()); 
-            }
+            public void onPermissionRequest(final PermissionRequest request) { request.grant(request.getResources()); }
         });
 
         webView.loadUrl("file:///android_asset/index.html");
-        
         requestPermissions();
         setupSpeechRecognizer();
 
+        // 📸 فلٹر میں SCREENSHOT_CAPTURED کا اضافہ 📸
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("NEW_MESSAGE_FROM_CALL");
+        filter.addAction("SCREENSHOT_CAPTURED");
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(messageReceiver, new IntentFilter("NEW_MESSAGE_FROM_CALL"), Context.RECEIVER_NOT_EXPORTED);
+            registerReceiver(messageReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
-            registerReceiver(messageReceiver, new IntentFilter("NEW_MESSAGE_FROM_CALL"));
+            registerReceiver(messageReceiver, filter);
         }
 
         if (!isAccessibilityServiceEnabled(this, AyeshaAccessibilityService.class)) {
             Toast.makeText(this, "عائشہ کو کنٹرول دینے کے لیے Accessibility آن کریں", Toast.LENGTH_LONG).show();
-            Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            startActivity(intent);
+            startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
         }
     }
 
@@ -108,9 +113,7 @@ public class MainActivity extends AppCompatActivity {
         android.text.TextUtils.SimpleStringSplitter colonSplitter = new android.text.TextUtils.SimpleStringSplitter(':');
         colonSplitter.setString(enabledServicesSetting);
         while (colonSplitter.hasNext()) {
-            String componentNameString = colonSplitter.next();
-            android.content.ComponentName enabledService = android.content.ComponentName.unflattenFromString(componentNameString);
-            if (enabledService != null && enabledService.equals(expectedComponentName)) return true;
+            if (expectedComponentName.equals(android.content.ComponentName.unflattenFromString(colonSplitter.next()))) return true;
         }
         return false;
     }
@@ -127,39 +130,27 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onRmsChanged(float rmsdB) {}
             @Override public void onBufferReceived(byte[] buffer) {}
             @Override public void onEndOfSpeech() {}
-            @Override public void onError(int error) {
-                stopRecordingState();
-            }
-            @Override
-            public void onResults(Bundle results) {
+            @Override public void onError(int error) { stopRecordingState(); }
+            @Override public void onResults(Bundle results) {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) {
-                    sendTextToJS(matches.get(0), true);
-                }
+                if (matches != null && !matches.isEmpty()) sendTextToJS(matches.get(0), true);
                 stopRecordingState();
             }
-            @Override
-            public void onPartialResults(Bundle partialResults) {
+            @Override public void onPartialResults(Bundle partialResults) {
                 ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) {
-                    sendTextToJS(matches.get(0), false);
-                }
+                if (matches != null && !matches.isEmpty()) sendTextToJS(matches.get(0), false);
             }
             @Override public void onEvent(int eventType, Bundle params) {}
         });
     }
 
     private void sendTextToJS(String text, boolean isFinal) {
-        new Handler(Looper.getMainLooper()).post(() -> {
-            webView.evaluateJavascript("javascript:if(window.updateInputFromJava) window.updateInputFromJava('" + text + "', " + isFinal + ");", null);
-        });
+        new Handler(Looper.getMainLooper()).post(() -> webView.evaluateJavascript("javascript:if(window.updateInputFromJava) window.updateInputFromJava('" + text + "', " + isFinal + ");", null));
     }
 
     private void stopRecordingState() {
         isRecording = false;
-        new Handler(Looper.getMainLooper()).post(() -> {
-            webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(false);", null);
-        });
+        new Handler(Looper.getMainLooper()).post(() -> webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(false);", null));
     }
 
     private void requestPermissions() {
@@ -169,14 +160,10 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.READ_MEDIA_IMAGES);
             perms.add(Manifest.permission.POST_NOTIFICATIONS);
-        } else {
-            perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-        }
+        } else perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
         
         List<String> needed = new ArrayList<>();
-        for (String p : perms) { 
-            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) needed.add(p); 
-        }
+        for (String p : perms) if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) needed.add(p); 
         if (!needed.isEmpty()) ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 100);
     }
 
@@ -187,18 +174,10 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
                     if (start) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startForegroundService(intent);
-                        } else {
-                            startService(intent);
-                        }
-                    } else { 
-                        stopService(intent); 
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(MainActivity.this, "Call Service Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
+                        else startService(intent);
+                    } else stopService(intent); 
+                } catch (Exception e) {}
             });
         }
 
@@ -214,10 +193,7 @@ public class MainActivity extends AppCompatActivity {
                         isRecording = true;
                         webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(MainActivity.this, "Mic Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                }
+                } catch (Exception e) {}
             });
         }
 
@@ -246,9 +222,7 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILECHOOSER_RESULTCODE && filePathCallback != null) {
             Uri[] results = null;
-            if (resultCode == RESULT_OK && data != null && data.getDataString() != null) {
-                results = new Uri[]{Uri.parse(data.getDataString())};
-            }
+            if (resultCode == RESULT_OK && data != null && data.getDataString() != null) results = new Uri[]{Uri.parse(data.getDataString())};
             filePathCallback.onReceiveValue(results);
             filePathCallback = null;
         }
@@ -260,5 +234,5 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-        }
-                              
+                                          }
+                
