@@ -15,13 +15,13 @@ let currentAssistantMessageDiv = null;
 let currentSentenceBuffer = "";
 
 function connectWebSocket() {
-    // اپنے سرور کا لنک اپڈیٹ کریں اگر ضرورت ہو
+    // 🚨 یہ لائن پائتھون سرور سے سٹریمنگ کو جوڑ دے گی 🚨
     ws = new WebSocket("wss://aigrowthbox-ayesha-ai.hf.space/ws/live");
     
     ws.onmessage = function(event) {
         let data = JSON.parse(event.data);
         
-        // 🚀 سٹریمنگ: جیسے جیسے لفظ آئیں، سکرین پر دکھائیں 🚀
+        // جیسے جیسے لفظ آئیں، سکرین پر ٹائپ ہوتے جائیں گے
         if (data.chunk) {
             document.getElementById('thinking-indicator').classList.add('hidden');
             
@@ -30,10 +30,10 @@ function connectWebSocket() {
             }
             
             let textElement = currentAssistantMessageDiv.parentElement.querySelector('p');
-            textElement.innerHTML += data.chunk; // لائیو ٹائپنگ ایفیکٹ
+            textElement.innerHTML += data.chunk; // لائیو ٹائپنگ
             currentSentenceBuffer += data.chunk;
             
-            // اگر جملہ مکمل ہو جائے (پُل سٹاپ وغیرہ آ جائے)، تو اسے آڈیو کیو (Queue) میں ڈالیں
+            // اگر جملہ مکمل ہو جائے، تو اسے آڈیو کیو (Queue) میں ڈالیں تاکہ وہ بول سکے
             if (/[.?!۔؟]/.test(data.chunk) || data.chunk.includes('\n')) {
                 processSentenceBuffer();
             }
@@ -41,11 +41,11 @@ function connectWebSocket() {
         
         if (data.status === "done") {
             processSentenceBuffer(); // بچا ہوا ٹیکسٹ
-            currentAssistantMessageDiv = null; // اگلی بات کے لیے ری سیٹ
+            currentAssistantMessageDiv = null; 
         }
     };
 
-    ws.onclose = () => { setTimeout(connectWebSocket, 3000); }; // کٹ جائے تو دوبارہ جڑ جائے
+    ws.onclose = () => { setTimeout(connectWebSocket, 3000); }; // کٹ جائے تو دوبارہ جوڑ دے گا
 }
 
 function processSentenceBuffer() {
@@ -58,7 +58,7 @@ function processSentenceBuffer() {
             let action = cmdMatch[1];
             let actionData = cmdMatch[2];
             console.log("🔥 کمانڈ پکڑی گئی:", action, actionData);
-            // یہ لائن اینڈرائیڈ کو سگنل دے گی (اگلے سٹیپ میں ہم اسے جاوا میں کیچ کریں گے)
+            
             if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
                 window.AndroidBridge.sendAccessibilityCommand(action, actionData);
             }
@@ -232,11 +232,14 @@ document.addEventListener('DOMContentLoaded', () => {
         inputNormal.value = text; inputCall.value = text; updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            voiceTimeout = setTimeout(() => { 
-                if (inputNormal.value.trim().length > 0 || pendingImg) {
-                    if(isCallActive) cgSend.click(); else inSend.click(); 
-                }
-            }, 1500); 
+            // 🚨 بگ فکس: کال موڈ میں ٹیکسٹ آٹو سینڈ نہیں ہوگا 🚨
+            if (!isCallActive) {
+                voiceTimeout = setTimeout(() => { 
+                    if (inputNormal.value.trim().length > 0 || pendingImg) {
+                        inSend.click(); 
+                    }
+                }, 1500); 
+            }
         }
     };
 
@@ -270,7 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // 🚀 سٹریمنگ پائپ لائن میں میسج بھیجیں 🚀
             if (ws && ws.readyState === WebSocket.OPEN) {
                 let payload = { message: text, email: "alirazasabir007@gmail.com" };
-                // نوٹ: تصویر بھیجنے کا کوڈ فی الحال بیسک ہے، بعد میں اسے ایڈوانس کر لیں گے
                 ws.send(JSON.stringify(payload));
             } else {
                 document.getElementById('thinking-indicator').classList.add('hidden'); 
@@ -306,5 +308,5 @@ function addMessage(text, sender, imgUrl = null) {
     }
     chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
     return null;
-                    }
-            
+                }
+                    
