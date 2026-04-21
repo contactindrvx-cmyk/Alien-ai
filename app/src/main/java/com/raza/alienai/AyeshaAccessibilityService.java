@@ -6,8 +6,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Path;
 import android.hardware.HardwareBuffer;
@@ -35,18 +35,12 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getStringExtra("action");
-            String data = intent.getStringExtra("data"); 
-            
+            String data = intent.getStringExtra("data");
             if (action != null) {
-                // 🚨 میری پرانی غلطی یہیں تھی، اب یہ بالکل صحیح کمانڈ پکڑے گا 🚨
-                if (action.equals("MULTI_TASK") && data != null) {
-                    String[] tasks = data.split("&&");
-                    for (String task : tasks) taskQueue.add(task.trim());
-                } else if (action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
-                    taskQueue.add(action);
+                if (action.equals("MULTI_TASK") || action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
+                    taskQueue.add(action + "||" + (data != null ? data : "none"));
+                    if (!isTaskRunning) processNextTask();
                 }
-                
-                if (!isTaskRunning) processNextTask();
             }
         }
     };
@@ -58,50 +52,55 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         String[] parts = currentTask.split("\\|\\|");
         String cmdType = parts[0].trim();
 
-        if (cmdType.equals("VOLUME")) {
-            changeVolume(parts.length > 1 ? parts[1].trim() : "MAX");
+        if (cmdType.equals("READ_SCREEN")) {
+            readScreenRealTime();
             mainHandler.postDelayed(this::processNextTask, 1000);
-        } else if (cmdType.equals("APP")) {
-            openAppAndSearch(parts.length > 1 ? parts[1].trim() : "", parts.length > 2 ? parts[2].trim() : "none");
-            mainHandler.postDelayed(this::processNextTask, 6000);
+        } else if (cmdType.equals("TAKE_SCREENSHOT")) {
+            takeAndSendScreenshot();
+            mainHandler.postDelayed(this::processNextTask, 3000);
         } else if (cmdType.equals("SCROLL")) {
             performSmoothScroll(parts.length > 1 ? parts[1].trim() : "DOWN");
             mainHandler.postDelayed(this::processNextTask, 1500);
         } else if (cmdType.equals("CLICK")) {
             smartClick(parts.length > 1 ? parts[1].trim() : "");
             mainHandler.postDelayed(this::processNextTask, 2000);
-        } else if (cmdType.equals("READ_SCREEN")) {
-            readScreenRealTime();
+        } else if (cmdType.equals("APP")) {
+            fastOpenApp(parts.length > 1 ? parts[1].trim() : "");
+            mainHandler.postDelayed(this::processNextTask, 3000); 
+        } else if (cmdType.equals("VOLUME")) {
+            changeVolume(parts.length > 1 ? parts[1].trim() : "MAX");
             mainHandler.postDelayed(this::processNextTask, 1000);
-        } else if (cmdType.equals("TAKE_SCREENSHOT")) {
-            takeAndSendScreenshot();
-            mainHandler.postDelayed(this::processNextTask, 3000);
-        } else {
-            processNextTask();
+        } else { 
+            processNextTask(); 
         }
     }
 
-    // 🚀 ایپ اوپن کرنے والا انجن (جو میں نے غلطی سے اڑا دیا تھا) 🚀
-    private void openAppAndSearch(String targetApp, String targetContent) {
+    // 🚀 سپر فاسٹ ایپ اوپن انجن 🚀
+    private void fastOpenApp(String targetApp) {
         PackageManager pm = getPackageManager();
+        Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
+        mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        List<ResolveInfo> appList = pm.queryIntentActivities(mainIntent, 0);
+        
         boolean appFound = false;
-        for (ApplicationInfo packageInfo : pm.getInstalledApplications(PackageManager.GET_META_DATA)) {
-            if (pm.getApplicationLabel(packageInfo).toString().toLowerCase().contains(targetApp.toLowerCase())) {
-                Intent launchIntent = pm.getLaunchIntentForPackage(packageInfo.packageName);
+        for (ResolveInfo info : appList) {
+            String appLabel = info.loadLabel(pm).toString().toLowerCase();
+            if (appLabel.contains(targetApp.toLowerCase())) {
+                Intent launchIntent = pm.getLaunchIntentForPackage(info.activityInfo.packageName);
                 if (launchIntent != null) {
                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(launchIntent);
                     appFound = true;
-                    if (!targetContent.equals("none")) mainHandler.postDelayed(() -> smartClick(targetContent), 4000);
+                    break;
                 }
-                break;
             }
         }
         if (!appFound) {
-            sendResultToChat("رضا بھائی، مجھے موبائل میں '" + targetApp + "' نام کی کوئی ایپ نہیں ملی۔");
+            sendResultToChat("رضا بھائی، موبائل میں '" + targetApp + "' نہیں ملی۔");
         }
     }
 
+    // 🚀 ریل ٹائم سکرین ریڈر 🚀
     private void readScreenRealTime() {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) {
@@ -117,47 +116,39 @@ public class AyeshaAccessibilityService extends AccessibilityService {
 
     private void extractTextFromNodes(AccessibilityNodeInfo node, StringBuilder sb) {
         if (node == null) return;
-        if (node.getText() != null) sb.append(node.getText().toString()).append(". ");
-        else if (node.getContentDescription() != null) sb.append(node.getContentDescription().toString()).append(". ");
+        if (node.getText() != null) sb.append(node.getText().toString()).append("\n"); 
+        else if (node.getContentDescription() != null) sb.append(node.getContentDescription().toString()).append("\n");
         for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb);
     }
 
+    // 🚀 سکرین شاٹ کیپچر انجن 🚀
     private void takeAndSendScreenshot() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
                 @Override
-                public void onSuccess(ScreenshotResult screenshotResult) {
+                public void onSuccess(ScreenshotResult result) {
                     try {
-                        HardwareBuffer hardwareBuffer = screenshotResult.getHardwareBuffer();
-                        Bitmap hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshotResult.getColorSpace());
-                        if (hardwareBitmap != null) {
-                            Bitmap softwareBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false);
-                            int width = softwareBitmap.getWidth() / 2;
-                            int height = softwareBitmap.getHeight() / 2;
-                            Bitmap resizedBitmap = Bitmap.createScaledBitmap(softwareBitmap, width, height, true);
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 20, baos); 
-                            latestScreenshotBase64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+                        HardwareBuffer hwBuffer = result.getHardwareBuffer();
+                        Bitmap hwBitmap = Bitmap.wrapHardwareBuffer(hwBuffer, result.getColorSpace());
+                        if (hwBitmap != null) {
+                            Bitmap swBitmap = hwBitmap.copy(Bitmap.Config.ARGB_8888, false);
+                            Bitmap resized = Bitmap.createScaledBitmap(swBitmap, swBitmap.getWidth()/2, swBitmap.getHeight()/2, true);
+                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                            resized.compress(Bitmap.CompressFormat.JPEG, 20, bos);
+                            latestScreenshotBase64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
                             sendBroadcast(new Intent("SCREENSHOT_CAPTURED"));
-                            hardwareBuffer.close();
-                            if (!softwareBitmap.isRecycled()) softwareBitmap.recycle();
-                            if (!resizedBitmap.isRecycled()) resizedBitmap.recycle();
+                            
+                            hwBuffer.close();
+                            swBitmap.recycle(); resized.recycle();
                         }
-                    } catch (Exception e) {
-                        sendResultToChat("تصویر پروسیس کرنے میں مسئلہ آیا ہے۔");
-                    }
+                    } catch (Exception e) { sendResultToChat("تصویر پروسیس کرنے میں مسئلہ آیا۔"); }
                 }
-                @Override public void onFailure(int errorCode) { sendResultToChat("سکرین شاٹ لینے میں ایرر آ گیا۔"); }
+                @Override public void onFailure(int i) { sendResultToChat("کیمرے کا ایرر آ گیا۔"); }
             });
         }
     }
 
-    private void sendResultToChat(String result) {
-        Intent intent = new Intent("NEW_MESSAGE_FROM_CALL");
-        intent.putExtra("message", result);
-        sendBroadcast(intent);
-    }
-
+    // 🚀 سمارٹ کلک انجن (پورا ریسٹور کر دیا گیا ہے) 🚀
     private void smartClick(String targetText) {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) return;
@@ -190,12 +181,18 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         else clickFirstClickable(node.getParent());
     }
 
+    // 🚀 سموتھ سکرول انجن (پورا ریسٹور کر دیا گیا ہے) 🚀
     private void performSmoothScroll(String direction) {
         int height = getResources().getDisplayMetrics().heightPixels;
         int width = getResources().getDisplayMetrics().widthPixels;
         Path path = new Path();
-        if (direction.equals("DOWN")) { path.moveTo(width / 2f, height * 0.8f); path.lineTo(width / 2f, height * 0.2f); }
-        else { path.moveTo(width / 2f, height * 0.2f); path.lineTo(width / 2f, height * 0.8f); }
+        if (direction.equals("DOWN")) { 
+            path.moveTo(width / 2f, height * 0.8f); 
+            path.lineTo(width / 2f, height * 0.2f); 
+        } else { 
+            path.moveTo(width / 2f, height * 0.2f); 
+            path.lineTo(width / 2f, height * 0.8f); 
+        }
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(new GestureDescription.StrokeDescription(path, 100, 500));
         dispatchGesture(builder.build(), null, null);
@@ -209,15 +206,24 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         }
     }
 
+    private void sendResultToChat(String msg) {
+        Intent i = new Intent("NEW_MESSAGE_FROM_CALL");
+        i.putExtra("message", msg);
+        sendBroadcast(i);
+    }
+
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {}
     @Override public void onInterrupt() {}
 
-    @Override
+    @Override 
     protected void onServiceConnected() {
         super.onServiceConnected();
         IntentFilter filter = new IntentFilter("AI_COMMAND_BROADCAST");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        else registerReceiver(commandReceiver, filter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(commandReceiver, filter);
+        }
     }
 
     @Override
@@ -225,5 +231,5 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-                                }
-            
+    }
+        
