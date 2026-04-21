@@ -10,6 +10,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Path;
+import android.hardware.HardwareBuffer;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
@@ -34,12 +35,18 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getStringExtra("action");
-            String data = intent.getStringExtra("data");
+            String data = intent.getStringExtra("data"); 
+            
             if (action != null) {
-                if (action.equals("MULTI_TASK") || action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
-                    taskQueue.add(action + "||" + (data != null ? data : "none"));
-                    if (!isTaskRunning) processNextTask();
+                // 🚨 میری پرانی غلطی یہیں تھی، اب یہ بالکل صحیح کمانڈ پکڑے گا 🚨
+                if (action.equals("MULTI_TASK") && data != null) {
+                    String[] tasks = data.split("&&");
+                    for (String task : tasks) taskQueue.add(task.trim());
+                } else if (action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
+                    taskQueue.add(action);
                 }
+                
+                if (!isTaskRunning) processNextTask();
             }
         }
     };
@@ -51,77 +58,172 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         String[] parts = currentTask.split("\\|\\|");
         String cmdType = parts[0].trim();
 
-        if (cmdType.equals("READ_SCREEN")) {
+        if (cmdType.equals("VOLUME")) {
+            changeVolume(parts.length > 1 ? parts[1].trim() : "MAX");
+            mainHandler.postDelayed(this::processNextTask, 1000);
+        } else if (cmdType.equals("APP")) {
+            openAppAndSearch(parts.length > 1 ? parts[1].trim() : "", parts.length > 2 ? parts[2].trim() : "none");
+            mainHandler.postDelayed(this::processNextTask, 6000);
+        } else if (cmdType.equals("SCROLL")) {
+            performSmoothScroll(parts.length > 1 ? parts[1].trim() : "DOWN");
+            mainHandler.postDelayed(this::processNextTask, 1500);
+        } else if (cmdType.equals("CLICK")) {
+            smartClick(parts.length > 1 ? parts[1].trim() : "");
+            mainHandler.postDelayed(this::processNextTask, 2000);
+        } else if (cmdType.equals("READ_SCREEN")) {
             readScreenRealTime();
             mainHandler.postDelayed(this::processNextTask, 1000);
         } else if (cmdType.equals("TAKE_SCREENSHOT")) {
             takeAndSendScreenshot();
             mainHandler.postDelayed(this::processNextTask, 3000);
-        } else if (cmdType.equals("SCROLL")) {
-            performSmoothScroll(parts.length > 1 ? parts[1] : "DOWN");
-            mainHandler.postDelayed(this::processNextTask, 1500);
-        } else if (cmdType.equals("CLICK")) {
-            smartClick(parts.length > 1 ? parts[1] : "");
-            mainHandler.postDelayed(this::processNextTask, 2000);
-        } else if (cmdType.equals("APP")) {
-            openApp(parts.length > 1 ? parts[1] : "");
-            mainHandler.postDelayed(this::processNextTask, 5000);
-        } else { processNextTask(); }
+        } else {
+            processNextTask();
+        }
+    }
+
+    // 🚀 ایپ اوپن کرنے والا انجن (جو میں نے غلطی سے اڑا دیا تھا) 🚀
+    private void openAppAndSearch(String targetApp, String targetContent) {
+        PackageManager pm = getPackageManager();
+        boolean appFound = false;
+        for (ApplicationInfo packageInfo : pm.getInstalledApplications(PackageManager.GET_META_DATA)) {
+            if (pm.getApplicationLabel(packageInfo).toString().toLowerCase().contains(targetApp.toLowerCase())) {
+                Intent launchIntent = pm.getLaunchIntentForPackage(packageInfo.packageName);
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(launchIntent);
+                    appFound = true;
+                    if (!targetContent.equals("none")) mainHandler.postDelayed(() -> smartClick(targetContent), 4000);
+                }
+                break;
+            }
+        }
+        if (!appFound) {
+            sendResultToChat("رضا بھائی، مجھے موبائل میں '" + targetApp + "' نام کی کوئی ایپ نہیں ملی۔");
+        }
     }
 
     private void readScreenRealTime() {
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) { sendResultToChat("SCREEN_DATA||سکرین خالی ہے۔"); return; }
-        StringBuilder sb = new StringBuilder();
-        extractText(root, sb);
-        sendResultToChat("SCREEN_DATA||" + sb.toString());
+        AccessibilityNodeInfo rootNode = getRootInActiveWindow();
+        if (rootNode == null) {
+            sendResultToChat("SCREEN_DATA||سکرین پر کچھ پڑھنے کو نہیں ملا۔");
+            return;
+        }
+        StringBuilder screenText = new StringBuilder();
+        extractTextFromNodes(rootNode, screenText);
+        String finalData = screenText.toString().trim();
+        if (finalData.isEmpty()) finalData = "سکرین پر کوئی ٹیکسٹ نہیں ہے۔";
+        sendResultToChat("SCREEN_DATA||" + finalData);
     }
 
-    private void extractText(AccessibilityNodeInfo node, StringBuilder sb) {
+    private void extractTextFromNodes(AccessibilityNodeInfo node, StringBuilder sb) {
         if (node == null) return;
-        if (node.getText() != null) sb.append(node.getText()).append(" ");
-        for (int i = 0; i < node.getChildCount(); i++) extractText(node.getChild(i), sb);
+        if (node.getText() != null) sb.append(node.getText().toString()).append(". ");
+        else if (node.getContentDescription() != null) sb.append(node.getContentDescription().toString()).append(". ");
+        for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb);
     }
 
     private void takeAndSendScreenshot() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
                 @Override
-                public void onSuccess(ScreenshotResult result) {
+                public void onSuccess(ScreenshotResult screenshotResult) {
                     try {
-                        Bitmap hwBitmap = Bitmap.wrapHardwareBuffer(result.getHardwareBuffer(), result.getColorSpace());
-                        Bitmap swBitmap = hwBitmap.copy(Bitmap.Config.ARGB_8888, false);
-                        Bitmap resized = Bitmap.createScaledBitmap(swBitmap, swBitmap.getWidth()/2, swBitmap.getHeight()/2, true);
-                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                        resized.compress(Bitmap.CompressFormat.JPEG, 15, bos);
-                        latestScreenshotBase64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
-                        sendBroadcast(new Intent("SCREENSHOT_CAPTURED"));
-                        swBitmap.recycle(); resized.recycle();
-                    } catch (Exception e) { sendResultToChat("تصویر دیکھنے میں مسئلہ ہوا۔"); }
+                        HardwareBuffer hardwareBuffer = screenshotResult.getHardwareBuffer();
+                        Bitmap hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshotResult.getColorSpace());
+                        if (hardwareBitmap != null) {
+                            Bitmap softwareBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false);
+                            int width = softwareBitmap.getWidth() / 2;
+                            int height = softwareBitmap.getHeight() / 2;
+                            Bitmap resizedBitmap = Bitmap.createScaledBitmap(softwareBitmap, width, height, true);
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 20, baos); 
+                            latestScreenshotBase64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+                            sendBroadcast(new Intent("SCREENSHOT_CAPTURED"));
+                            hardwareBuffer.close();
+                            if (!softwareBitmap.isRecycled()) softwareBitmap.recycle();
+                            if (!resizedBitmap.isRecycled()) resizedBitmap.recycle();
+                        }
+                    } catch (Exception e) {
+                        sendResultToChat("تصویر پروسیس کرنے میں مسئلہ آیا ہے۔");
+                    }
                 }
-                @Override public void onFailure(int i) { sendResultToChat("سکرین شاٹ فیل ہو گیا۔"); }
+                @Override public void onFailure(int errorCode) { sendResultToChat("سکرین شاٹ لینے میں ایرر آ گیا۔"); }
             });
         }
     }
 
-    private void sendResultToChat(String msg) {
-        Intent i = new Intent("NEW_MESSAGE_FROM_CALL");
-        i.putExtra("message", msg);
-        sendBroadcast(i);
+    private void sendResultToChat(String result) {
+        Intent intent = new Intent("NEW_MESSAGE_FROM_CALL");
+        intent.putExtra("message", result);
+        sendBroadcast(intent);
     }
 
-    private void openApp(String appName) {
-        PackageManager pm = getPackageManager();
-        Intent intent = pm.getLaunchIntentForPackage(appName); // Simple for now
-        if (intent != null) { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(intent); }
+    private void smartClick(String targetText) {
+        AccessibilityNodeInfo rootNode = getRootInActiveWindow();
+        if (rootNode == null) return;
+        List<AccessibilityNodeInfo> nodes = rootNode.findAccessibilityNodeInfosByText(targetText);
+        if (nodes.isEmpty() && targetText.toLowerCase().contains("profile")) {
+             nodes = rootNode.findAccessibilityNodeInfosByText("Ali Raza"); 
+        }
+        if (!nodes.isEmpty()) {
+            clickFirstClickable(nodes.get(0));
+            sendResultToChat("میں نے '" + targetText + "' پر کلک کر دیا ہے۔");
+        } else {
+            deepSearchByDescription(rootNode, targetText);
+        }
     }
 
-    private void smartClick(String text) { /* Previous logic */ }
-    private void performSmoothScroll(String dir) { /* Previous logic */ }
+    private void deepSearchByDescription(AccessibilityNodeInfo node, String targetText) {
+        if (node == null) return;
+        CharSequence desc = node.getContentDescription();
+        if (desc != null && desc.toString().toLowerCase().contains(targetText.toLowerCase())) {
+            clickFirstClickable(node);
+            sendResultToChat("میں نے بٹن پر کلک کر دیا ہے۔");
+            return;
+        }
+        for (int i = 0; i < node.getChildCount(); i++) deepSearchByDescription(node.getChild(i), targetText);
+    }
+
+    private void clickFirstClickable(AccessibilityNodeInfo node) {
+        if (node == null) return;
+        if (node.isClickable()) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        else clickFirstClickable(node.getParent());
+    }
+
+    private void performSmoothScroll(String direction) {
+        int height = getResources().getDisplayMetrics().heightPixels;
+        int width = getResources().getDisplayMetrics().widthPixels;
+        Path path = new Path();
+        if (direction.equals("DOWN")) { path.moveTo(width / 2f, height * 0.8f); path.lineTo(width / 2f, height * 0.2f); }
+        else { path.moveTo(width / 2f, height * 0.2f); path.lineTo(width / 2f, height * 0.8f); }
+        GestureDescription.Builder builder = new GestureDescription.Builder();
+        builder.addStroke(new GestureDescription.StrokeDescription(path, 100, 500));
+        dispatchGesture(builder.build(), null, null);
+    }
+
+    private void changeVolume(String level) {
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager != null) {
+            int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, level.equals("MAX") ? max : 0, 0);
+        }
+    }
+
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {}
     @Override public void onInterrupt() {}
-    @Override protected void onServiceConnected() {
+
+    @Override
+    protected void onServiceConnected() {
         super.onServiceConnected();
-        registerReceiver(commandReceiver, new IntentFilter("AI_COMMAND_BROADCAST"), Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? Context.RECEIVER_NOT_EXPORTED : 0);
+        IntentFilter filter = new IntentFilter("AI_COMMAND_BROADCAST");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) registerReceiver(commandReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(commandReceiver, filter);
     }
-}
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
+    }
+                                }
+            
