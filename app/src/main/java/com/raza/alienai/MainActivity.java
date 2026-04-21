@@ -47,12 +47,9 @@ public class MainActivity extends AppCompatActivity {
                     webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + msg.replace("'", "\\'") + "');", null);
                 }
             } else if ("SCREENSHOT_CAPTURED".equals(intent.getAction())) {
-                // 🚨 ڈائریکٹ مشترکہ میموری سے تصویر اٹھائیں 🚨
-                String base64 = AyeshaAccessibilityService.latestScreenshotBase64;
-                if (webView != null && base64 != null && !base64.isEmpty()) {
-                    webView.evaluateJavascript("javascript:if(window.processScreenshot) window.processScreenshot('" + base64 + "');", null);
-                    // میموری کو خالی کر دیں تاکہ ریم فری ہو جائے
-                    AyeshaAccessibilityService.latestScreenshotBase64 = ""; 
+                // 🚨 جاوا سکرپٹ کو صرف سگنل دو، تصویر مت دھکیلو 🚨
+                if (webView != null) {
+                    webView.evaluateJavascript("javascript:if(window.triggerScreenshot) window.triggerScreenshot();", null);
                 }
             }
         }
@@ -216,6 +213,14 @@ public class MainActivity extends AppCompatActivity {
                 sendBroadcast(intent);
             });
         }
+
+        // 🚀 جاوا سکرپٹ کے لیے تصویر پل (Pull) کرنے کا نیا فنکشن 🚀
+        @JavascriptInterface
+        public String pullScreenshot() {
+            String b64 = AyeshaAccessibilityService.latestScreenshotBase64;
+            AyeshaAccessibilityService.latestScreenshotBase64 = ""; // تصویر دیتے ہی میموری خالی
+            return b64 != null ? b64 : "";
+        }
     }
 
     @Override
@@ -235,5 +240,5 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-                }
-                                                                                   
+                    }
+                
