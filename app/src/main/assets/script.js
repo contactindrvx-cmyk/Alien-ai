@@ -176,17 +176,18 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState();
     };
 
-    // 🚨 آٹو سینڈ لاجک 🚨
+    // 🚨 1.5 سیکنڈ آٹو سینڈ لاجک (نارمل اور کال دونوں موڈز کے لیے) 🚨
     window.updateInputFromJava = function(text, finalResult) {
         inputNormal.value = text; inputCall.value = text; updateUIState();
         if(finalResult) {
             clearTimeout(voiceTimeout);
-            // یوزر کے چپ ہونے کے ٹھیک 1 سیکنڈ بعد بٹن خود کلک ہو جائے گا (لائیو کال موڈ میں)
-            if (isCallActive) {
-                voiceTimeout = setTimeout(() => { 
-                    if (inputCall.value.trim().length > 0) cgSend.click(); 
-                }, 1000); 
-            }
+            // یوزر کے چپ ہونے کے ٹھیک 1.5 سیکنڈ بعد بٹن خود کلک ہو جائے گا
+            voiceTimeout = setTimeout(() => { 
+                const activeInput = isCallActive ? inputCall : inputNormal;
+                if (activeInput.value.trim().length > 0 || pendingImg) {
+                    if(isCallActive) cgSend.click(); else inSend.click(); 
+                }
+            }, 1500); 
         }
     };
 
@@ -217,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('thinking-indicator').classList.remove('hidden');
             
-            // 🚀 پرانا اور مضبوط FETCH طریقہ 🚀
             fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
                 method: "POST", headers: { "Content-Type": "application/json" }, 
                 body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
@@ -228,11 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
                 
-                // 🚨 کمانڈ کیچر 🚨
-                let cmdMatch = cleanText.match(/\[ACTION:(.*?), DATA:(.*?)\]/);
+                // 🚨 ملٹی ٹاسک اور یونیورسل کمانڈ کیچر 🚨
+                let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?),\s*DATA:\s*(.*?)\]/);
                 if (cmdMatch) {
-                    let action = cmdMatch[1];
-                    let actionData = cmdMatch[2];
+                    let action = cmdMatch[1].trim();
+                    let actionData = cmdMatch[2].trim();
                     if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
                         window.AndroidBridge.sendAccessibilityCommand(action, actionData);
                     }
@@ -254,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cgSend.onclick = handleSendClick;
 });
 
-// 🚨 فائنل اور درست addMessage فنکشن (اب میسج لازمی شو ہوگا) 🚨
 function addMessage(text, sender, imgUrl = null) {
     const chatBox = document.getElementById('chat-box'); 
     const msgDiv = document.createElement('div');
@@ -281,11 +280,10 @@ function addMessage(text, sender, imgUrl = null) {
             playCloudQueue(this);
         };
 
-        // 🚨 یہ وہ لائن ہے جو پہلے مسنگ تھی۔ اب میسج سکرین پر پرنٹ ہوگا! 🚨
         chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         
         return btn;
     }
-                          }
-                    
+        }
+                
