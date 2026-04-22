@@ -49,7 +49,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean isTextModeRecording = false;
     private boolean isCallModeActive = false;
     
-    // 🚨 عائشہ کی زبان (TTS) جو مجھ سے غلطی سے ڈیلیٹ ہو گئی تھی 🚨
     private TextToSpeech tts;
 
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
@@ -106,9 +105,7 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("file:///android_asset/index.html");
         requestPermissions();
         
-        // 🚨 یہ فنکشن مسنگ تھا جس کی وجہ سے آواز نہیں آ رہی تھی 🚨
         initTextToSpeech();
-        
         setupTextModeRecognizer();
 
         IntentFilter filter = new IntentFilter();
@@ -126,7 +123,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🚨 آواز کے انجن کا کوڈ 🚨
     private void initTextToSpeech() {
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -281,7 +277,6 @@ public class MainActivity extends AppCompatActivity {
             }).start();
         }
 
-        // 🚨 یہ وہ فنکشنز ہیں جو عائشہ کو نارمل موڈ میں بولنے کی اجازت دیں گے 🚨
         @JavascriptInterface 
         public void speakText(String text) { 
             if (tts != null) {
@@ -297,7 +292,17 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface public void muteCall(boolean isMuted) { Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); intent.setAction("ACTION_MUTE_CALL"); intent.putExtra("isMuted", isMuted); startService(intent); }
-        @JavascriptInterface public void sendAccessibilityCommand(String action, String data) { Intent intent = new Intent("AI_COMMAND_BROADCAST"); intent.putExtra("action", action); intent.putExtra("data", data); sendBroadcast(intent); }
+        
+        @JavascriptInterface 
+        public void sendAccessibilityCommand(String action, String data) { 
+            Intent intent = new Intent("AI_COMMAND_BROADCAST"); 
+            intent.putExtra("action", action); 
+            intent.putExtra("data", data); 
+            // 🚨 براڈکاسٹ فکس: ایپ کا پیکیج سیٹ کر دیا تاکہ سیکیورٹی بلاک نہ کرے 🚨
+            intent.setPackage(getPackageName());
+            sendBroadcast(intent); 
+        }
+        
         @JavascriptInterface public String pullScreenshot() { String b64 = AyeshaAccessibilityService.latestScreenshotBase64; AyeshaAccessibilityService.latestScreenshotBase64 = ""; return b64 != null ? b64 : ""; }
         @JavascriptInterface public String pullScreenText() { String text = AyeshaAccessibilityService.latestScreenText; AyeshaAccessibilityService.latestScreenText = ""; return text != null ? text : ""; }
     }
@@ -313,13 +318,8 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onDestroy() {
         super.onDestroy();
         if (textModeRecognizer != null) textModeRecognizer.destroy();
-        
-        // 🚨 ایپ بند ہونے پر TTS کو بھی بند کریں 🚨
-        if (tts != null) { 
-            tts.stop(); 
-            tts.shutdown(); 
-        }
+        if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-                    }
-                        
+                }
+            
