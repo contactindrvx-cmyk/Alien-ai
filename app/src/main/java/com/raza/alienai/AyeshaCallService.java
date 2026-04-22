@@ -11,7 +11,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
+import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -51,7 +51,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     
     private boolean isCallActive = false;
     public static boolean isMutedByUser = false; 
-    private boolean isMicReleasedForOtherApp = false; // واٹس ایپ کے لیے مائیک چھوڑنے کا ٹریکر
+    private boolean isMicReleasedForOtherApp = false; 
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
     private AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
@@ -110,17 +110,14 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }
     }
 
-    // 🚀 واٹس ایپ اور دیگر ایپس کے لیے مائیک کا کنٹرول (Audio Focus) 🚀
     private void setupAudioFocus() {
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         audioFocusChangeListener = focusChange -> {
             if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                // کسی اور ایپ (جیسے واٹس ایپ) نے مائیک مانگا ہے، عائشہ فوراً چھوڑ دے گی
                 isMicReleasedForOtherApp = true;
                 if (speechRecognizer != null) speechRecognizer.stopListening();
                 if (tts != null && tts.isSpeaking()) tts.stop();
             } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                // دوسری ایپ نے مائیک کا استعمال ختم کر دیا، عائشہ واپس جاگ جائے گی
                 isMicReleasedForOtherApp = false;
                 restartMicSilently();
             }
@@ -142,7 +139,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             @Override public void onReadyForSpeech(Bundle params) {}
             
             @Override public void onBeginningOfSpeech() {
-                // 🚀 BARGE-IN: یوزر بولے تو عائشہ چپ کر جائے گی 🚀
                 if (tts != null && tts.isSpeaking()) {
                     tts.stop();
                 }
@@ -160,7 +156,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String spokenText = matches.get(0).trim();
-                    // اگر یوزر نے بات کی ہے تو سرور کو بھیجو
                     if (spokenText.length() >= 2 && !isMutedByUser) {
                         sendToPythonServer(spokenText);
                     }
@@ -179,7 +174,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         if (!isCallActive || isMicReleasedForOtherApp || tts.isSpeaking()) return;
         mainHandler.post(() -> {
             try {
-                // سسٹم کی بیپ کو سائلنٹ کر کے مائیک آن کرنا
                 if (audioManager != null) audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0);
                 speechRecognizer.startListening(speechRecognizerIntent);
                 mainHandler.postDelayed(() -> {
@@ -189,7 +183,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         });
     }
 
-    // 🚀 بیک گراؤنڈ پائپ لائن جو سرور سے بات کرے گی 🚀
     private void sendToPythonServer(String message) {
         new Thread(() -> {
             try {
@@ -203,11 +196,10 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 payload.put("message", message);
                 payload.put("email", "alirazasabir007@gmail.com");
                 
-                // اگر بیک گراؤنڈ میں سکرین شاٹ لیا گیا ہے تو وہ بھیجو
                 String currentB64 = AyeshaAccessibilityService.latestScreenshotBase64;
                 if (currentB64 != null && !currentB64.isEmpty()) {
                     payload.put("image", currentB64);
-                    AyeshaAccessibilityService.latestScreenshotBase64 = ""; // Clear after sending
+                    AyeshaAccessibilityService.latestScreenshotBase64 = ""; 
                 }
                 
                 OutputStream os = conn.getOutputStream();
@@ -247,10 +239,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 }
                 
                 String finalText = fullResponse.toString();
-                // 🚀 جاوا سکرپٹ کی محتاجی ختم! بیک گراؤنڈ سروس خود ایکشن پرفارم کرے گی 🚀
                 processBackgroundActions(finalText);
                 
-                // UI اپڈیٹ کرنے کے لیے مین ایکٹیویٹی کو براڈکاسٹ بھیج دو (اگر یوزر ایپ کے اندر ہوا تو دیکھ لے گا)
                 Intent uiIntent = new Intent("NEW_MESSAGE_FROM_CALL");
                 uiIntent.putExtra("message", finalText);
                 sendBroadcast(uiIntent);
@@ -272,7 +262,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 action = "MULTI_TASK";
             }
             
-            // براہ راست Accessibility Service کو ایکشن بھیجنا (بغیر ویب ویو کے)
             Intent intent = new Intent("AI_COMMAND_BROADCAST");
             intent.putExtra("action", action);
             intent.putExtra("data", data);
@@ -286,25 +275,23 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String s) {}
                 @Override public void onError(String s) { restartMicSilently(); }
-                @Override public void onDone(String s) { restartMicSilently(); } // بولنے کے بعد مائیک آن
+                @Override public void onDone(String s) { restartMicSilently(); }
             });
         }
     }
     
     private void speak(String text) { 
         if (tts != null && !isMicReleasedForOtherApp) { 
-            // 🚨 بات کاٹنے کے لیے QUEUE_ADD لگایا ہے، تاکہ جملے ترتیب سے بولے جائیں اور بیچ میں روکے جا سکیں 🚨
             tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaCallID"); 
         } 
     }
     
+    // 🚨 BUG FIX: ToneGenerator کا استعمال جو کبھی کریش نہیں ہوگا 🚨
     private void playConnectSound() {
         try {
-            MediaPlayer mp = MediaPlayer.create(this, android.R.raw.ok); // اینڈرائیڈ ڈیفالٹ بیپ
-            if (mp != null) {
-                mp.start();
-                mp.setOnCompletionListener(MediaPlayer::release);
-            }
+            ToneGenerator toneGen = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
+            new Handler(Looper.getMainLooper()).postDelayed(toneGen::release, 200);
         } catch (Exception e) {}
     }
 
@@ -330,5 +317,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
     
     @Override public IBinder onBind(Intent intent) { return null; }
-        }
-                
+                    }
+            
