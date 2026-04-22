@@ -22,9 +22,7 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
-import android.widget.Toast;
 
-import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
 import org.json.JSONObject;
@@ -45,38 +43,30 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     public static final String ACTION_MUTE_CALL = "MUTE_AYESHA_CALL";
 
     private SpeechRecognizer speechRecognizer;
-    private Intent speechRecognizerIntent;
+    private Intent speechIntent;
     private TextToSpeech tts;
     private AudioManager audioManager;
     
     private boolean isCallActive = false;
+    private boolean isListening = false; // 🚀 ٹک ٹک روکنے کے لیے 🚀
     public static boolean isMutedByUser = false; 
     private boolean isMicReleasedForOtherApp = false; 
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
-    private AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null) {
-            String action = intent.getAction();
-            if (ACTION_STOP_SERVICE.equals(action)) {
-                endCallCompletely();
-                return START_NOT_STICKY;
-            } else if (ACTION_MUTE_CALL.equals(action)) {
-                isMutedByUser = intent.getBooleanExtra("isMuted", false); 
-                return START_STICKY;
-            }
+        if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
+            endCallCompletely();
+            return START_NOT_STICKY;
         }
         
         isCallActive = true;
         startCallForeground(); 
         
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        // 🚀 اینڈرائیڈ کو بتاؤ کہ کال چل رہی ہے، اس سے مائیک ٹک ٹک نہیں کرے گا 🚀
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         
-        setupAudioFocus();
         setupSpeechRecognizer();
         playConnectSound();
         
@@ -86,24 +76,15 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private void startCallForeground() {
         String channelId = "AyeshaCallChannel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId, "Ayesha Live Call", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(channelId, "عائشہ لائیو کال", NotificationManager.IMPORTANCE_LOW);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
         
-        Intent openAppIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingOpenApp = PendingIntent.getActivity(this, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE);
-        
-        Intent stopIntent = new Intent(this, AyeshaCallService.class);
-        stopIntent.setAction(ACTION_STOP_SERVICE);
-        PendingIntent pendingStop = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE);
-        
         Notification notification = new NotificationCompat.Builder(this, channelId)
                 .setContentTitle("عائشہ لائیو کال")
-                .setContentText("عائشہ آپ کی بات سن رہی ہے...")
+                .setContentText("عائشہ آپ کی آواز سن رہی ہے...")
                 .setSmallIcon(R.drawable.app_logo)
                 .setOngoing(true)
-                .setContentIntent(pendingOpenApp)
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End Call", pendingStop)
                 .build();
 
         if (Build.VERSION.SDK_INT >= 29) {
@@ -113,97 +94,60 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }
     }
 
-    private void setupAudioFocus() {
-        audioFocusChangeListener = focusChange -> {
-            if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                isMicReleasedForOtherApp = true;
-                if (speechRecognizer != null) speechRecognizer.stopListening();
-                if (tts != null && tts.isSpeaking()) tts.stop();
-            } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                isMicReleasedForOtherApp = false;
-                restartMicSilently();
-            }
-        };
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
-        }
-    }
-
     private void setupSpeechRecognizer() {
-        mainHandler.post(() -> {
-            if (speechRecognizer != null) {
-                speechRecognizer.destroy();
+        if (speechRecognizer != null) speechRecognizer.destroy();
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        
+        speechIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
+        // مائیک کو لمبا کھلا رکھنے کی کوشش
+        speechIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L);
+
+        speechRecognizer.setRecognitionListener(new RecognitionListener() {
+            @Override public void onReadyForSpeech(Bundle params) { 
+                isListening = true; 
+                unmuteSystem(); 
             }
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-            speechRecognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
-            
-            // 🚨 10 سیکنڈ تک خاموشی برداشت کرنے کی طاقت 🚨
-            speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L);
-            speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L);
-            speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L);
-
-            speechRecognizer.setRecognitionListener(new RecognitionListener() {
-                @Override public void onReadyForSpeech(Bundle params) {}
-                
-                @Override public void onBeginningOfSpeech() {
-                    // BARGE-IN: یوزر بولے تو عائشہ چپ کر جائے گی
-                    if (tts != null && tts.isSpeaking()) {
-                        tts.stop();
-                    }
+            @Override public void onBeginningOfSpeech() { if (tts.isSpeaking()) tts.stop(); }
+            @Override public void onRmsChanged(float rmsdB) {}
+            @Override public void onBufferReceived(byte[] buffer) {}
+            @Override public void onEndOfSpeech() { isListening = false; }
+            @Override public void onError(int error) {
+                isListening = false;
+                if (isCallActive) mainHandler.postDelayed(() -> restartMicSilently(), 1000); 
+            }
+            @Override public void onResults(Bundle results) {
+                isListening = false;
+                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (matches != null && !matches.isEmpty()) {
+                    String text = matches.get(0).trim();
+                    if (text.length() >= 2 && !isMutedByUser) sendToPythonServer(text);
                 }
-
-                @Override public void onRmsChanged(float rmsdB) {}
-                @Override public void onBufferReceived(byte[] buffer) {}
-                @Override public void onEndOfSpeech() {}
-                
-                @Override public void onError(int error) {
-                    if (error == SpeechRecognizer.ERROR_CLIENT || error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
-                        setupSpeechRecognizer();
-                    } else {
-                        restartMicSilently();
-                    }
-                }
-
-                @Override public void onResults(Bundle results) {
-                    ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                    if (matches != null && !matches.isEmpty()) {
-                        String spokenText = matches.get(0).trim();
-                        if (spokenText.length() >= 2 && !isMutedByUser) {
-                            sendToPythonServer(spokenText);
-                        }
-                    }
-                    restartMicSilently();
-                }
-
-                @Override public void onPartialResults(Bundle partialResults) {}
-                @Override public void onEvent(int eventType, Bundle params) {}
-            });
-            
-            restartMicSilently();
+                if (isCallActive) restartMicSilently();
+            }
+            @Override public void onPartialResults(Bundle partialResults) {}
+            @Override public void onEvent(int eventType, Bundle params) {}
         });
+        restartMicSilently();
     }
 
     private void restartMicSilently() {
-        if (!isCallActive || isMicReleasedForOtherApp || (tts != null && tts.isSpeaking())) return;
+        if (!isCallActive || isListening || (tts != null && tts.isSpeaking())) return;
         mainHandler.post(() -> {
             try {
-                // سسٹم ساؤنڈ بند کر کے مائیک آن کرنا تاکہ بیپ نہ بجے
-                if (audioManager != null) {
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0);
-                }
-                speechRecognizer.startListening(speechRecognizerIntent);
-                mainHandler.postDelayed(() -> {
-                    if (audioManager != null) {
-                        audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0);
-                    }
-                }, 400);
-            } catch (Exception e) {
-                setupSpeechRecognizer(); 
-            }
+                muteSystem();
+                speechRecognizer.startListening(speechIntent);
+            } catch (Exception e) { setupSpeechRecognizer(); }
         });
+    }
+
+    private void muteSystem() {
+        if (audioManager != null) audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0);
+    }
+
+    private void unmuteSystem() {
+        if (audioManager != null) audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0);
     }
 
     private void sendToPythonServer(String message) {
@@ -219,137 +163,69 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 payload.put("message", message);
                 payload.put("email", "alirazasabir007@gmail.com");
                 
-                // سکرین شاٹ بھیجنے کا حصہ
-                String currentB64 = AyeshaAccessibilityService.latestScreenshotBase64;
-                if (currentB64 != null && !currentB64.isEmpty()) {
-                    payload.put("image", currentB64);
-                    AyeshaAccessibilityService.latestScreenshotBase64 = ""; 
-                }
-                
                 OutputStream os = conn.getOutputStream();
                 os.write(payload.toString().getBytes("UTF-8"));
                 os.close();
                 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 String line;
-                StringBuilder fullResponse = new StringBuilder();
                 StringBuilder ttsBuffer = new StringBuilder();
                 
                 while ((line = reader.readLine()) != null) {
                     if (line.startsWith("data: ")) {
-                        String data = line.substring(6);
-                        if (data.trim().isEmpty() || data.equals("[DONE]")) continue;
-                        
-                        try {
-                            JSONObject json = new JSONObject(data);
-                            String chunkText = json.getString("text");
-                            fullResponse.append(chunkText);
-                            
-                            ttsBuffer.append(chunkText);
-                            if (chunkText.contains("۔") || chunkText.contains("؟") || chunkText.contains(".") || chunkText.contains("\n")) {
-                                String sentence = ttsBuffer.toString().trim();
-                                if (!sentence.isEmpty() && !sentence.contains("[ACTION:")) {
-                                    speak(sentence);
-                                }
-                                ttsBuffer.setLength(0);
-                            }
-                        } catch (Exception e) {}
+                        JSONObject json = new JSONObject(line.substring(6));
+                        String chunkText = json.getString("text");
+                        ttsBuffer.append(chunkText);
+                        if (chunkText.contains("۔") || chunkText.contains("؟") || chunkText.contains(".")) {
+                            speak(ttsBuffer.toString().trim());
+                            ttsBuffer.setLength(0);
+                        }
                     }
                 }
+                if (ttsBuffer.length() > 0) speak(ttsBuffer.toString().trim());
                 
-                String leftover = ttsBuffer.toString().trim();
-                if (!leftover.isEmpty() && !leftover.contains("[ACTION:")) {
-                    speak(leftover);
-                }
-                
-                String finalText = fullResponse.toString();
-                processBackgroundActions(finalText);
-                
-                Intent uiIntent = new Intent("NEW_MESSAGE_FROM_CALL");
-                uiIntent.putExtra("message", finalText);
-                sendBroadcast(uiIntent);
-                
-            } catch (Exception e) {
-                speak("معذرت، نیٹ ورک کا مسئلہ ہے۔");
-            }
+            } catch (Exception ignored) {}
         }).start();
     }
 
-    private void processBackgroundActions(String text) {
-        Pattern pattern = Pattern.compile("\\[ACTION:\\s*(.*?)(?:,\\s*DATA:\\s*(.*?))?\\]", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(text);
-        
-        while (matcher.find()) {
-            String action = matcher.group(1).trim();
-            String data = matcher.group(2) != null ? matcher.group(2).trim() : "none";
-            
-            if (action.contains("||") && !action.contains("MULTI_TASK")) {
-                data = action;
-                action = "MULTI_TASK";
-            }
-            
-            Intent intent = new Intent("AI_COMMAND_BROADCAST");
-            intent.putExtra("action", action);
-            intent.putExtra("data", data);
-            sendBroadcast(intent);
-        }
+    private void speak(String text) { 
+        if (tts != null && !text.contains("[ACTION:")) { 
+            Bundle params = new Bundle();
+            params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
+            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AyeshaID"); 
+        } 
     }
 
-    @Override public void onInit(int status) { 
+    @Override public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
-            tts.setLanguage(new Locale("ur", "PK")); 
+            tts.setLanguage(new Locale("ur", "PK"));
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String s) {}
-                @Override public void onError(String s) { restartMicSilently(); }
-                @Override public void onDone(String s) { restartMicSilently(); }
+                @Override public void onDone(String s) { if (isCallActive) restartMicSilently(); }
+                @Override public void onError(String s) { if (isCallActive) restartMicSilently(); }
             });
         }
     }
-    
-    private void speak(String text) { 
-        if (tts != null && !isMicReleasedForOtherApp) { 
-            Bundle params = new Bundle();
-            // 🚀 اواز کو فون کال والے اسٹریم پر بھیجیں تاکہ واضح سنائی دے 🚀
-            params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
-            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AyeshaCallID"); 
-        } 
-    }
-    
+
     private void playConnectSound() {
         try {
             ToneGenerator toneGen = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100);
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
-            new Handler(Looper.getMainLooper()).postDelayed(toneGen::release, 200);
-        } catch (Exception e) {}
+            mainHandler.postDelayed(toneGen::release, 300);
+        } catch (Exception ignored) {}
     }
 
     private void endCallCompletely() {
         isCallActive = false;
-        if (audioManager != null) {
-            audioManager.setMode(AudioManager.MODE_NORMAL);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusChangeListener != null) {
-                audioManager.abandonAudioFocus(audioFocusChangeListener);
-            }
-        }
-        if (speechRecognizer != null) {
-            speechRecognizer.destroy();
-            speechRecognizer = null;
-        }
+        if (audioManager != null) audioManager.setMode(AudioManager.MODE_NORMAL);
+        if (speechRecognizer != null) speechRecognizer.destroy();
         if (tts != null) { tts.stop(); tts.shutdown(); }
         stopForeground(true);
         stopSelf();
     }
-    
-    @Override public void onCreate() { 
-        super.onCreate(); 
-        tts = new TextToSpeech(this, this); 
-    }
-    
-    @Override public void onDestroy() { 
-        endCallCompletely();
-        super.onDestroy();
-    }
-    
+
+    @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
+    @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-                        }
-                            
+    }
+                                                       
