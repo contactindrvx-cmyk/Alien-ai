@@ -9,7 +9,6 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-// 🚀 نیٹو آڈیو پلے فنکشن 🚀
 function playNativeAudio(text, btn) {
     window.AyeshaAudio.isPlaying = true;
     window.AyeshaAudio.activeBtn = btn;
@@ -28,7 +27,6 @@ function playNativeAudio(text, btn) {
     }
 }
 
-// 🚀 جب جاوا بولنا ختم کرے گا 🚀
 window.onSpeechDone = function() {
     window.AyeshaAudio.isPlaying = false;
     let btn = window.AyeshaAudio.activeBtn;
@@ -189,7 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 🚀 NEW: سکرین کا سارا مواد اکٹھا کر کے بھیجے گا 🚀
     window.analyzeScreen = function() {
         let base64Image = "";
         let screenText = "";
@@ -234,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
 
         if (action === "ANALYZE_SCREEN" || action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
-            return; // 🚨 خاموش رہو، جاوا خود تصویر اور ٹیکسٹ بھیجے گا!
+            return; 
         }
 
         if (cleanText === "") cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
@@ -301,5 +298,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-                               }
-        
+                }
+                
