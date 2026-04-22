@@ -48,17 +48,29 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private AudioManager audioManager;
     
     private boolean isCallActive = false;
-    private boolean isListening = false; // 🚀 ٹک ٹک روکنے کے لیے 🚀
+    private boolean isListening = false; 
     public static boolean isMutedByUser = false; 
-    private boolean isMicReleasedForOtherApp = false; 
+    private boolean isMicReleasedForOtherApp = false; // واٹس ایپ کے لیے مائیک چھوڑنا
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
+    private AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
-            endCallCompletely();
-            return START_NOT_STICKY;
+        if (intent != null) {
+            String action = intent.getAction();
+            if (ACTION_STOP_SERVICE.equals(action)) {
+                endCallCompletely();
+                return START_NOT_STICKY;
+            } else if (ACTION_MUTE_CALL.equals(action)) {
+                isMutedByUser = intent.getBooleanExtra("isMuted", false); 
+                return START_STICKY;
+            } else if ("SCREEN_ANALYZED_WAKEUP".equals(action)) {
+                // 🚀 سکرین پڑھنے کے بعد یہ سروس جاگے گی اور تصویر بھیجے گی 🚀
+                String promptMsg = "[سکرین کا ڈیٹا موصول ہوا]\nصارف کی سکرین پر موجود چیزوں کا جائزہ لے کر اردو میں مختصر جواب دیں۔";
+                sendToPythonServer(promptMsg);
+                return START_STICKY;
+            }
         }
         
         isCallActive = true;
@@ -67,6 +79,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         
+        setupAudioFocus(); // واٹس ایپ کے لیے مائیک چھوڑنے والا فنکشن
         setupSpeechRecognizer();
         playConnectSound();
         
@@ -82,7 +95,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         
         Notification notification = new NotificationCompat.Builder(this, channelId)
                 .setContentTitle("عائشہ لائیو کال")
-                .setContentText("عائشہ آپ کی آواز سن رہی ہے...")
+                .setContentText("عائشہ پس منظر میں سن رہی ہے...")
                 .setSmallIcon(R.drawable.app_logo)
                 .setOngoing(true)
                 .build();
@@ -94,6 +107,24 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }
     }
 
+    // 🚀 واٹس ایپ اور دوسری ایپس کو مائیک دینے والا کوڈ 🚀
+    private void setupAudioFocus() {
+        audioFocusChangeListener = focusChange -> {
+            if (focusChange == AudioManager.AUDIOFOCUS_LOSS || focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                isMicReleasedForOtherApp = true;
+                if (speechRecognizer != null) speechRecognizer.stopListening();
+                if (tts != null && tts.isSpeaking()) tts.stop();
+            } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+                isMicReleasedForOtherApp = false;
+                restartMicSilently();
+            }
+        };
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+        }
+    }
+
     private void setupSpeechRecognizer() {
         if (speechRecognizer != null) speechRecognizer.destroy();
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
@@ -101,8 +132,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         speechIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
-        // مائیک کو لمبا کھلا رکھنے کی کوشش
-        speechIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L);
+        speechIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L); // 5 سیکنڈ خاموشی
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) { 
@@ -115,13 +145,14 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             @Override public void onEndOfSpeech() { isListening = false; }
             @Override public void onError(int error) {
                 isListening = false;
-                if (isCallActive) mainHandler.postDelayed(() -> restartMicSilently(), 1000); 
+                if (isCallActive && !isMicReleasedForOtherApp) mainHandler.postDelayed(() -> restartMicSilently(), 500); 
             }
             @Override public void onResults(Bundle results) {
                 isListening = false;
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String text = matches.get(0).trim();
+                    // صارف کی آواز سرور کو بھیجو
                     if (text.length() >= 2 && !isMutedByUser) sendToPythonServer(text);
                 }
                 if (isCallActive) restartMicSilently();
@@ -133,21 +164,26 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
 
     private void restartMicSilently() {
-        if (!isCallActive || isListening || (tts != null && tts.isSpeaking())) return;
+        if (!isCallActive || isListening || isMicReleasedForOtherApp || (tts != null && tts.isSpeaking())) return;
         mainHandler.post(() -> {
             try {
-                muteSystem();
+                muteSystem(); // بیپ کی آواز روکو
                 speechRecognizer.startListening(speechIntent);
+                mainHandler.postDelayed(this::unmuteSystem, 300); // 300ms بعد ساؤنڈ کھولو تاکہ عائشہ بول سکے
             } catch (Exception e) { setupSpeechRecognizer(); }
         });
     }
 
     private void muteSystem() {
-        if (audioManager != null) audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0);
+        if (audioManager != null) {
+            audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0);
+        }
     }
 
     private void unmuteSystem() {
-        if (audioManager != null) audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0);
+        if (audioManager != null) {
+            audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0);
+        }
     }
 
     private void sendToPythonServer(String message) {
@@ -163,36 +199,81 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 payload.put("message", message);
                 payload.put("email", "alirazasabir007@gmail.com");
                 
+                // تصویر سکرین شاٹ بھیجو اگر موجود ہو
+                String currentB64 = AyeshaAccessibilityService.latestScreenshotBase64;
+                if (currentB64 != null && !currentB64.isEmpty()) {
+                    payload.put("image", currentB64);
+                    AyeshaAccessibilityService.latestScreenshotBase64 = ""; 
+                }
+                
                 OutputStream os = conn.getOutputStream();
                 os.write(payload.toString().getBytes("UTF-8"));
                 os.close();
                 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 String line;
+                StringBuilder fullResponse = new StringBuilder();
                 StringBuilder ttsBuffer = new StringBuilder();
                 
                 while ((line = reader.readLine()) != null) {
                     if (line.startsWith("data: ")) {
-                        JSONObject json = new JSONObject(line.substring(6));
+                        String data = line.substring(6);
+                        if (data.trim().isEmpty() || data.equals("[DONE]")) continue;
+                        
+                        JSONObject json = new JSONObject(data);
                         String chunkText = json.getString("text");
+                        fullResponse.append(chunkText);
                         ttsBuffer.append(chunkText);
-                        if (chunkText.contains("۔") || chunkText.contains("؟") || chunkText.contains(".")) {
-                            speak(ttsBuffer.toString().trim());
+                        
+                        // 🚀 بولتے وقت [ACTION] والی کمانڈ کو نہیں بولنا 🚀
+                        if (chunkText.contains("۔") || chunkText.contains("؟") || chunkText.contains("\n")) {
+                            String sentence = ttsBuffer.toString().replaceAll("\\[.*?\\]", "").trim();
+                            if (!sentence.isEmpty()) speak(sentence);
                             ttsBuffer.setLength(0);
                         }
                     }
                 }
-                if (ttsBuffer.length() > 0) speak(ttsBuffer.toString().trim());
                 
-            } catch (Exception ignored) {}
+                String leftover = ttsBuffer.toString().replaceAll("\\[.*?\\]", "").trim();
+                if (!leftover.isEmpty()) speak(leftover);
+                
+                // 🚀 اب یہ ایکشن لے گی (جیسے یوٹیوب ان کرنا) 🚀
+                String finalText = fullResponse.toString();
+                processBackgroundActions(finalText);
+                
+                // 🚀 UI (سکرین) کو بھی اپڈیٹ کرے گی 🚀
+                Intent uiIntent = new Intent("NEW_MESSAGE_FROM_CALL");
+                uiIntent.putExtra("message", finalText);
+                sendBroadcast(uiIntent);
+                
+            } catch (Exception ignored) {
+                speak("معذرت، انٹرنیٹ کا مسئلہ ہے۔");
+            }
         }).start();
     }
 
+    private void processBackgroundActions(String text) {
+        Pattern pattern = Pattern.compile("\\[ACTION:\\s*(.*?)(?:,\\s*DATA:\\s*(.*?))?\\]", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(text);
+        while (matcher.find()) {
+            String action = matcher.group(1).trim();
+            String data = matcher.group(2) != null ? matcher.group(2).trim() : "none";
+            if (action.contains("||") && !action.contains("MULTI_TASK")) {
+                data = action;
+                action = "MULTI_TASK";
+            }
+            Intent intent = new Intent("AI_COMMAND_BROADCAST");
+            intent.putExtra("action", action);
+            intent.putExtra("data", data);
+            sendBroadcast(intent);
+        }
+    }
+
     private void speak(String text) { 
-        if (tts != null && !text.contains("[ACTION:")) { 
+        if (tts != null && !isMicReleasedForOtherApp) { 
             Bundle params = new Bundle();
             params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
-            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AyeshaID"); 
+            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AyeshaCallID"); 
         } 
     }
 
@@ -217,7 +298,12 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
 
     private void endCallCompletely() {
         isCallActive = false;
-        if (audioManager != null) audioManager.setMode(AudioManager.MODE_NORMAL);
+        if (audioManager != null) {
+            audioManager.setMode(AudioManager.MODE_NORMAL);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusChangeListener != null) {
+                audioManager.abandonAudioFocus(audioFocusChangeListener);
+            }
+        }
         if (speechRecognizer != null) speechRecognizer.destroy();
         if (tts != null) { tts.stop(); tts.shutdown(); }
         stopForeground(true);
@@ -227,5 +313,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-    }
-                                                       
+                    }
+        
