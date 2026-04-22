@@ -186,7 +186,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private void sendToPythonServer(String message) {
         new Thread(() -> {
             try {
-                URL url = new URL("https://aigrowthbox-ayesha-ai.hf.space/chat");
+                // 🚨 نیا AWS سرور کا لنک یہاں اپڈیٹ کر دیا گیا ہے 🚨
+                URL url = new URL("http://13.60.217.225:8000/chat");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
@@ -258,7 +259,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             Intent intent = new Intent("AI_COMMAND_BROADCAST");
             intent.putExtra("action", action);
             intent.putExtra("data", data);
-            // 🚨 براڈکاسٹ فکس 🚨
             intent.setPackage(getPackageName());
             sendBroadcast(intent);
         }
@@ -308,5 +308,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-            }
-                
+                    }
+                            
