@@ -27,6 +27,8 @@ import java.util.Queue;
 public class AyeshaAccessibilityService extends AccessibilityService {
 
     public static String latestScreenshotBase64 = "";
+    public static String latestScreenText = "";
+    
     private Queue<String> taskQueue = new LinkedList<>();
     private boolean isTaskRunning = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -38,13 +40,12 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             String data = intent.getStringExtra("data");
             
             if (action != null) {
-                // 🚨 BUG FIX: کمانڈز کو صحیح سے توڑ کر کیو (Queue) میں ڈالو 🚨
                 if (action.equals("MULTI_TASK") && data != null) {
                     String[] tasks = data.split("&&");
                     for (String task : tasks) {
                         taskQueue.add(task.trim());
                     }
-                } else if (action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
+                } else if (action.equals("ANALYZE_SCREEN") || action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
                     taskQueue.add(action + "||" + (data != null ? data : "none"));
                 }
                 
@@ -60,26 +61,73 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         String[] parts = currentTask.split("\\|\\|");
         String cmdType = parts[0].trim();
 
-        if (cmdType.equals("READ_SCREEN")) {
-            readScreenRealTime();
-            mainHandler.postDelayed(this::processNextTask, 1000);
-        } else if (cmdType.equals("TAKE_SCREENSHOT")) {
+        if (cmdType.equals("ANALYZE_SCREEN") || cmdType.equals("TAKE_SCREENSHOT") || cmdType.equals("READ_SCREEN")) {
+            latestScreenText = extractAllText(); 
             takeAndSendScreenshot();
             mainHandler.postDelayed(this::processNextTask, 3000);
-        } else if (cmdType.equals("SCROLL")) {
-            performSmoothScroll(parts.length > 1 ? parts[1].trim() : "DOWN");
-            mainHandler.postDelayed(this::processNextTask, 1500);
-        } else if (cmdType.equals("CLICK")) {
-            smartClick(parts.length > 1 ? parts[1].trim() : "");
-            mainHandler.postDelayed(this::processNextTask, 2000);
         } else if (cmdType.equals("APP")) {
             fastOpenApp(parts.length > 1 ? parts[1].trim() : "");
             mainHandler.postDelayed(this::processNextTask, 3000); 
+        } else if (cmdType.equals("CLICK")) {
+            smartClick(parts.length > 1 ? parts[1].trim() : "");
+            mainHandler.postDelayed(this::processNextTask, 2000);
+        } else if (cmdType.equals("SCROLL")) {
+            performSmoothScroll(parts.length > 1 ? parts[1].trim() : "DOWN");
+            mainHandler.postDelayed(this::processNextTask, 1500);
         } else if (cmdType.equals("VOLUME")) {
             changeVolume(parts.length > 1 ? parts[1].trim() : "MAX");
             mainHandler.postDelayed(this::processNextTask, 1000);
         } else { 
             processNextTask(); 
+        }
+    }
+
+    private String extractAllText() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return "سکرین پر کوئی ٹیکسٹ نہیں ہے۔";
+        StringBuilder sb = new StringBuilder();
+        extractTextFromNodes(root, sb);
+        return sb.toString().trim();
+    }
+
+    private void extractTextFromNodes(AccessibilityNodeInfo node, StringBuilder sb) {
+        if (node == null) return;
+        if (node.getText() != null) sb.append(node.getText().toString()).append("\n"); 
+        else if (node.getContentDescription() != null) sb.append(node.getContentDescription().toString()).append("\n");
+        for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb);
+    }
+
+    private void takeAndSendScreenshot() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
+                @Override
+                public void onSuccess(ScreenshotResult result) {
+                    try {
+                        HardwareBuffer hwBuffer = result.getHardwareBuffer();
+                        Bitmap hwBitmap = Bitmap.wrapHardwareBuffer(hwBuffer, result.getColorSpace());
+                        if (hwBitmap != null) {
+                            Bitmap swBitmap = hwBitmap.copy(Bitmap.Config.ARGB_8888, false);
+                            Bitmap resized = Bitmap.createScaledBitmap(swBitmap, swBitmap.getWidth()/3, swBitmap.getHeight()/3, true);
+                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                            resized.compress(Bitmap.CompressFormat.JPEG, 15, bos);
+                            latestScreenshotBase64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
+                            sendBroadcast(new Intent("SCREEN_ANALYZED"));
+                            hwBuffer.close(); 
+                            swBitmap.recycle(); 
+                            resized.recycle();
+                        } else { 
+                            sendBroadcast(new Intent("SCREEN_ANALYZED"));
+                        }
+                    } catch (Exception e) { 
+                        sendBroadcast(new Intent("SCREEN_ANALYZED"));
+                    }
+                }
+                @Override public void onFailure(int i) { 
+                    sendBroadcast(new Intent("SCREEN_ANALYZED")); 
+                }
+            });
+        } else { 
+            sendBroadcast(new Intent("SCREEN_ANALYZED")); 
         }
     }
 
@@ -104,52 +152,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         }
         if (!appFound) {
             sendResultToChat("رضا بھائی، موبائل میں '" + targetApp + "' نہیں ملی۔");
-        }
-    }
-
-    private void readScreenRealTime() {
-        AccessibilityNodeInfo rootNode = getRootInActiveWindow();
-        if (rootNode == null) {
-            sendResultToChat("SCREEN_DATA||سکرین پر کچھ پڑھنے کو نہیں ملا۔");
-            return;
-        }
-        StringBuilder screenText = new StringBuilder();
-        extractTextFromNodes(rootNode, screenText);
-        String finalData = screenText.toString().trim();
-        if (finalData.isEmpty()) finalData = "سکرین پر کوئی ٹیکسٹ نہیں ہے۔";
-        sendResultToChat("SCREEN_DATA||" + finalData);
-    }
-
-    private void extractTextFromNodes(AccessibilityNodeInfo node, StringBuilder sb) {
-        if (node == null) return;
-        if (node.getText() != null) sb.append(node.getText().toString()).append("\n"); 
-        else if (node.getContentDescription() != null) sb.append(node.getContentDescription().toString()).append("\n");
-        for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb);
-    }
-
-    private void takeAndSendScreenshot() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
-                @Override
-                public void onSuccess(ScreenshotResult result) {
-                    try {
-                        HardwareBuffer hwBuffer = result.getHardwareBuffer();
-                        Bitmap hwBitmap = Bitmap.wrapHardwareBuffer(hwBuffer, result.getColorSpace());
-                        if (hwBitmap != null) {
-                            Bitmap swBitmap = hwBitmap.copy(Bitmap.Config.ARGB_8888, false);
-                            Bitmap resized = Bitmap.createScaledBitmap(swBitmap, swBitmap.getWidth()/2, swBitmap.getHeight()/2, true);
-                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                            resized.compress(Bitmap.CompressFormat.JPEG, 20, bos);
-                            latestScreenshotBase64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
-                            sendBroadcast(new Intent("SCREENSHOT_CAPTURED"));
-                            
-                            hwBuffer.close();
-                            swBitmap.recycle(); resized.recycle();
-                        }
-                    } catch (Exception e) { sendResultToChat("تصویر پروسیس کرنے میں مسئلہ آیا۔"); }
-                }
-                @Override public void onFailure(int i) { sendResultToChat("کیمرے کا ایرر آ گیا۔"); }
-            });
         }
     }
 
@@ -234,5 +236,5 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-                        }
-            
+                                }
+                        
