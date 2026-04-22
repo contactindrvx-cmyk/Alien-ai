@@ -235,7 +235,8 @@ public class MainActivity extends AppCompatActivity {
         public void sendNativeRequest(String message, String base64Image) {
             new Thread(() -> {
                 try {
-                    URL url = new URL("https://aigrowthbox-ayesha-ai.hf.space/chat");
+                    // 🚨 نیا AWS سرور کا لنک یہاں اپڈیٹ کر دیا گیا ہے 🚨
+                    URL url = new URL("http://13.60.217.225:8000/chat");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json");
@@ -298,7 +299,6 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent("AI_COMMAND_BROADCAST"); 
             intent.putExtra("action", action); 
             intent.putExtra("data", data); 
-            // 🚨 براڈکاسٹ فکس: ایپ کا پیکیج سیٹ کر دیا تاکہ سیکیورٹی بلاک نہ کرے 🚨
             intent.setPackage(getPackageName());
             sendBroadcast(intent); 
         }
@@ -321,5 +321,5 @@ public class MainActivity extends AppCompatActivity {
         if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-                }
+        }
             
