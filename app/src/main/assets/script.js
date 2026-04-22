@@ -21,11 +21,6 @@ function playNativeAudio(text, btn) {
         btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
         btn.classList.add('bg-[#3a8ff7]', 'text-white'); 
     }
-
-    if (isCallActive && !isCallMuted && window.isAyeshaRecording && window.AndroidBridge) {
-        window.AndroidBridge.toggleInlineMic(); 
-    }
-
     if (window.AndroidBridge && window.AndroidBridge.speakText) {
         window.AndroidBridge.speakText(text);
     }
@@ -46,11 +41,9 @@ window.onSpeechDone = function() {
 
 window.stopAyeshaCompletely = function() {
     window.AyeshaAudio.isPlaying = false;
-    
     if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) {
         window.AndroidBridge.stopSpeaking();
     }
-    
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
         b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
         b.classList.remove('bg-[#3a8ff7]', 'text-white'); 
@@ -137,8 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
             inputNormal.placeholder = "سن رہی ہوں..."; 
         } else { 
             inputNormal.placeholder = "Ask something..."; 
-            
-            // 🚀 سائلنٹ آٹو ری سٹارٹ لوپ 🚀
             if (isCallActive && !isCallMuted) {
                 if (!window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
                     setTimeout(() => {
@@ -224,8 +215,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('thinking-indicator').classList.add('hidden');
-        let btn = addMessage(text, 'assistant');
-        if(btn) { playNativeAudio(text, btn); }
+        // ہم نے جاوا سکرپٹ کو سکھا دیا ہے کہ اگر ٹیکسٹ میں ایکشن ہو تو اسے مت چھاپو
+        let cleanText = text.replace(/\[ACTION:.*?\]/gi, '').trim();
+        if (cleanText.length > 0) {
+            let btn = addMessage(cleanText, 'assistant');
+            if(btn && !isCallActive) { playNativeAudio(cleanText, btn); }
+        }
     };
 
     window.analyzeScreen = function() {
@@ -281,9 +276,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         } else {
             let btn = addMessage(cleanText, 'assistant');
-            if (btn && !isActionOnly) {
-                // جاوا نے پہلے ہی بول دیا ہوگا
-            }
         }
 
         if (isActionOnly) {
@@ -356,5 +348,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-        }
-                          
+                    }
+        
