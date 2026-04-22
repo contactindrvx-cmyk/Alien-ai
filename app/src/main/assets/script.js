@@ -1,4 +1,4 @@
-window.AyeshaAudio = { audioObj: null, queue: [], isPlaying: false, lang: 'ur', activeBtn: null };
+window.AyeshaAudio = { isPlaying: false, activeBtn: null };
 let isCallActive = false; 
 let isCallMuted = false;
 window.isAyeshaRecording = false;
@@ -8,40 +8,6 @@ let inputNormal, outPlus, mainPill, inPlus, waveArea, inEnd, inSend, inMic, inCa
 let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
-
-function playCloudQueue(btn) {
-    if (!btn || window.AyeshaAudio.queue.length === 0) { 
-        window.AyeshaAudio.isPlaying = false;
-        if(btn) {
-            btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
-            btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
-        }
-        if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
-             window.AndroidBridge.toggleInlineMic(); 
-        }
-        return; 
-    }
-    
-    window.AyeshaAudio.isPlaying = true;
-    
-    // 🚨 BUG FIX: اگر مائیک آن ہے، تو اسے عائشہ کے بولنے پر آف (Mute) کرو 🚨
-    if (window.isAyeshaRecording && window.AndroidBridge) {
-        window.AndroidBridge.toggleInlineMic(); 
-    }
-
-    let chunk = window.AyeshaAudio.queue.shift();
-    window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(chunk) ? 'ur' : 'en';
-    window.AyeshaAudio.audioObj = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`);
-    window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btn); 
-    
-    if(btn) {
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
-        btn.classList.add('bg-[#3a8ff7]', 'text-white'); 
-    }
-
-    let playPromise = window.AyeshaAudio.audioObj.play();
-    if (playPromise !== undefined) playPromise.catch(e => playCloudQueue(btn));
-}
 
 // 🚀 نیٹو آڈیو پلے فنکشن 🚀
 function playNativeAudio(text, btn) {
@@ -53,7 +19,6 @@ function playNativeAudio(text, btn) {
         btn.classList.add('bg-[#3a8ff7]', 'text-white'); 
     }
 
-    // 🚨 BUG FIX: عائشہ جب بولنا شروع کرے تو مائیک ہر حال میں بند (OFF) ہونا چاہیے 🚨
     if (isCallActive && !isCallMuted && window.isAyeshaRecording && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -63,7 +28,7 @@ function playNativeAudio(text, btn) {
     }
 }
 
-// 🚀 جب جاوا بولنا ختم کرے گا تو مائیک دوبارہ آن ہوگا 🚀
+// 🚀 جب جاوا بولنا ختم کرے گا 🚀
 window.onSpeechDone = function() {
     window.AyeshaAudio.isPlaying = false;
     let btn = window.AyeshaAudio.activeBtn;
@@ -72,7 +37,6 @@ window.onSpeechDone = function() {
         btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
     }
     
-    // 🚨 بولنے کے بعد مائیک دوبارہ آن کرو تاکہ یوزر بول سکے 🚨
     if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -80,8 +44,6 @@ window.onSpeechDone = function() {
 
 window.stopAyeshaCompletely = function() {
     window.AyeshaAudio.isPlaying = false;
-    if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
-    window.AyeshaAudio.queue = []; 
     
     if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) {
         window.AndroidBridge.stopSpeaking();
@@ -180,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             voiceTimeout = setTimeout(() => { 
                 const activeInput = isCallActive ? inputCall : inputNormal;
                 if (activeInput.value.trim().length > 0 || pendingImg) { if(isCallActive) cgSend.click(); else inSend.click(); }
-            }, 1000); // تھوڑا فاسٹ کر دیا
+            }, 1000); 
         }
     };
 
@@ -227,31 +189,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.triggerScreenshot = function() {
+    // 🚀 NEW: سکرین کا سارا مواد اکٹھا کر کے بھیجے گا 🚀
+    window.analyzeScreen = function() {
         let base64Image = "";
-        if (window.AndroidBridge && window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
+        let screenText = "";
         
-        if (!base64Image) {
-            window.addMessageFromJava("معذرت رضا بھائی، کیمرے سے تصویر نہیں مل سکی۔"); return;
+        if (window.AndroidBridge) {
+            if (window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
+            if (window.AndroidBridge.pullScreenText) screenText = window.AndroidBridge.pullScreenText();
         }
-
+        
         document.getElementById('thinking-indicator').classList.remove('hidden');
         
+        let promptMsg = `[سکرین کا ڈیٹا موصول ہوا]\nسکرین کا ٹیکسٹ: ${screenText}\nتصویر: شامل ہے۔\nاب صرف اس ڈیٹا کی بنیاد پر صارف کو جواب دیں، کوئی نئی کمانڈ نہ دیں۔`;
+        let payload = { message: promptMsg, email: "alirazasabir007@gmail.com" };
+        if (base64Image) payload.image = base64Image;
+        
         fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
-            method: "POST", headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ 
-                message: "یہ سکرین شاٹ کی تصویر ہے۔ [SYSTEM WARNING: تصویر موصول ہو گئی ہے۔ اب مزید کوئی ایکشن کمانڈ مت دینا، صرف اور صرف اس تصویر کی تفصیل اردو میں بتاؤ۔]", 
-                image: base64Image, 
-                email: "alirazasabir007@gmail.com" 
-            }) 
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) 
         })
         .then(res => res.json())
         .then(d => {
-            document.getElementById('thinking-indicator').classList.add('hidden'); 
+            document.getElementById('thinking-indicator').classList.add('hidden');
             processAIResponse(d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔");
         }).catch(e => {
             document.getElementById('thinking-indicator').classList.add('hidden');
-            window.addMessageFromJava("سرور سے رابطہ ٹوٹ گیا ہے۔");
+            addMessage("سرور سے رابطہ ٹوٹ گیا۔", 'assistant');
         });
     };
     
@@ -270,16 +233,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
 
-        if (action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
-            return; 
+        if (action === "ANALYZE_SCREEN" || action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
+            return; // 🚨 خاموش رہو، جاوا خود تصویر اور ٹیکسٹ بھیجے گا!
         }
 
         if (cleanText === "") cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
 
         let btn = addMessage(cleanText, 'assistant');
-        if(btn) { 
-            playNativeAudio(cleanText, btn);
-        }
+        if(btn) { playNativeAudio(cleanText, btn); }
     }
 
     const handleSendClick = (e) => {
@@ -301,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json())
             .then(d => { 
                 let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
-                if (!/\[ACTION:\s*(TAKE_SCREENSHOT|READ_SCREEN)/i.test(cleanText)) {
+                if (!/\[ACTION:\s*(ANALYZE_SCREEN|TAKE_SCREENSHOT|READ_SCREEN)/i.test(cleanText)) {
                     document.getElementById('thinking-indicator').classList.add('hidden'); 
                 }
                 processAIResponse(cleanText); 
@@ -340,5 +301,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-           }
+                               }
         
