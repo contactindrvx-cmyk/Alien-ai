@@ -1,4 +1,4 @@
-window.AyeshaAudio = { audioObj: null, queue: [], isPlaying: false, lang: 'ur' };
+window.AyeshaAudio = { isPlaying: false, activeBtn: null };
 let isCallActive = false; 
 let isCallMuted = false;
 window.isAyeshaRecording = false;
@@ -9,39 +9,43 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-function playCloudQueue(btn) {
-    if (!btn || window.AyeshaAudio.queue.length === 0) { 
-        window.AyeshaAudio.isPlaying = false;
-        if(btn) {
-            btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
-            btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
-        }
-        if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
-             window.AndroidBridge.toggleInlineMic(); 
-        }
-        return; 
-    }
-    
+// 🚀 نیا ڈائریکٹ پلے فنکشن 🚀
+function playNativeAudio(text, btn) {
     window.AyeshaAudio.isPlaying = true;
-    if (window.isAyeshaRecording && window.AndroidBridge) window.AndroidBridge.toggleInlineMic(); 
+    window.AyeshaAudio.activeBtn = btn;
 
-    let chunk = window.AyeshaAudio.queue.shift();
-    window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(chunk) ? 'ur' : 'en';
-    window.AyeshaAudio.audioObj = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`);
-    window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btn); 
-    
-    if(btn) {
+    if (btn) {
         btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
         btn.classList.add('bg-[#3a8ff7]', 'text-white'); 
     }
 
-    let playPromise = window.AyeshaAudio.audioObj.play();
-    if (playPromise !== undefined) playPromise.catch(e => playCloudQueue(btn));
+    if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
+        window.AndroidBridge.toggleInlineMic(); 
+    }
+
+    if (window.AndroidBridge && window.AndroidBridge.speakText) {
+        window.AndroidBridge.speakText(text);
+    }
 }
 
+// 🚀 جب جاوا بولنا ختم کرے گا تو یہ چلے گا 🚀
+window.onSpeechDone = function() {
+    window.AyeshaAudio.isPlaying = false;
+    let btn = window.AyeshaAudio.activeBtn;
+    if (btn) {
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
+        btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
+    }
+    if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
+        window.AndroidBridge.toggleInlineMic(); 
+    }
+};
+
 window.stopAyeshaCompletely = function() {
-    if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
-    window.AyeshaAudio.queue = []; window.AyeshaAudio.isPlaying = false;
+    window.AyeshaAudio.isPlaying = false;
+    if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) {
+        window.AndroidBridge.stopSpeaking();
+    }
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
         b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
         b.classList.remove('bg-[#3a8ff7]', 'text-white'); 
@@ -145,13 +149,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 🚨 ہائبرڈ کیچر: جاوا سے آنے والا ریل ٹائم ڈیٹا اور میسجز 🚨
     window.addMessageFromJava = function(text) {
         if (text.startsWith("SCREEN_DATA||")) {
             let screenData = text.replace("SCREEN_DATA||", "");
             document.getElementById('thinking-indicator').classList.remove('hidden');
             
-            // 🚨 بگ فکس: ٹرگر ورڈز ہٹا دیے گئے 🚨
             fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
                 method: "POST", headers: { "Content-Type": "application/json" }, 
                 body: JSON.stringify({ 
@@ -173,12 +175,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('thinking-indicator').classList.add('hidden');
         let btn = addMessage(text, 'assistant');
         if(btn) { 
-            window.AyeshaAudio.queue = text.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
-            playCloudQueue(btn);
+            playNativeAudio(text, btn);
         }
     };
 
-    // 🚀 سپر سائلنٹ سکرین شاٹ پلنگ 🚀
     window.triggerScreenshot = function() {
         let base64Image = "";
         if (window.AndroidBridge && window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
@@ -189,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('thinking-indicator').classList.remove('hidden');
         
-        // 🚨 بگ فکس: یہاں سے "اسے دیکھو" والا قاتل لفظ اڑا دیا گیا ہے 🚨
         fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
             method: "POST", headers: { "Content-Type": "application/json" }, 
             body: JSON.stringify({ 
@@ -223,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
 
-        // 🚨 خاموشی کا اصل راز: اگر سکرین شاٹ لے رہی ہے تو کچھ مت بولو، انتظار کرو! 🚨
         if (action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
             return; 
         }
@@ -232,8 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let btn = addMessage(cleanText, 'assistant');
         if(btn) { 
-            window.AyeshaAudio.queue = cleanText.match(/.{1,150}(\s|$)|.{1,150}/g).filter(p => p.trim().length > 0);
-            playCloudQueue(btn);
+            playNativeAudio(cleanText, btn);
         }
     }
 
@@ -289,12 +286,11 @@ function addMessage(text, sender, imgUrl = null) {
         btn.onclick = function() {
             if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
             let fullText = msgDiv.querySelector('p').innerText;
-            window.AyeshaAudio.queue.push(fullText);
-            playCloudQueue(this);
+            playNativeAudio(fullText, this);
         };
         chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-            }
-            
+}
+    
