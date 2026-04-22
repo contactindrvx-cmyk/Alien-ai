@@ -86,15 +86,16 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return "سکرین پر کوئی ٹیکسٹ نہیں ہے۔";
         StringBuilder sb = new StringBuilder();
-        extractTextFromNodes(root, sb);
+        extractTextFromNodes(root, sb, 0); // 🚨 Depth Tracking Added 🚨
         return sb.toString().trim();
     }
 
-    private void extractTextFromNodes(AccessibilityNodeInfo node, StringBuilder sb) {
-        if (node == null) return;
+    // 🚨 ہینگ ہونے سے بچانے کے لیے صرف 10 لیول تک ٹیکسٹ پڑھے گا 🚨
+    private void extractTextFromNodes(AccessibilityNodeInfo node, StringBuilder sb, int depth) {
+        if (node == null || depth > 10) return; 
         if (node.getText() != null) sb.append(node.getText().toString()).append("\n"); 
         else if (node.getContentDescription() != null) sb.append(node.getContentDescription().toString()).append("\n");
-        for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb);
+        for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb, depth + 1);
     }
 
     private void takeAndSendScreenshot() {
@@ -107,11 +108,17 @@ public class AyeshaAccessibilityService extends AccessibilityService {
                         Bitmap hwBitmap = Bitmap.wrapHardwareBuffer(hwBuffer, result.getColorSpace());
                         if (hwBitmap != null) {
                             Bitmap swBitmap = hwBitmap.copy(Bitmap.Config.ARGB_8888, false);
-                            Bitmap resized = Bitmap.createScaledBitmap(swBitmap, swBitmap.getWidth()/3, swBitmap.getHeight()/3, true);
+                            
+                            // 🚨 تصویر کو 4 گنا چھوٹا اور 10% کوالٹی کر دیا تاکہ میموری کریش نہ ہو 🚨
+                            int w = swBitmap.getWidth() / 4;
+                            int h = swBitmap.getHeight() / 4;
+                            Bitmap resized = Bitmap.createScaledBitmap(swBitmap, w, h, true);
                             ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                            resized.compress(Bitmap.CompressFormat.JPEG, 15, bos);
+                            resized.compress(Bitmap.CompressFormat.JPEG, 10, bos);
+                            
                             latestScreenshotBase64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
                             sendBroadcast(new Intent("SCREEN_ANALYZED"));
+                            
                             hwBuffer.close(); 
                             swBitmap.recycle(); 
                             resized.recycle();
@@ -191,12 +198,13 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         int height = getResources().getDisplayMetrics().heightPixels;
         int width = getResources().getDisplayMetrics().widthPixels;
         Path path = new Path();
-        if (direction.equals("DOWN")) { 
-            path.moveTo(width / 2f, height * 0.8f); 
-            path.lineTo(width / 2f, height * 0.2f); 
-        } else { 
+        if (direction.equals("UP")) { 
+            // 🚨 BUG FIX: Scroll UP and DOWN directions fixed 🚨
             path.moveTo(width / 2f, height * 0.2f); 
             path.lineTo(width / 2f, height * 0.8f); 
+        } else { 
+            path.moveTo(width / 2f, height * 0.8f); 
+            path.lineTo(width / 2f, height * 0.2f); 
         }
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(new GestureDescription.StrokeDescription(path, 100, 500));
@@ -236,5 +244,4 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-                                }
-                        
+            }
