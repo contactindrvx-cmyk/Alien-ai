@@ -41,7 +41,6 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
 
-    // یہ مائیک صرف ٹیکسٹ موڈ کے لیے ہے
     private SpeechRecognizer textModeRecognizer;
     private Intent textModeIntent;
     private boolean isTextModeRecording = false;
@@ -61,7 +60,6 @@ public class MainActivity extends AppCompatActivity {
                         webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + safeMsg + "');", null);
                     }
                 } else if ("SCREEN_ANALYZED".equals(action)) {
-                    // سکرین شاٹ لینے کے بعد سروس کو جگانا
                     if (isCallModeActive) {
                         Intent callIntent = new Intent(MainActivity.this, AyeshaCallService.class);
                         callIntent.setAction("SCREEN_ANALYZED_WAKEUP");
@@ -106,18 +104,21 @@ public class MainActivity extends AppCompatActivity {
         IntentFilter filter = new IntentFilter();
         filter.addAction("NEW_MESSAGE_FROM_CALL");
         filter.addAction("SCREEN_ANALYZED");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ContextCompat.registerReceiver(this, messageReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
-        else registerReceiver(messageReceiver, filter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.registerReceiver(this, messageReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(messageReceiver, filter);
+        }
 
         if (!isAccessibilityServiceEnabled(this, AyeshaAccessibilityService.class)) {
-            Toast.makeText(this, "عائشہ کو کنٹرول دینے کے لیے Accessibility آن کریں", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Accessibility سروس آن کریں", Toast.LENGTH_LONG).show();
             startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
         }
     }
 
     private boolean isAccessibilityServiceEnabled(Context context, Class<?> accessibilityService) {
-        String enabledServicesSetting = android.provider.Settings.Secure.getString(context.getContentResolver(),  android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return enabledServicesSetting != null && enabledServicesSetting.contains(context.getPackageName() + "/" + accessibilityService.getName());
+        String enabled = android.provider.Settings.Secure.getString(context.getContentResolver(), android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return enabled != null && enabled.contains(context.getPackageName() + "/" + accessibilityService.getName());
     }
 
     private void setupTextModeRecognizer() {
@@ -177,7 +178,6 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
                     if (start) {
-                        // کال موڈ آن ہو تو نارمل مائیک بند کر دو
                         if (isTextModeRecording) { textModeRecognizer.stopListening(); stopTextRecordingState(); }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
                         else startService(intent);
@@ -190,7 +190,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void toggleInlineMic() {
-            if (isCallModeActive) return; // کال کے دوران یہ بٹن کام نہیں کرے گا
+            if (isCallModeActive) return; 
             runOnUiThread(() -> {
                 if (isTextModeRecording) {
                     textModeRecognizer.stopListening(); stopTextRecordingState();
@@ -209,7 +209,6 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void sendNativeRequest(String message, String base64Image) {
-            // یہ صرف ٹیکسٹ چیٹ کے لیے ہے
             new Thread(() -> {
                 try {
                     URL url = new URL("https://aigrowthbox-ayesha-ai.hf.space/chat");
@@ -273,5 +272,5 @@ public class MainActivity extends AppCompatActivity {
         if (textModeRecognizer != null) textModeRecognizer.destroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-                }
-                                                               
+            }
+                    
