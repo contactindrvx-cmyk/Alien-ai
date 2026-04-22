@@ -186,7 +186,6 @@ public class MainActivity extends AppCompatActivity {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String spokenText = matches.get(0).trim();
-                    // 🚨 API بچت فلٹر: اگر یوزر خاموش رہا ہے یا 2 حروف سے کم بولا ہے تو سرور پر مت بھیجو 🚨
                     if (spokenText.length() >= 2) {
                         sendTextToJS(spokenText, true);
                     }
@@ -340,8 +339,6 @@ public class MainActivity extends AppCompatActivity {
                         speechRecognizer.stopListening();
                         stopRecordingState();
                     } else {
-                        // 🚨 الٹرا سائلنٹ مائیک جادو (Ultimate Beep Killer) 🚨
-                        // سسٹم کی تمام آوازوں کو وقتی طور پر گونگا کر دے گا تاکہ یوزر کو بیپ سنائی نہ دے
                         if (audioManager != null) {
                             try { audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0); } catch (Exception e) {}
                             try { audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0); } catch (Exception e) {}
@@ -352,7 +349,6 @@ public class MainActivity extends AppCompatActivity {
                         isRecording = true;
                         webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
                         
-                        // 400 ملی سیکنڈ بعد آواز واپس کھول دو تاکہ عائشہ کی آواز سنائی دے سکے
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             if (audioManager != null) {
                                 try { audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0); } catch (Exception e) {}
@@ -428,4 +424,17 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        sup
+        super.onDestroy();
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
+        if (tts != null) { 
+            tts.stop(); 
+            tts.shutdown(); 
+        }
+        try { 
+            unregisterReceiver(messageReceiver); 
+        } catch (Exception e) {}
+    }
+                        }
+        
