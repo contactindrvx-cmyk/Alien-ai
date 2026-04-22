@@ -9,6 +9,10 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
+// 🚀 سٹریمنگ کے متغیرات (Variables) 🚀
+let currentStreamBubble = null;
+let fullStreamedText = "";
+
 function playNativeAudio(text, btn) {
     window.AyeshaAudio.isPlaying = true;
     window.AyeshaAudio.activeBtn = btn;
@@ -157,34 +161,56 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
+    // 🚀 سٹریمنگ کے ایونٹس (Events) 🚀
+    window.onStreamStart = function() {
+        document.getElementById('thinking-indicator').classList.add('hidden');
+        const chatBox = document.getElementById('chat-box'); 
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'w-full flex justify-start mt-4 group';
+        msgDiv.innerHTML = `<div class="chat-bubble border border-[#3a8ff7] bg-[#16243d] p-3 rounded-2xl max-w-[85%]"><p dir="auto" id="streaming-text-target"></p></div>`;
+        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
+        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        
+        currentStreamBubble = msgDiv.querySelector('#streaming-text-target');
+        fullStreamedText = "";
+    };
+
+    window.onStreamChunk = function(chunk) {
+        if (currentStreamBubble) {
+            fullStreamedText += chunk;
+            // اگر یہ کمانڈ ہے تو اسے سکرین پر مت دکھاؤ
+            if (!fullStreamedText.includes("[ACTION:")) {
+                currentStreamBubble.innerText = fullStreamedText;
+            }
+            const chatBox = document.getElementById('chat-box');
+            chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        }
+    };
+
+    window.onStreamEnd = function(fullText) {
+        processAIResponse(fullText, currentStreamBubble);
+        currentStreamBubble = null;
+    };
+
+    window.onStreamError = function() {
+        document.getElementById('thinking-indicator').classList.add('hidden');
+        addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
+        currentStreamBubble = null;
+    };
+
     window.addMessageFromJava = function(text) {
         if (text.startsWith("SCREEN_DATA||")) {
             let screenData = text.replace("SCREEN_DATA||", "");
             document.getElementById('thinking-indicator').classList.remove('hidden');
-            
-            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
-                method: "POST", headers: { "Content-Type": "application/json" }, 
-                body: JSON.stringify({ 
-                    message: "صارف کی سکرین پر اس وقت یہ سب لکھا ہے:\n" + screenData + "\n\n[SYSTEM WARNING: اب کوئی ایکشن کمانڈ مت دینا، صرف یہ پڑھ کر یوزر کو جواب دو کہ سکرین پر کیا ہے۔]", 
-                    email: "alirazasabir007@gmail.com" 
-                }) 
-            })
-            .then(res => res.json())
-            .then(d => {
-                document.getElementById('thinking-indicator').classList.add('hidden'); 
-                processAIResponse(d.response || "میں سکرین کا ڈیٹا نہیں پڑھ سکی۔");
-            }).catch(e => {
-                document.getElementById('thinking-indicator').classList.add('hidden'); 
-                addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
-            });
+            let promptMsg = "صارف کی سکرین پر اس وقت یہ سب لکھا ہے:\n" + screenData + "\n\n[SYSTEM WARNING: اب کوئی ایکشن کمانڈ مت دینا، صرف یہ پڑھ کر یوزر کو جواب دو کہ سکرین پر کیا ہے۔]";
+            // 🚨 اب جاوا سکرپٹ کا fetch نہیں چلے گا، بلکہ ڈائریکٹ جاوا سرور کو کال کرے گا 🚨
+            if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(promptMsg, "");
             return;
         }
 
         document.getElementById('thinking-indicator').classList.add('hidden');
         let btn = addMessage(text, 'assistant');
-        if(btn) { 
-            playNativeAudio(text, btn);
-        }
+        if(btn) { playNativeAudio(text, btn); }
     };
 
     window.analyzeScreen = function() {
@@ -199,36 +225,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('thinking-indicator').classList.remove('hidden');
         
         let promptMsg = `[سکرین کا ڈیٹا موصول ہوا]\nسکرین کا ٹیکسٹ: ${screenText}\nتصویر: شامل ہے۔\nاب صرف اس ڈیٹا کی بنیاد پر صارف کو جواب دیں، کوئی نئی کمانڈ نہ دیں۔`;
-        let payload = { message: promptMsg, email: "alirazasabir007@gmail.com" };
-        if (base64Image) payload.image = base64Image;
-        
-        // 🚨 ہینگ ہونے سے بچانے کے لیے AbortController لگایا گیا ہے (15 سیکنڈ ٹائم آؤٹ) 🚨
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-        fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
-            method: "POST", 
-            headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify(payload),
-            signal: controller.signal
-        })
-        .then(res => res.json())
-        .then(d => {
-            clearTimeout(timeoutId);
-            document.getElementById('thinking-indicator').classList.add('hidden');
-            processAIResponse(d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔");
-        }).catch(e => {
-            clearTimeout(timeoutId);
-            document.getElementById('thinking-indicator').classList.add('hidden');
-            if (e.name === 'AbortError') {
-                addMessage("تصویر بہت بھاری ہے، سرور نے جواب دینے میں زیادہ وقت لے لیا۔", 'assistant');
-            } else {
-                addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
-            }
-        });
+        // 🚨 ڈائریکٹ جاوا نیٹو کال 🚨
+        if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(promptMsg, base64Image);
     };
     
-    function processAIResponse(cleanText) {
+    function processAIResponse(cleanText, existingBubble = null) {
         let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?)(?:,\s*DATA:\s*(.*?))?\]/i);
         let action = ""; let actionData = "none";
         
@@ -244,13 +245,25 @@ document.addEventListener('DOMContentLoaded', () => {
         cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
 
         if (action === "ANALYZE_SCREEN" || action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
+            if (existingBubble) existingBubble.closest('.group').remove(); 
             return; 
         }
 
         if (cleanText === "") cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
 
-        let btn = addMessage(cleanText, 'assistant');
-        if(btn) { playNativeAudio(cleanText, btn); }
+        if (existingBubble) {
+            existingBubble.innerText = cleanText;
+            const enc = encodeURIComponent(cleanText);
+            existingBubble.parentElement.innerHTML += `<div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div>`;
+            let btn = existingBubble.parentElement.querySelector('.gemini-speaker-btn');
+            btn.onclick = function() {
+                if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
+                playNativeAudio(cleanText, this);
+            };
+        } else {
+            let btn = addMessage(cleanText, 'assistant');
+            if(btn) { playNativeAudio(cleanText, btn); }
+        }
     }
 
     const handleSendClick = (e) => {
@@ -260,26 +273,27 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (text || pendingImg) {
             let imgUrl = pendingImg ? URL.createObjectURL(pendingImg) : null;
-            addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
+            let currentB64 = "";
             
-            inputNormal.value = ''; inputCall.value = ''; pendingImg = null; preview.classList.add('hidden'); window.isAyeshaRecording = false; updateUIState();
-            document.getElementById('thinking-indicator').classList.remove('hidden');
-            
-            fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
-                method: "POST", headers: { "Content-Type": "application/json" }, 
-                body: JSON.stringify({ message: text, email: "alirazasabir007@gmail.com" }) 
-            })
-            .then(res => res.json())
-            .then(d => { 
-                let cleanText = d.response || "معذرت، مجھے سمجھ نہیں آئی۔";
-                if (!/\[ACTION:\s*(ANALYZE_SCREEN|TAKE_SCREENSHOT|READ_SCREEN)/i.test(cleanText)) {
-                    document.getElementById('thinking-indicator').classList.add('hidden'); 
-                }
-                processAIResponse(cleanText); 
-            }).catch(e => { 
-                document.getElementById('thinking-indicator').classList.add('hidden'); 
-                addMessage("سرور سے رابطہ کٹ گیا ہے۔", 'assistant'); 
-            });
+            // تصویر کو base64 میں بدل کر بھیجنے کی لاجک 
+            if (pendingImg) {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    currentB64 = reader.result.split(',')[1];
+                    addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
+                    inputNormal.value = ''; inputCall.value = ''; pendingImg = null; preview.classList.add('hidden'); window.isAyeshaRecording = false; updateUIState();
+                    document.getElementById('thinking-indicator').classList.remove('hidden');
+                    // 🚨 ڈائریکٹ جاوا نیٹو کال 🚨
+                    if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(text, currentB64);
+                };
+                reader.readAsDataURL(pendingImg);
+            } else {
+                addMessage(text, 'user', null);
+                inputNormal.value = ''; inputCall.value = ''; window.isAyeshaRecording = false; updateUIState();
+                document.getElementById('thinking-indicator').classList.remove('hidden');
+                // 🚨 ڈائریکٹ جاوا نیٹو کال 🚨
+                if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(text, "");
+            }
         }
     };
     inSend.onclick = handleSendClick; 
@@ -311,5 +325,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-                          }
-        
+                                  }
+                
