@@ -186,7 +186,7 @@ public class MainActivity extends AppCompatActivity {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
                     String spokenText = matches.get(0).trim();
-                    // 🚨 خاموشی کا فلٹر: اگر 2 حروف سے کم ہے تو API پر مت بھیجو (لمٹ بچاؤ) 🚨
+                    // 🚨 API بچت فلٹر: اگر یوزر خاموش رہا ہے یا 2 حروف سے کم بولا ہے تو سرور پر مت بھیجو 🚨
                     if (spokenText.length() >= 2) {
                         sendTextToJS(spokenText, true);
                     }
@@ -247,7 +247,6 @@ public class MainActivity extends AppCompatActivity {
 
     public class WebAppInterface {
         
-        // 🚀 یہ ہے وہ ماسٹر پیس جو جاوا سکرپٹ کے پل کو بائی پاس کرے گا (Native Streaming API) 🚀
         @JavascriptInterface
         public void sendNativeRequest(String message, String base64Image) {
             new Thread(() -> {
@@ -289,7 +288,6 @@ public class MainActivity extends AppCompatActivity {
                                 String safeChunk = chunkText.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
                                 runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamChunk) window.onStreamChunk('" + safeChunk + "');", null));
                                 
-                                // 🚀 500ms جادو: جیسے ہی ایک جملہ بنے، بولنا شروع کر دو 🚀
                                 ttsBuffer.append(chunkText);
                                 if (chunkText.contains("۔") || chunkText.contains("؟") || chunkText.contains(".") || chunkText.contains("\n")) {
                                     String sentence = ttsBuffer.toString().trim();
@@ -342,21 +340,26 @@ public class MainActivity extends AppCompatActivity {
                         speechRecognizer.stopListening();
                         stopRecordingState();
                     } else {
-                        // 🚨 سائلنٹ مائیک جادو: بیپ کی آواز کو چھپا دو 🚨
+                        // 🚨 الٹرا سائلنٹ مائیک جادو (Ultimate Beep Killer) 🚨
+                        // سسٹم کی تمام آوازوں کو وقتی طور پر گونگا کر دے گا تاکہ یوزر کو بیپ سنائی نہ دے
                         if (audioManager != null) {
-                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0);
+                            try { audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0); } catch (Exception e) {}
+                            try { audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0); } catch (Exception e) {}
+                            try { audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0); } catch (Exception e) {}
                         }
                         
                         speechRecognizer.startListening(speechRecognizerIntent);
                         isRecording = true;
                         webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
                         
-                        // بیپ کا ٹائم گزرنے کے بعد آواز واپس کھول دو
+                        // 400 ملی سیکنڈ بعد آواز واپس کھول دو تاکہ عائشہ کی آواز سنائی دے سکے
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             if (audioManager != null) {
-                                audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
+                                try { audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0); } catch (Exception e) {}
+                                try { audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0); } catch (Exception e) {}
+                                try { audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0); } catch (Exception e) {}
                             }
-                        }, 500);
+                        }, 400);
                     }
                 } catch (Exception e) {}
             });
@@ -398,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void speakText(String text) {
             if (tts != null) {
-                tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaTTS_ID"); // اب یہ QUEUE_ADD ہے تاکہ جملے کٹیں نہیں
+                tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaTTS_ID"); 
             }
         }
 
@@ -425,17 +428,4 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
-        if (speechRecognizer != null) {
-            speechRecognizer.destroy();
-        }
-        if (tts != null) { 
-            tts.stop(); 
-            tts.shutdown(); 
-        }
-        try { 
-            unregisterReceiver(messageReceiver); 
-        } catch (Exception e) {}
-    }
-                    }
-                    
+        sup
