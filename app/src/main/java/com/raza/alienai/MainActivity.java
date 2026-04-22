@@ -15,6 +15,8 @@ import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -35,6 +37,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
@@ -45,6 +48,9 @@ public class MainActivity extends AppCompatActivity {
     private Intent textModeIntent;
     private boolean isTextModeRecording = false;
     private boolean isCallModeActive = false;
+    
+    // 🚨 عائشہ کی زبان (TTS) جو مجھ سے غلطی سے ڈیلیٹ ہو گئی تھی 🚨
+    private TextToSpeech tts;
 
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
@@ -99,6 +105,10 @@ public class MainActivity extends AppCompatActivity {
 
         webView.loadUrl("file:///android_asset/index.html");
         requestPermissions();
+        
+        // 🚨 یہ فنکشن مسنگ تھا جس کی وجہ سے آواز نہیں آ رہی تھی 🚨
+        initTextToSpeech();
+        
         setupTextModeRecognizer();
 
         IntentFilter filter = new IntentFilter();
@@ -114,6 +124,24 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Accessibility سروس آن کریں", Toast.LENGTH_LONG).show();
             startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
         }
+    }
+
+    // 🚨 آواز کے انجن کا کوڈ 🚨
+    private void initTextToSpeech() {
+        tts = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                tts.setLanguage(new Locale("ur", "PK"));
+                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override public void onStart(String utteranceId) {}
+                    @Override public void onError(String utteranceId) {}
+                    @Override public void onDone(String utteranceId) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            if (webView != null) webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null);
+                        });
+                    }
+                });
+            }
+        });
     }
 
     private boolean isAccessibilityServiceEnabled(Context context, Class<?> accessibilityService) {
@@ -253,6 +281,21 @@ public class MainActivity extends AppCompatActivity {
             }).start();
         }
 
+        // 🚨 یہ وہ فنکشنز ہیں جو عائشہ کو نارمل موڈ میں بولنے کی اجازت دیں گے 🚨
+        @JavascriptInterface 
+        public void speakText(String text) { 
+            if (tts != null) {
+                tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaTTS_ID"); 
+            }
+        }
+
+        @JavascriptInterface 
+        public void stopSpeaking() { 
+            if (tts != null && tts.isSpeaking()) {
+                tts.stop();
+            }
+        }
+
         @JavascriptInterface public void muteCall(boolean isMuted) { Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); intent.setAction("ACTION_MUTE_CALL"); intent.putExtra("isMuted", isMuted); startService(intent); }
         @JavascriptInterface public void sendAccessibilityCommand(String action, String data) { Intent intent = new Intent("AI_COMMAND_BROADCAST"); intent.putExtra("action", action); intent.putExtra("data", data); sendBroadcast(intent); }
         @JavascriptInterface public String pullScreenshot() { String b64 = AyeshaAccessibilityService.latestScreenshotBase64; AyeshaAccessibilityService.latestScreenshotBase64 = ""; return b64 != null ? b64 : ""; }
@@ -270,7 +313,13 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onDestroy() {
         super.onDestroy();
         if (textModeRecognizer != null) textModeRecognizer.destroy();
+        
+        // 🚨 ایپ بند ہونے پر TTS کو بھی بند کریں 🚨
+        if (tts != null) { 
+            tts.stop(); 
+            tts.shutdown(); 
+        }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-            }
-                    
+                    }
+                        
