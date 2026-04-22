@@ -40,8 +40,6 @@ public class MainActivity extends AppCompatActivity {
     private SpeechRecognizer speechRecognizer;
     private Intent speechRecognizerIntent;
     private boolean isRecording = false;
-
-    // 🚀 نیا اور سپر فاسٹ آف لائن وائس انجن 🚀
     private TextToSpeech tts;
 
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
@@ -49,17 +47,19 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             
-            if ("NEW_MESSAGE_FROM_CALL".equals(action)) {
-                String msg = intent.getStringExtra("message");
-                if (webView != null && msg != null) {
-                    String safeMsg = msg.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
-                    webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + safeMsg + "');", null);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (webView == null) return;
+                
+                if ("NEW_MESSAGE_FROM_CALL".equals(action)) {
+                    String msg = intent.getStringExtra("message");
+                    if (msg != null) {
+                        String safeMsg = msg.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                        webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + safeMsg + "');", null);
+                    }
+                } else if ("SCREEN_ANALYZED".equals(action)) {
+                    webView.evaluateJavascript("javascript:if(window.analyzeScreen) window.analyzeScreen();", null);
                 }
-            } else if ("SCREENSHOT_CAPTURED".equals(action)) {
-                if (webView != null) {
-                    webView.evaluateJavascript("javascript:if(window.triggerScreenshot) window.triggerScreenshot();", null);
-                }
-            }
+            });
         }
     };
 
@@ -80,14 +80,22 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (MainActivity.this.filePathCallback != null) MainActivity.this.filePathCallback.onReceiveValue(null);
+                if (MainActivity.this.filePathCallback != null) {
+                    MainActivity.this.filePathCallback.onReceiveValue(null);
+                }
                 MainActivity.this.filePathCallback = filePathCallback;
-                try { startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); } 
-                catch (Exception e) { MainActivity.this.filePathCallback = null; return false; }
+                try { 
+                    startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); 
+                } catch (Exception e) { 
+                    MainActivity.this.filePathCallback = null; 
+                    return false; 
+                }
                 return true;
             }
             @Override
-            public void onPermissionRequest(final PermissionRequest request) { request.grant(request.getResources()); }
+            public void onPermissionRequest(final PermissionRequest request) { 
+                request.grant(request.getResources()); 
+            }
         });
 
         webView.loadUrl("file:///android_asset/index.html");
@@ -97,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
 
         IntentFilter filter = new IntentFilter();
         filter.addAction("NEW_MESSAGE_FROM_CALL");
-        filter.addAction("SCREENSHOT_CAPTURED");
+        filter.addAction("SCREEN_ANALYZED");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.registerReceiver(this, messageReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
@@ -112,13 +120,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 🚀 اینڈرائیڈ کا اپنا وائس انجن کنفیگر کر رہے ہیں 🚀
     private void initTextToSpeech() {
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 int result = tts.setLanguage(new Locale("ur", "PK"));
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    tts.setLanguage(new Locale("ur")); // اگر ur_PK نہ ملے تو نارمل اردو
+                    tts.setLanguage(new Locale("ur"));
                 }
                 
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
@@ -126,7 +133,6 @@ public class MainActivity extends AppCompatActivity {
                     @Override public void onError(String utteranceId) {}
                     @Override 
                     public void onDone(String utteranceId) {
-                        // جیسے ہی بات ختم ہو، جاوا سکرپٹ کو بتاؤ تاکہ وہ مائیک دوبارہ آن کر سکے
                         new Handler(Looper.getMainLooper()).post(() -> {
                             if (webView != null) webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null);
                         });
@@ -162,15 +168,21 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onRmsChanged(float rmsdB) {}
             @Override public void onBufferReceived(byte[] buffer) {}
             @Override public void onEndOfSpeech() {}
-            @Override public void onError(int error) { stopRecordingState(); }
+            @Override public void onError(int error) { 
+                stopRecordingState(); 
+            }
             @Override public void onResults(Bundle results) {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) sendTextToJS(matches.get(0), true);
+                if (matches != null && !matches.isEmpty()) {
+                    sendTextToJS(matches.get(0), true);
+                }
                 stopRecordingState();
             }
             @Override public void onPartialResults(Bundle partialResults) {
                 ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) sendTextToJS(matches.get(0), false);
+                if (matches != null && !matches.isEmpty()) {
+                    sendTextToJS(matches.get(0), false);
+                }
             }
             @Override public void onEvent(int eventType, Bundle params) {}
         });
@@ -179,7 +191,7 @@ public class MainActivity extends AppCompatActivity {
     private void sendTextToJS(String text, boolean isFinal) {
         new Handler(Looper.getMainLooper()).post(() -> {
             if (webView != null && text != null) {
-                String safeText = text.replace("'", "\\'");
+                String safeText = text.replace("'", "\\'"); 
                 webView.evaluateJavascript("javascript:if(window.updateInputFromJava) window.updateInputFromJava('" + safeText + "', " + isFinal + ");", null);
             }
         });
@@ -188,7 +200,9 @@ public class MainActivity extends AppCompatActivity {
     private void stopRecordingState() {
         isRecording = false;
         new Handler(Looper.getMainLooper()).post(() -> {
-            if (webView != null) webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(false);", null);
+            if (webView != null) {
+                webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(false);", null);
+            }
         });
     }
 
@@ -196,15 +210,24 @@ public class MainActivity extends AppCompatActivity {
         List<String> perms = new ArrayList<>();
         perms.add(Manifest.permission.RECORD_AUDIO);
         perms.add(Manifest.permission.CAMERA);
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.READ_MEDIA_IMAGES);
             perms.add(Manifest.permission.POST_NOTIFICATIONS);
         } else {
             perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
         }
+        
         List<String> needed = new ArrayList<>();
-        for (String p : perms) if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) needed.add(p);
-        if (!needed.isEmpty()) ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 100);
+        for (String p : perms) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(p);
+            }
+        }
+        
+        if (!needed.isEmpty()) {
+            ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), 100);
+        }
     }
 
     public class WebAppInterface {
@@ -214,9 +237,14 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
                     if (start) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
-                        else startService(intent);
-                    } else stopService(intent); 
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent);
+                        } else {
+                            startService(intent);
+                        }
+                    } else {
+                        stopService(intent); 
+                    }
                 } catch (Exception e) {}
             });
         }
@@ -263,7 +291,13 @@ public class MainActivity extends AppCompatActivity {
             return b64 != null ? b64 : "";
         }
 
-        // 🚀 جاوا سکرپٹ اب ڈائریکٹ ان فنکشنز کے ذریعے بلائے گا 🚀
+        @JavascriptInterface
+        public String pullScreenText() {
+            String text = AyeshaAccessibilityService.latestScreenText;
+            AyeshaAccessibilityService.latestScreenText = ""; 
+            return text != null ? text : "";
+        }
+
         @JavascriptInterface
         public void speakText(String text) {
             if (tts != null) {
@@ -284,7 +318,9 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILECHOOSER_RESULTCODE && filePathCallback != null) {
             Uri[] results = null;
-            if (resultCode == RESULT_OK && data != null && data.getDataString() != null) results = new Uri[]{Uri.parse(data.getDataString())};
+            if (resultCode == RESULT_OK && data != null && data.getDataString() != null) {
+                results = new Uri[]{Uri.parse(data.getDataString())};
+            }
             filePathCallback.onReceiveValue(results);
             filePathCallback = null;
         }
@@ -293,9 +329,16 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (speechRecognizer != null) speechRecognizer.destroy();
-        if (tts != null) { tts.stop(); tts.shutdown(); }
-        try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
+        if (tts != null) { 
+            tts.stop(); 
+            tts.shutdown(); 
+        }
+        try { 
+            unregisterReceiver(messageReceiver); 
+        } catch (Exception e) {}
     }
-                            }
-                            
+            }
+    
