@@ -202,16 +202,29 @@ document.addEventListener('DOMContentLoaded', () => {
         let payload = { message: promptMsg, email: "alirazasabir007@gmail.com" };
         if (base64Image) payload.image = base64Image;
         
+        // 🚨 ہینگ ہونے سے بچانے کے لیے AbortController لگایا گیا ہے (15 سیکنڈ ٹائم آؤٹ) 🚨
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         fetch("https://aigrowthbox-ayesha-ai.hf.space/chat", { 
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify(payload),
+            signal: controller.signal
         })
         .then(res => res.json())
         .then(d => {
+            clearTimeout(timeoutId);
             document.getElementById('thinking-indicator').classList.add('hidden');
             processAIResponse(d.response || "معذرت، میں سکرین نہیں دیکھ سکی۔");
         }).catch(e => {
+            clearTimeout(timeoutId);
             document.getElementById('thinking-indicator').classList.add('hidden');
-            addMessage("سرور سے رابطہ ٹوٹ گیا۔", 'assistant');
+            if (e.name === 'AbortError') {
+                addMessage("تصویر بہت بھاری ہے، سرور نے جواب دینے میں زیادہ وقت لے لیا۔", 'assistant');
+            } else {
+                addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
+            }
         });
     };
     
@@ -298,5 +311,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-                }
-                
+                          }
+        
