@@ -215,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('thinking-indicator').classList.add('hidden');
-        // ہم نے جاوا سکرپٹ کو سکھا دیا ہے کہ اگر ٹیکسٹ میں ایکشن ہو تو اسے مت چھاپو
         let cleanText = text.replace(/\[ACTION:.*?\]/gi, '').trim();
         if (cleanText.length > 0) {
             let btn = addMessage(cleanText, 'assistant');
@@ -268,14 +267,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existingBubble) {
             existingBubble.innerText = cleanText;
             const enc = encodeURIComponent(cleanText);
-            existingBubble.parentElement.innerHTML += `<div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div>`;
+            
+            // 🚨 DOM کو محفوظ طریقے سے اپڈیٹ کیا گیا ہے 🚨
+            existingBubble.parentElement.insertAdjacentHTML('beforeend', `<div class="flex items-center gap-3 mt-3"><button class="gemini-speaker-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#3a8ff7] text-[#3a8ff7] hover:bg-[#3a8ff7] hover:text-white transition-all cursor-pointer" data-text="${enc}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button></div>`);
+            
             let btn = existingBubble.parentElement.querySelector('.gemini-speaker-btn');
             btn.onclick = function() {
                 if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
                 playNativeAudio(cleanText, this);
             };
+
+            // 🚨 آڈیو فکس: نارمل موڈ میں جواب آنے کے بعد آٹو پلے 🚨
+            if (!isCallActive && !isActionOnly) {
+                playNativeAudio(cleanText, btn);
+            }
+
         } else {
             let btn = addMessage(cleanText, 'assistant');
+            // 🚨 آڈیو فکس 🚨
+            if (btn && !isCallActive && !isActionOnly) {
+                playNativeAudio(cleanText, btn);
+            }
         }
 
         if (isActionOnly) {
@@ -348,5 +360,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-                    }
-        
+            }
+                
