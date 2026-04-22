@@ -36,11 +36,19 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getStringExtra("action");
             String data = intent.getStringExtra("data");
+            
             if (action != null) {
-                if (action.equals("MULTI_TASK") || action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
+                // 🚨 BUG FIX: کمانڈز کو صحیح سے توڑ کر کیو (Queue) میں ڈالو 🚨
+                if (action.equals("MULTI_TASK") && data != null) {
+                    String[] tasks = data.split("&&");
+                    for (String task : tasks) {
+                        taskQueue.add(task.trim());
+                    }
+                } else if (action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
                     taskQueue.add(action + "||" + (data != null ? data : "none"));
-                    if (!isTaskRunning) processNextTask();
                 }
+                
+                if (!isTaskRunning) processNextTask();
             }
         }
     };
@@ -75,7 +83,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         }
     }
 
-    // 🚀 سپر فاسٹ ایپ اوپن انجن 🚀
     private void fastOpenApp(String targetApp) {
         PackageManager pm = getPackageManager();
         Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
@@ -100,7 +107,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         }
     }
 
-    // 🚀 ریل ٹائم سکرین ریڈر 🚀
     private void readScreenRealTime() {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) {
@@ -121,7 +127,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb);
     }
 
-    // 🚀 سکرین شاٹ کیپچر انجن 🚀
     private void takeAndSendScreenshot() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
@@ -148,7 +153,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         }
     }
 
-    // 🚀 سمارٹ کلک انجن (پورا ریسٹور کر دیا گیا ہے) 🚀
     private void smartClick(String targetText) {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) return;
@@ -181,7 +185,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         else clickFirstClickable(node.getParent());
     }
 
-    // 🚀 سموتھ سکرول انجن (پورا ریسٹور کر دیا گیا ہے) 🚀
     private void performSmoothScroll(String direction) {
         int height = getResources().getDisplayMetrics().heightPixels;
         int width = getResources().getDisplayMetrics().widthPixels;
@@ -231,5 +234,5 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         super.onDestroy();
         try { unregisterReceiver(commandReceiver); } catch (Exception e) {}
     }
-    }
-        
+                        }
+            
