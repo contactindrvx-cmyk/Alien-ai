@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -28,6 +29,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -41,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private Intent speechRecognizerIntent;
     private boolean isRecording = false;
     private TextToSpeech tts;
+    private AudioManager audioManager;
 
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
@@ -67,6 +76,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         
         webView = findViewById(R.id.webView);
         webView.getSettings().setJavaScriptEnabled(true);
@@ -174,7 +185,11 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onResults(Bundle results) {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) {
-                    sendTextToJS(matches.get(0), true);
+                    String spokenText = matches.get(0).trim();
+                    // 🚨 خاموشی کا فلٹر: اگر 2 حروف سے کم ہے تو API پر مت بھیجو (لمٹ بچاؤ) 🚨
+                    if (spokenText.length() >= 2) {
+                        sendTextToJS(spokenText, true);
+                    }
                 }
                 stopRecordingState();
             }
@@ -231,6 +246,76 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
+        
+        // 🚀 یہ ہے وہ ماسٹر پیس جو جاوا سکرپٹ کے پل کو بائی پاس کرے گا (Native Streaming API) 🚀
+        @JavascriptInterface
+        public void sendNativeRequest(String message, String base64Image) {
+            new Thread(() -> {
+                try {
+                    URL url = new URL("https://aigrowthbox-ayesha-ai.hf.space/chat");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setDoOutput(true);
+                    
+                    JSONObject payload = new JSONObject();
+                    payload.put("message", message);
+                    payload.put("email", "alirazasabir007@gmail.com");
+                    if (base64Image != null && !base64Image.isEmpty()) {
+                        payload.put("image", base64Image);
+                    }
+                    
+                    OutputStream os = conn.getOutputStream();
+                    os.write(payload.toString().getBytes("UTF-8"));
+                    os.close();
+                    
+                    runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamStart) window.onStreamStart();", null));
+                    
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    String line;
+                    StringBuilder fullResponse = new StringBuilder();
+                    StringBuilder ttsBuffer = new StringBuilder();
+                    
+                    while ((line = reader.readLine()) != null) {
+                        if (line.startsWith("data: ")) {
+                            String data = line.substring(6);
+                            if (data.trim().isEmpty() || data.equals("[DONE]")) continue;
+                            
+                            try {
+                                JSONObject json = new JSONObject(data);
+                                String chunkText = json.getString("text");
+                                fullResponse.append(chunkText);
+                                
+                                String safeChunk = chunkText.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                                runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamChunk) window.onStreamChunk('" + safeChunk + "');", null));
+                                
+                                // 🚀 500ms جادو: جیسے ہی ایک جملہ بنے، بولنا شروع کر دو 🚀
+                                ttsBuffer.append(chunkText);
+                                if (chunkText.contains("۔") || chunkText.contains("؟") || chunkText.contains(".") || chunkText.contains("\n")) {
+                                    String sentence = ttsBuffer.toString().trim();
+                                    if (!sentence.isEmpty() && !sentence.contains("[ACTION:")) {
+                                        speakText(sentence);
+                                    }
+                                    ttsBuffer.setLength(0);
+                                }
+                            } catch (Exception e) {}
+                        }
+                    }
+                    
+                    String leftover = ttsBuffer.toString().trim();
+                    if (!leftover.isEmpty() && !leftover.contains("[ACTION:")) {
+                        speakText(leftover);
+                    }
+                    
+                    String finalSafeResp = fullResponse.toString().replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                    runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamEnd) window.onStreamEnd('" + finalSafeResp + "');", null));
+                    
+                } catch (Exception e) {
+                    runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamError) window.onStreamError();", null));
+                }
+            }).start();
+        }
+
         @JavascriptInterface
         public void toggleCall(boolean start) {
             runOnUiThread(() -> {
@@ -257,9 +342,21 @@ public class MainActivity extends AppCompatActivity {
                         speechRecognizer.stopListening();
                         stopRecordingState();
                     } else {
+                        // 🚨 سائلنٹ مائیک جادو: بیپ کی آواز کو چھپا دو 🚨
+                        if (audioManager != null) {
+                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0);
+                        }
+                        
                         speechRecognizer.startListening(speechRecognizerIntent);
                         isRecording = true;
                         webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
+                        
+                        // بیپ کا ٹائم گزرنے کے بعد آواز واپس کھول دو
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            if (audioManager != null) {
+                                audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
+                            }
+                        }, 500);
                     }
                 } catch (Exception e) {}
             });
@@ -301,7 +398,7 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void speakText(String text) {
             if (tts != null) {
-                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "AyeshaTTS_ID");
+                tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaTTS_ID"); // اب یہ QUEUE_ADD ہے تاکہ جملے کٹیں نہیں
             }
         }
 
@@ -340,5 +437,5 @@ public class MainActivity extends AppCompatActivity {
             unregisterReceiver(messageReceiver); 
         } catch (Exception e) {}
     }
-            }
-            
+                    }
+                    
