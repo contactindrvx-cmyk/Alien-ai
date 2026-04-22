@@ -2,6 +2,7 @@ window.AyeshaAudio = { isPlaying: false, activeBtn: null };
 let isCallActive = false; 
 let isCallMuted = false;
 window.isAyeshaRecording = false;
+window.isAyeshaProcessing = false;
 
 // UI Elements
 let inputNormal, outPlus, mainPill, inPlus, waveArea, inEnd, inSend, inMic, inCall;
@@ -9,7 +10,6 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-// 🚀 سٹریمنگ کے متغیرات (Variables) 🚀
 let currentStreamBubble = null;
 let fullStreamedText = "";
 
@@ -39,7 +39,7 @@ window.onSpeechDone = function() {
         btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
     }
     
-    if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
+    if (isCallActive && !isCallMuted && !window.isAyeshaRecording && !window.isAyeshaProcessing && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
 };
@@ -133,7 +133,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.onInlineMicState = function(isRecording) {
         window.isAyeshaRecording = isRecording;
-        if(isRecording) { inputNormal.placeholder = "سن رہی ہوں..."; } else { inputNormal.placeholder = "Ask something..."; }
+        if(isRecording) { 
+            inputNormal.placeholder = "سن رہی ہوں..."; 
+        } else { 
+            inputNormal.placeholder = "Ask something..."; 
+            
+            // 🚀 سائلنٹ آٹو ری سٹارٹ لوپ 🚀
+            if (isCallActive && !isCallMuted) {
+                if (!window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
+                    setTimeout(() => {
+                        if (isCallActive && !window.isAyeshaRecording && window.AndroidBridge) {
+                            window.AndroidBridge.toggleInlineMic();
+                        }
+                    }, 500); 
+                }
+            }
+        }
         updateUIState();
     };
 
@@ -161,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUIState(); if(window.AndroidBridge) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 🚀 سٹریمنگ کے ایونٹس (Events) 🚀
     window.onStreamStart = function() {
         document.getElementById('thinking-indicator').classList.add('hidden');
         const chatBox = document.getElementById('chat-box'); 
@@ -178,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onStreamChunk = function(chunk) {
         if (currentStreamBubble) {
             fullStreamedText += chunk;
-            // اگر یہ کمانڈ ہے تو اسے سکرین پر مت دکھاؤ
             if (!fullStreamedText.includes("[ACTION:")) {
                 currentStreamBubble.innerText = fullStreamedText;
             }
@@ -188,11 +201,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.onStreamEnd = function(fullText) {
+        window.isAyeshaProcessing = false;
         processAIResponse(fullText, currentStreamBubble);
         currentStreamBubble = null;
     };
 
     window.onStreamError = function() {
+        window.isAyeshaProcessing = false;
         document.getElementById('thinking-indicator').classList.add('hidden');
         addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
         currentStreamBubble = null;
@@ -203,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let screenData = text.replace("SCREEN_DATA||", "");
             document.getElementById('thinking-indicator').classList.remove('hidden');
             let promptMsg = "صارف کی سکرین پر اس وقت یہ سب لکھا ہے:\n" + screenData + "\n\n[SYSTEM WARNING: اب کوئی ایکشن کمانڈ مت دینا، صرف یہ پڑھ کر یوزر کو جواب دو کہ سکرین پر کیا ہے۔]";
-            // 🚨 اب جاوا سکرپٹ کا fetch نہیں چلے گا، بلکہ ڈائریکٹ جاوا سرور کو کال کرے گا 🚨
+            window.isAyeshaProcessing = true;
             if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(promptMsg, "");
             return;
         }
@@ -225,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('thinking-indicator').classList.remove('hidden');
         
         let promptMsg = `[سکرین کا ڈیٹا موصول ہوا]\nسکرین کا ٹیکسٹ: ${screenText}\nتصویر: شامل ہے۔\nاب صرف اس ڈیٹا کی بنیاد پر صارف کو جواب دیں، کوئی نئی کمانڈ نہ دیں۔`;
-        // 🚨 ڈائریکٹ جاوا نیٹو کال 🚨
+        window.isAyeshaProcessing = true;
         if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(promptMsg, base64Image);
     };
     
@@ -249,7 +264,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return; 
         }
 
-        if (cleanText === "") cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
+        let isActionOnly = false;
+        if (cleanText === "") {
+            cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
+            isActionOnly = true; 
+        }
 
         if (existingBubble) {
             existingBubble.innerText = cleanText;
@@ -262,7 +281,20 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         } else {
             let btn = addMessage(cleanText, 'assistant');
-            if(btn) { playNativeAudio(cleanText, btn); }
+            if (btn && !isActionOnly) {
+                // جاوا نے پہلے ہی بول دیا ہوگا
+            }
+        }
+
+        if (isActionOnly) {
+            if (window.AndroidBridge && window.AndroidBridge.speakText) {
+                window.AyeshaAudio.isPlaying = true;
+                window.AndroidBridge.speakText(cleanText);
+            }
+        } else {
+            if (isCallActive && !isCallMuted && !window.AyeshaAudio.isPlaying && !window.isAyeshaRecording && window.AndroidBridge) {
+                window.AndroidBridge.toggleInlineMic();
+            }
         }
     }
 
@@ -275,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let imgUrl = pendingImg ? URL.createObjectURL(pendingImg) : null;
             let currentB64 = "";
             
-            // تصویر کو base64 میں بدل کر بھیجنے کی لاجک 
             if (pendingImg) {
                 const reader = new FileReader();
                 reader.onloadend = function() {
@@ -283,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
                     inputNormal.value = ''; inputCall.value = ''; pendingImg = null; preview.classList.add('hidden'); window.isAyeshaRecording = false; updateUIState();
                     document.getElementById('thinking-indicator').classList.remove('hidden');
-                    // 🚨 ڈائریکٹ جاوا نیٹو کال 🚨
+                    window.isAyeshaProcessing = true;
                     if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(text, currentB64);
                 };
                 reader.readAsDataURL(pendingImg);
@@ -291,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 addMessage(text, 'user', null);
                 inputNormal.value = ''; inputCall.value = ''; window.isAyeshaRecording = false; updateUIState();
                 document.getElementById('thinking-indicator').classList.remove('hidden');
-                // 🚨 ڈائریکٹ جاوا نیٹو کال 🚨
+                window.isAyeshaProcessing = true;
                 if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(text, "");
             }
         }
@@ -325,5 +356,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-                                  }
-                
+        }
+                          
