@@ -1,4 +1,4 @@
-window.AyeshaAudio = { isPlaying: false, activeBtn: null };
+window.AyeshaAudio = { audioObj: null, queue: [], isPlaying: false, lang: 'ur', activeBtn: null };
 let isCallActive = false; 
 let isCallMuted = false;
 window.isAyeshaRecording = false;
@@ -9,7 +9,41 @@ let iMicNormal, iMicStop;
 let inputCall, cgPlus, cgSend, cgMic, cgMicOn, cgMicOff, cgEnd, liveGlowBg;
 let fileIn, preview, pendingImg = null, voiceTimeout;
 
-// 🚀 نیا ڈائریکٹ پلے فنکشن 🚀
+function playCloudQueue(btn) {
+    if (!btn || window.AyeshaAudio.queue.length === 0) { 
+        window.AyeshaAudio.isPlaying = false;
+        if(btn) {
+            btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
+            btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
+        }
+        if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
+             window.AndroidBridge.toggleInlineMic(); 
+        }
+        return; 
+    }
+    
+    window.AyeshaAudio.isPlaying = true;
+    
+    // 🚨 BUG FIX: اگر مائیک آن ہے، تو اسے عائشہ کے بولنے پر آف (Mute) کرو 🚨
+    if (window.isAyeshaRecording && window.AndroidBridge) {
+        window.AndroidBridge.toggleInlineMic(); 
+    }
+
+    let chunk = window.AyeshaAudio.queue.shift();
+    window.AyeshaAudio.lang = /[\u0600-\u06FF]/.test(chunk) ? 'ur' : 'en';
+    window.AyeshaAudio.audioObj = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${window.AyeshaAudio.lang}&client=tw-ob`);
+    window.AyeshaAudio.audioObj.onended = () => playCloudQueue(btn); 
+    
+    if(btn) {
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
+        btn.classList.add('bg-[#3a8ff7]', 'text-white'); 
+    }
+
+    let playPromise = window.AyeshaAudio.audioObj.play();
+    if (playPromise !== undefined) playPromise.catch(e => playCloudQueue(btn));
+}
+
+// 🚀 نیٹو آڈیو پلے فنکشن 🚀
 function playNativeAudio(text, btn) {
     window.AyeshaAudio.isPlaying = true;
     window.AyeshaAudio.activeBtn = btn;
@@ -19,7 +53,8 @@ function playNativeAudio(text, btn) {
         btn.classList.add('bg-[#3a8ff7]', 'text-white'); 
     }
 
-    if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
+    // 🚨 BUG FIX: عائشہ جب بولنا شروع کرے تو مائیک ہر حال میں بند (OFF) ہونا چاہیے 🚨
+    if (isCallActive && !isCallMuted && window.isAyeshaRecording && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
 
@@ -28,7 +63,7 @@ function playNativeAudio(text, btn) {
     }
 }
 
-// 🚀 جب جاوا بولنا ختم کرے گا تو یہ چلے گا 🚀
+// 🚀 جب جاوا بولنا ختم کرے گا تو مائیک دوبارہ آن ہوگا 🚀
 window.onSpeechDone = function() {
     window.AyeshaAudio.isPlaying = false;
     let btn = window.AyeshaAudio.activeBtn;
@@ -36,6 +71,8 @@ window.onSpeechDone = function() {
         btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
         btn.classList.remove('bg-[#3a8ff7]', 'text-white'); 
     }
+    
+    // 🚨 بولنے کے بعد مائیک دوبارہ آن کرو تاکہ یوزر بول سکے 🚨
     if (isCallActive && !isCallMuted && !window.isAyeshaRecording && window.AndroidBridge) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -43,9 +80,13 @@ window.onSpeechDone = function() {
 
 window.stopAyeshaCompletely = function() {
     window.AyeshaAudio.isPlaying = false;
+    if(window.AyeshaAudio.audioObj) window.AyeshaAudio.audioObj.pause(); 
+    window.AyeshaAudio.queue = []; 
+    
     if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) {
         window.AndroidBridge.stopSpeaking();
     }
+    
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
         b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
         b.classList.remove('bg-[#3a8ff7]', 'text-white'); 
@@ -116,8 +157,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     document.getElementById('remove-img-btn').onclick = () => { pendingImg = null; preview.classList.add('hidden'); fileIn.value=''; updateUIState(); };
-    inMic.onclick = () => { if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); };
-    cgMic.onclick = () => { isCallMuted = !isCallMuted; updateUIState(); if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); };
+    
+    inMic.onclick = () => { 
+        if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); 
+    };
+    
+    cgMic.onclick = () => { 
+        isCallMuted = !isCallMuted; updateUIState(); 
+        if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); 
+    };
 
     window.onInlineMicState = function(isRecording) {
         window.isAyeshaRecording = isRecording;
@@ -132,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
             voiceTimeout = setTimeout(() => { 
                 const activeInput = isCallActive ? inputCall : inputNormal;
                 if (activeInput.value.trim().length > 0 || pendingImg) { if(isCallActive) cgSend.click(); else inSend.click(); }
-            }, 1500); 
+            }, 1000); // تھوڑا فاسٹ کر دیا
         }
     };
 
@@ -292,5 +340,5 @@ function addMessage(text, sender, imgUrl = null) {
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         return btn;
     }
-}
-    
+           }
+        
