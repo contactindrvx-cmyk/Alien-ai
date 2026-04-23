@@ -58,7 +58,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private Thread recordingThread;
     private static final int SAMPLE_RATE = 16000;
 
-    // ہارڈویئر فلٹرز (WhatsApp Style)
     private AcousticEchoCanceler aec;
     private NoiseSuppressor ns;
     private AutomaticGainControl agc;
@@ -74,15 +73,12 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         startCallForeground(); 
         
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        // اینڈرائیڈ کو بتائیں کہ یہ 100% اصل VoIP کال ہے
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         audioManager.setSpeakerphoneOn(true);
         
-        // کال والے سپیکر کا والیم فل (Max) کر دیں
         int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
         audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVol, 0);
         
-        // مائیک پر خصوصی قبضہ
         audioManager.requestAudioFocus(focusChange -> {}, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
         
         client = new OkHttpClient();
@@ -127,14 +123,13 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         
-        // 🚀 واٹس ایپ والا اصل آڈیو سورس (VOICE_COMMUNICATION) 🚀
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        // 🚀 سورس کو MIC پر سیٹ کیا گیا ہے تاکہ ہر صورت میں آواز کیپچر ہو 🚀
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) return;
 
         int audioSessionId = audioRecord.getAudioSessionId();
 
-        // 🚀 ہارڈویئر فلٹرز آن کرنا (یہ وہ راز ہے جو ایپ کو اصلی کال بناتا ہے) 🚀
         try {
             if (AcousticEchoCanceler.isAvailable()) {
                 aec = AcousticEchoCanceler.create(audioSessionId);
@@ -159,15 +154,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             byte[] buffer = new byte[bufferSize];
             while (isRecording) {
                 int read = audioRecord.read(buffer, 0, buffer.length);
-                if (read > 0 && webSocket != null && !tts.isSpeaking()) {
-                    // اب ہارڈویئر خود آواز صاف اور تیز کر رہا ہے، ہمیں دستی بوسٹر کی ضرورت کم ہے
-                    // پھر بھی تھوڑا سا ایمپلی فائی (Amplify) کر رہے ہیں تاکہ سرور اسے جلدی کیچ کرے
-                    for (int i = 0; i < read; i += 2) {
-                        short sample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
-                        sample = (short) Math.min(Math.max(sample * 2, Short.MIN_VALUE), Short.MAX_VALUE);
-                        buffer[i] = (byte) (sample & 0xff);
-                        buffer[i + 1] = (byte) ((sample >> 8) & 0xff);
-                    }
+                // 🚀 اب کوئی مینوئل بوسٹر نہیں، خالص اوریجنل آڈیو براہ راست سرور پر جائے گی 🚀
+                if (read > 0 && webSocket != null && !tts.isSpeaking() && !isMutedByUser) {
                     webSocket.send(ByteString.of(buffer, 0, read));
                 }
             }
@@ -180,7 +168,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         if (audioRecord != null) { audioRecord.stop(); audioRecord.release(); audioRecord = null; }
         if (recordingThread != null) { recordingThread.interrupt(); recordingThread = null; }
         
-        // ہارڈویئر فلٹرز کو ریلیز کریں
         if (aec != null) { aec.release(); aec = null; }
         if (ns != null) { ns.release(); ns = null; }
         if (agc != null) { agc.release(); agc = null; }
@@ -240,5 +227,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-                    }
-                        
+    }
+    
