@@ -75,8 +75,17 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         startCallForeground(); 
         
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        
+        // 🚀 آواز کو لاؤڈ سپیکر پر فورس کرنا 🚀
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         audioManager.setSpeakerphoneOn(true);
+        
+        // 🚀 والیم کو خود بخود فل (MAX) کر دینا 🚀
+        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+        audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVol, 0);
+        
+        audioManager.requestAudioFocus(focusChange -> {
+        }, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
         
         client = new OkHttpClient();
         connectWebSocket();
@@ -131,8 +140,9 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }
         
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        // 🚀 اصل اور صاف مائیک سورس تاکہ WebRTC اسے آسانی سے پہچان سکے 🚀
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        
+        // 🚀 VOICE_COMMUNICATION مائیک سورس شور کو ختم کرتا ہے 🚀
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
             return;
@@ -146,7 +156,15 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             while (isRecording && !isMutedByUser) {
                 int read = audioRecord.read(buffer, 0, buffer.length);
                 if (read > 0 && webSocket != null && !tts.isSpeaking()) {
-                    // 🚀 آڈیو بوسٹر اڑا دیا گیا ہے! اب صاف آواز سرور پر جائے گی 🚀
+                    
+                    // 🚀 آواز کو 2 گنا بوسٹ کرنا تاکہ سرور صاف سن سکے 🚀
+                    for (int i = 0; i < read; i += 2) {
+                        short audioSample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
+                        audioSample = (short) Math.min(Math.max(audioSample * 2, Short.MIN_VALUE), Short.MAX_VALUE);
+                        buffer[i] = (byte) (audioSample & 0xff);
+                        buffer[i + 1] = (byte) ((audioSample >> 8) & 0xff);
+                    }
+                    
                     webSocket.send(ByteString.of(buffer, 0, read));
                 }
             }
@@ -170,13 +188,13 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private void startCallForeground() {
         String channelId = "AyeshaCallChannel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId, "عائشہ لائیو کال", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(channelId, "TARS لائیو کال", NotificationManager.IMPORTANCE_LOW);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
         
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("عائشہ لائیو کال")
-                .setContentText("عائشہ آپ کی آواز سن رہی ہے...")
+                .setContentTitle("TARS لائیو کال")
+                .setContentText("TARS آپ کی آواز سن رہا ہے...")
                 .setSmallIcon(R.drawable.app_logo)
                 .setOngoing(true)
                 .build();
@@ -209,6 +227,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private void speak(String text) { 
         if (tts != null && !text.isEmpty()) { 
             Bundle params = new Bundle();
+            // 🚀 آواز کو کال والے سٹریم پر بھیجنا 🚀
             params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
             tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AyeshaCallID_" + System.currentTimeMillis()); 
         } 
@@ -237,6 +256,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         if (audioManager != null) {
             audioManager.setSpeakerphoneOn(false);
             audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.abandonAudioFocus(focusChange -> {});
         }
         if (tts != null) { tts.stop(); tts.shutdown(); }
         stopForeground(true);
@@ -246,4 +266,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-}
+            }
+                
