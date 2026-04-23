@@ -27,9 +27,8 @@ dependencies {
     // 🚀 Lottie اینیمیشن کی لائبریری 🚀
     implementation 'com.airbnb.android:lottie:6.0.0'
     
-    // 🚀 لائیو کالنگ کی سگنلنگ (WebSockets) کے لیے OkHttp 🚀
+    // 🚀 لائیو کالنگ کے لیے OkHttp 🚀
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-
-    // 🔥 نیا اور طاقتور ہتھیار: WebRTC (واٹس ایپ والا Opus اور AEC انجن) 🔥
-    implementation 'org.webrtc:google-webrtc:1.0.32006'
+    
+    // ❌ ہم نے وہ WebRTC والی لائن اڑا دی ہے جو ایرر دے رہی تھی ❌
 }
