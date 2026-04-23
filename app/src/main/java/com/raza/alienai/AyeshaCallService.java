@@ -133,10 +133,13 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         int bufferSize = Math.max(FRAME_SIZE, minBufferSize);
         
-        // 🚀 VOICE_COMMUNICATION: واٹس ایپ والا ہارڈویئر لاک تاکہ مائیک کبھی بند نہ ہو 🚀
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        // 🚀 اینڈرائیڈ 14 کی سیکیورٹی سے بچنے کے لیے اسے واپس MIC کر دیا گیا ہے 🚀
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
-        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) return;
+        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+            Log.e("AyeshaCallService", "Mic failed to initialize!");
+            return;
+        }
 
         int audioSessionId = audioRecord.getAudioSessionId();
 
