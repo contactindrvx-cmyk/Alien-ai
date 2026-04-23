@@ -76,8 +76,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
-        
-        // 🚀🔥 جادو یہاں ہے: چیٹ جی پی ٹی کی طرح مین سپیکر (Loudspeaker) آن کریں 🔥🚀
         audioManager.setSpeakerphoneOn(true);
         
         client = new OkHttpClient();
@@ -89,7 +87,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
 
     private void connectWebSocket() {
-        // 🚨 سیکیور کلاؤڈ فلئیر ڈومین (WSS) 🚨
         Request request = new Request.Builder().url("wss://ayesha.aigrowthbox.com/ws/audio").build();
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
@@ -134,7 +131,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }
         
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        // 🚀 اصل اور صاف مائیک سورس تاکہ WebRTC اسے آسانی سے پہچان سکے 🚀
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
             return;
@@ -148,15 +146,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             while (isRecording && !isMutedByUser) {
                 int read = audioRecord.read(buffer, 0, buffer.length);
                 if (read > 0 && webSocket != null && !tts.isSpeaking()) {
-                    
-                    // آڈیو بوسٹر (تاکہ 500 فلٹر کو آسانی سے پاس کر لے)
-                    for (int i = 0; i < read; i += 2) {
-                        short audioSample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
-                        audioSample = (short) Math.min(Math.max(audioSample * 3, Short.MIN_VALUE), Short.MAX_VALUE);
-                        buffer[i] = (byte) (audioSample & 0xff);
-                        buffer[i + 1] = (byte) ((audioSample >> 8) & 0xff);
-                    }
-                    
+                    // 🚀 آڈیو بوسٹر اڑا دیا گیا ہے! اب صاف آواز سرور پر جائے گی 🚀
                     webSocket.send(ByteString.of(buffer, 0, read));
                 }
             }
@@ -245,7 +235,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             webSocket.close(1000, "Call Ended");
         }
         if (audioManager != null) {
-            // 🚀 کال کٹنے پر واپس نارمل سپیکر پر لائیں 🚀
             audioManager.setSpeakerphoneOn(false);
             audioManager.setMode(AudioManager.MODE_NORMAL);
         }
@@ -257,5 +246,4 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-        }
-                                 
+}
