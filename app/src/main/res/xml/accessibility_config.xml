@@ -5,5 +5,7 @@
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews|flagRequestTouchExplorationMode"
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="true"
-    android:canTakeScreenshot="true" 
-    android:notificationTimeout="100" />
+    android:canTakeScreenshot="true"
+    android:notificationTimeout="100"
+    android:description="Ayesha AI Screen Assistant - یہ سروس عائشہ کو سکرین پڑھنے اور سمجھنے میں مدد دیتی ہے۔"
+    android:summary="Ayesha AI Screen Assistant" />
