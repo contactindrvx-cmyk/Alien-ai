@@ -57,6 +57,10 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private boolean isRecording = false;
     private Thread recordingThread;
     
+    // 🚀 سرور کی ڈیمانڈ کے مطابق پرفیکٹ آڈیو سیٹنگ 🚀
+    private static final int SAMPLE_RATE = 16000;
+    private static final int FRAME_SIZE = 960; 
+
     private AcousticEchoCanceler aec;
     private NoiseSuppressor ns;
     private AutomaticGainControl agc;
@@ -72,7 +76,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         startCallForeground(); 
         
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        // 🚀 VoIP موڈ تاکہ اینڈرائیڈ مائیک کو روکے نہیں 🚀
+        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION); 
         audioManager.setSpeakerphoneOn(true);
         
         int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
@@ -101,10 +106,15 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                     JSONObject json = new JSONObject(text);
                     if (json.has("text")) {
                         String reply = json.getString("text");
-                        processBackgroundActions(reply);
+                        
+                        // 🚀 کمانڈز کو فلٹر کر کے براڈکاسٹ کرنا 🚀
+                        processBackgroundActions(reply); 
+                        
                         Intent uiIntent = new Intent("NEW_MESSAGE_FROM_CALL");
                         uiIntent.putExtra("message", reply);
                         sendBroadcast(uiIntent);
+                        
+                        // 🚀 کلین ٹیکسٹ (بغیر کمانڈ کے) پڑھنا 🚀
                         speak(reply.replaceAll("\\[.*?\\]", "").trim());
                     }
                 } catch (Exception e) {}
@@ -120,30 +130,41 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private void startAudioRecording() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return;
         
-        // 🚀 بالکل واٹس ایپ والا پرفیکٹ 960 بائٹس کا فریم سائز 🚀
-        int bufferSize = 960; 
-        int minBufferSize = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        int finalBufferSize = Math.max(bufferSize, minBufferSize);
+        int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        int bufferSize = Math.max(FRAME_SIZE, minBufferSize);
         
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, finalBufferSize);
+        // 🚀 VOICE_COMMUNICATION: واٹس ایپ والا ہارڈویئر لاک تاکہ مائیک کبھی بند نہ ہو 🚀
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) return;
 
         int audioSessionId = audioRecord.getAudioSessionId();
 
         try {
-            if (AcousticEchoCanceler.isAvailable()) { aec = AcousticEchoCanceler.create(audioSessionId); if (aec != null) aec.setEnabled(true); }
-            if (NoiseSuppressor.isAvailable()) { ns = NoiseSuppressor.create(audioSessionId); if (ns != null) ns.setEnabled(true); }
-            if (AutomaticGainControl.isAvailable()) { agc = AutomaticGainControl.create(audioSessionId); if (agc != null) agc.setEnabled(true); }
-        } catch (Exception e) {}
+            if (AcousticEchoCanceler.isAvailable()) {
+                aec = AcousticEchoCanceler.create(audioSessionId);
+                if (aec != null) aec.setEnabled(true);
+            }
+            if (NoiseSuppressor.isAvailable()) {
+                ns = NoiseSuppressor.create(audioSessionId);
+                if (ns != null) ns.setEnabled(true);
+            }
+            if (AutomaticGainControl.isAvailable()) {
+                agc = AutomaticGainControl.create(audioSessionId);
+                if (agc != null) agc.setEnabled(true);
+            }
+        } catch (Exception e) {
+            Log.e("AyeshaCallService", "Hardware Filters Error", e);
+        }
 
         audioRecord.startRecording();
         isRecording = true;
         
         recordingThread = new Thread(() -> {
-            byte[] buffer = new byte[bufferSize];
+            byte[] buffer = new byte[FRAME_SIZE]; // 🚀 بالکل 960 بائٹس سرور کے لیے 🚀
             while (isRecording) {
-                int read = audioRecord.read(buffer, 0, bufferSize);
+                int read = audioRecord.read(buffer, 0, buffer.length);
+                // 🚀 جب عائشہ بول رہی ہو تو ہماری آواز سرور پر نہ جائے (Echo Prevention) 🚀
                 if (read > 0 && webSocket != null && !tts.isSpeaking() && !isMutedByUser) {
                     webSocket.send(ByteString.of(buffer, 0, read));
                 }
@@ -156,26 +177,33 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         isRecording = false;
         if (audioRecord != null) { audioRecord.stop(); audioRecord.release(); audioRecord = null; }
         if (recordingThread != null) { recordingThread.interrupt(); recordingThread = null; }
+        
         if (aec != null) { aec.release(); aec = null; }
         if (ns != null) { ns.release(); ns = null; }
         if (agc != null) { agc.release(); agc = null; }
     }
 
     private void startCallForeground() {
-        String channelId = "TARS_CALL";
+        String channelId = "AYESHA_CALL";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId, "TARS Call", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(channelId, "Ayesha Call", NotificationManager.IMPORTANCE_LOW);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("TARS لائیو کال")
+                .setContentTitle("عائشہ لائیو کال")
                 .setSmallIcon(R.drawable.app_logo)
                 .setOngoing(true).build();
-        if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
-        else startForeground(1, notification);
+                
+        // 🚀 فورگراؤنڈ مائیکروفون پرمیشن تاکہ سکرین بند ہونے پر بھی مائیک کٹ نہ ہو 🚀
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        } else {
+            startForeground(1, notification);
+        }
     }
 
     private void processBackgroundActions(String text) {
+        // 🚀 ایپس کھولنے والی کمانڈ کو کیچ کرنا 🚀
         Pattern pattern = Pattern.compile("\\[ACTION:\\s*(.*?)(?:,\\s*DATA:\\s*(.*?))?\\]", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(text);
         while (matcher.find()) {
@@ -191,12 +219,20 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         if (tts != null && !text.isEmpty()) { 
             Bundle params = new Bundle();
             params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
-            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "TARS_TTS_" + System.currentTimeMillis()); 
+            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AYESHA_TTS_" + System.currentTimeMillis()); 
         } 
     }
 
-    @Override public void onInit(int status) { if (status == TextToSpeech.SUCCESS) tts.setLanguage(new Locale("ur", "PK")); }
-    private void playConnectSound() { ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100); tg.startTone(ToneGenerator.TONE_PROP_BEEP, 150); }
+    @Override public void onInit(int status) { 
+        if (status == TextToSpeech.SUCCESS) {
+            tts.setLanguage(new Locale("ur", "PK")); 
+        }
+    }
+    
+    private void playConnectSound() { 
+        ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100); 
+        tg.startTone(ToneGenerator.TONE_PROP_BEEP, 150); 
+    }
 
     private void endCallCompletely() {
         isCallActive = false;
