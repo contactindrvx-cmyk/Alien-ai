@@ -123,7 +123,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         
-        // 🚀 سورس کو MIC پر سیٹ کیا گیا ہے تاکہ ہر صورت میں آواز کیپچر ہو 🚀
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) return;
@@ -144,7 +143,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 if (agc != null) agc.setEnabled(true);
             }
         } catch (Exception e) {
-            Log.e("AyeshaCallService", "Hardware Filters Error", e);
+            Log.e("AyeshaCallService", "Filters Error", e);
         }
 
         audioRecord.startRecording();
@@ -154,7 +153,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             byte[] buffer = new byte[bufferSize];
             while (isRecording) {
                 int read = audioRecord.read(buffer, 0, buffer.length);
-                // 🚀 اب کوئی مینوئل بوسٹر نہیں، خالص اوریجنل آڈیو براہ راست سرور پر جائے گی 🚀
                 if (read > 0 && webSocket != null && !tts.isSpeaking() && !isMutedByUser) {
                     webSocket.send(ByteString.of(buffer, 0, read));
                 }
@@ -227,5 +225,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-    }
-    
+                                                                                  }
+                
