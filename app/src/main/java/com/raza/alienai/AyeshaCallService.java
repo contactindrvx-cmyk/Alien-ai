@@ -14,6 +14,9 @@ import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.media.ToneGenerator;
+import android.media.audiofx.AcousticEchoCanceler;
+import android.media.audiofx.AutomaticGainControl;
+import android.media.audiofx.NoiseSuppressor;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -55,6 +58,11 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private Thread recordingThread;
     private static final int SAMPLE_RATE = 16000;
 
+    // ہارڈویئر فلٹرز (WhatsApp Style)
+    private AcousticEchoCanceler aec;
+    private NoiseSuppressor ns;
+    private AutomaticGainControl agc;
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
@@ -66,12 +74,16 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         startCallForeground(); 
         
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        // اینڈرائیڈ کو بتائیں کہ یہ 100% اصل VoIP کال ہے
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         audioManager.setSpeakerphoneOn(true);
         
-        // فورس والیم (Max)
+        // کال والے سپیکر کا والیم فل (Max) کر دیں
         int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
         audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVol, 0);
+        
+        // مائیک پر خصوصی قبضہ
+        audioManager.requestAudioFocus(focusChange -> {}, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
         
         client = new OkHttpClient();
         connectWebSocket();
@@ -113,10 +125,32 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private void startAudioRecording() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return;
         
-        int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT) * 2;
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        
+        // 🚀 واٹس ایپ والا اصل آڈیو سورس (VOICE_COMMUNICATION) 🚀
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) return;
+
+        int audioSessionId = audioRecord.getAudioSessionId();
+
+        // 🚀 ہارڈویئر فلٹرز آن کرنا (یہ وہ راز ہے جو ایپ کو اصلی کال بناتا ہے) 🚀
+        try {
+            if (AcousticEchoCanceler.isAvailable()) {
+                aec = AcousticEchoCanceler.create(audioSessionId);
+                if (aec != null) aec.setEnabled(true);
+            }
+            if (NoiseSuppressor.isAvailable()) {
+                ns = NoiseSuppressor.create(audioSessionId);
+                if (ns != null) ns.setEnabled(true);
+            }
+            if (AutomaticGainControl.isAvailable()) {
+                agc = AutomaticGainControl.create(audioSessionId);
+                if (agc != null) agc.setEnabled(true);
+            }
+        } catch (Exception e) {
+            Log.e("AyeshaCallService", "Hardware Filters Error", e);
+        }
 
         audioRecord.startRecording();
         isRecording = true;
@@ -126,10 +160,11 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             while (isRecording) {
                 int read = audioRecord.read(buffer, 0, buffer.length);
                 if (read > 0 && webSocket != null && !tts.isSpeaking()) {
-                    // آڈیو بوسٹر x3 (WebRTC کے لیے بہتر حساسیت)
+                    // اب ہارڈویئر خود آواز صاف اور تیز کر رہا ہے، ہمیں دستی بوسٹر کی ضرورت کم ہے
+                    // پھر بھی تھوڑا سا ایمپلی فائی (Amplify) کر رہے ہیں تاکہ سرور اسے جلدی کیچ کرے
                     for (int i = 0; i < read; i += 2) {
                         short sample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
-                        sample = (short) Math.min(Math.max(sample * 3, Short.MIN_VALUE), Short.MAX_VALUE);
+                        sample = (short) Math.min(Math.max(sample * 2, Short.MIN_VALUE), Short.MAX_VALUE);
                         buffer[i] = (byte) (sample & 0xff);
                         buffer[i + 1] = (byte) ((sample >> 8) & 0xff);
                     }
@@ -144,6 +179,11 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         isRecording = false;
         if (audioRecord != null) { audioRecord.stop(); audioRecord.release(); audioRecord = null; }
         if (recordingThread != null) { recordingThread.interrupt(); recordingThread = null; }
+        
+        // ہارڈویئر فلٹرز کو ریلیز کریں
+        if (aec != null) { aec.release(); aec = null; }
+        if (ns != null) { ns.release(); ns = null; }
+        if (agc != null) { agc.release(); agc = null; }
     }
 
     private void startCallForeground() {
@@ -153,7 +193,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("TARS لائیو")
+                .setContentTitle("TARS لائیو کال")
                 .setSmallIcon(R.drawable.app_logo)
                 .setOngoing(true).build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
@@ -187,7 +227,11 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         isCallActive = false;
         stopAudioRecording();
         if (webSocket != null) webSocket.close(1000, "Ended");
-        if (audioManager != null) { audioManager.setSpeakerphoneOn(false); audioManager.setMode(AudioManager.MODE_NORMAL); }
+        if (audioManager != null) { 
+            audioManager.setSpeakerphoneOn(false); 
+            audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.abandonAudioFocus(focusChange -> {});
+        }
         if (tts != null) { tts.stop(); tts.shutdown(); }
         stopForeground(true);
         stopSelf();
@@ -196,5 +240,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-            }
-                                                                                  
+                    }
+                        
