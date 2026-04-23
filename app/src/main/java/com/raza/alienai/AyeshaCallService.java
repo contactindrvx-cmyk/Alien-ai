@@ -77,6 +77,9 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         
+        // 🚀🔥 جادو یہاں ہے: چیٹ جی پی ٹی کی طرح مین سپیکر (Loudspeaker) آن کریں 🔥🚀
+        audioManager.setSpeakerphoneOn(true);
+        
         client = new OkHttpClient();
         connectWebSocket();
         
@@ -90,7 +93,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
-                // تھوڑا سا انتظار (Delay) تاکہ مین ایکٹیویٹی والا مائیک پوری طرح بند ہو جائے
                 mainHandler.postDelayed(() -> startAudioRecording(), 300);
             }
 
@@ -127,17 +129,13 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
 
     private void startAudioRecording() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            Log.e("AyeshaCall", "مائیک کی پرمیشن نہیں ملی!");
             return;
         }
         
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        
-        // 🚀 اینڈرائیڈ کا ڈائریکٹ اور سب سے طاقتور مائیک سورس (MIC) 🚀
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-            Log.e("AyeshaCall", "مائیک آن ہونے میں فیل ہو گیا! (کسی اور ایپ نے پکڑا ہوا ہے)");
             return;
         }
 
@@ -150,7 +148,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 int read = audioRecord.read(buffer, 0, buffer.length);
                 if (read > 0 && webSocket != null && !tts.isSpeaking()) {
                     
-                    // آڈیو بوسٹر (آواز 3 گنا تیز کر کے سرور کو بھیجے گا)
+                    // آڈیو بوسٹر (تاکہ 500 فلٹر کو آسانی سے پاس کر لے)
                     for (int i = 0; i < read; i += 2) {
                         short audioSample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
                         audioSample = (short) Math.min(Math.max(audioSample * 3, Short.MIN_VALUE), Short.MAX_VALUE);
@@ -192,7 +190,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 .setOngoing(true)
                 .build();
 
-        // 🚀 اینڈرائیڈ 14+ کے لیے مائیکروفون فورگراؤنڈ سروس ٹائپ ضروری ہے 🚀
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
         } else {
@@ -247,6 +244,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             webSocket.close(1000, "Call Ended");
         }
         if (audioManager != null) {
+            // 🚀 کال کٹنے پر واپس نارمل سپیکر پر لائیں 🚀
+            audioManager.setSpeakerphoneOn(false);
             audioManager.setMode(AudioManager.MODE_NORMAL);
         }
         if (tts != null) { tts.stop(); tts.shutdown(); }
@@ -257,4 +256,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-                }
+                                               }
+            
