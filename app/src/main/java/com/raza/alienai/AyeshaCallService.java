@@ -56,8 +56,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private AudioRecord audioRecord;
     private boolean isRecording = false;
     private Thread recordingThread;
-    private static final int SAMPLE_RATE = 16000;
-
+    
     private AcousticEchoCanceler aec;
     private NoiseSuppressor ns;
     private AutomaticGainControl agc;
@@ -121,30 +120,22 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private void startAudioRecording() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return;
         
-        int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        // 🚀 بالکل واٹس ایپ والا پرفیکٹ 960 بائٹس کا فریم سائز 🚀
+        int bufferSize = 960; 
+        int minBufferSize = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        int finalBufferSize = Math.max(bufferSize, minBufferSize);
         
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, finalBufferSize);
         
         if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) return;
 
         int audioSessionId = audioRecord.getAudioSessionId();
 
         try {
-            if (AcousticEchoCanceler.isAvailable()) {
-                aec = AcousticEchoCanceler.create(audioSessionId);
-                if (aec != null) aec.setEnabled(true);
-            }
-            if (NoiseSuppressor.isAvailable()) {
-                ns = NoiseSuppressor.create(audioSessionId);
-                if (ns != null) ns.setEnabled(true);
-            }
-            if (AutomaticGainControl.isAvailable()) {
-                agc = AutomaticGainControl.create(audioSessionId);
-                if (agc != null) agc.setEnabled(true);
-            }
-        } catch (Exception e) {
-            Log.e("AyeshaCallService", "Filters Error", e);
-        }
+            if (AcousticEchoCanceler.isAvailable()) { aec = AcousticEchoCanceler.create(audioSessionId); if (aec != null) aec.setEnabled(true); }
+            if (NoiseSuppressor.isAvailable()) { ns = NoiseSuppressor.create(audioSessionId); if (ns != null) ns.setEnabled(true); }
+            if (AutomaticGainControl.isAvailable()) { agc = AutomaticGainControl.create(audioSessionId); if (agc != null) agc.setEnabled(true); }
+        } catch (Exception e) {}
 
         audioRecord.startRecording();
         isRecording = true;
@@ -152,7 +143,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         recordingThread = new Thread(() -> {
             byte[] buffer = new byte[bufferSize];
             while (isRecording) {
-                int read = audioRecord.read(buffer, 0, buffer.length);
+                int read = audioRecord.read(buffer, 0, bufferSize);
                 if (read > 0 && webSocket != null && !tts.isSpeaking() && !isMutedByUser) {
                     webSocket.send(ByteString.of(buffer, 0, read));
                 }
@@ -165,7 +156,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         isRecording = false;
         if (audioRecord != null) { audioRecord.stop(); audioRecord.release(); audioRecord = null; }
         if (recordingThread != null) { recordingThread.interrupt(); recordingThread = null; }
-        
         if (aec != null) { aec.release(); aec = null; }
         if (ns != null) { ns.release(); ns = null; }
         if (agc != null) { agc.release(); agc = null; }
@@ -225,5 +215,4 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-                                                                                  }
-                
+}
