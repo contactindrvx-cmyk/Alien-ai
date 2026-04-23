@@ -235,8 +235,8 @@ public class MainActivity extends AppCompatActivity {
         public void sendNativeRequest(String message, String base64Image) {
             new Thread(() -> {
                 try {
-                    // 🚨 نیا AWS سرور کا لنک یہاں اپڈیٹ کر دیا گیا ہے 🚨
-                    URL url = new URL("http://13.60.217.225:8000/chat");
+                    // 🚨 نیا کلاؤڈ فلئیر سیکیور لنک یہاں اپڈیٹ کر دیا گیا ہے 🚨
+                    URL url = new URL("https://ayesha.aigrowthbox.com/chat");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json");
@@ -321,5 +321,5 @@ public class MainActivity extends AppCompatActivity {
         if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-        }
-            
+            }
+                
