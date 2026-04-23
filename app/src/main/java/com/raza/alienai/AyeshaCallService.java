@@ -58,9 +58,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private Thread recordingThread;
     private static final int SAMPLE_RATE = 16000;
 
-    // 🚀 سٹریمنگ اور جملوں کو جوڑنے کے لیے 🚀
-    private StringBuilder sentenceBuilder = new StringBuilder();
-
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
@@ -93,7 +90,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
-                startAudioRecording(); 
+                // تھوڑا سا انتظار (Delay) تاکہ مین ایکٹیویٹی والا مائیک پوری طرح بند ہو جائے
+                mainHandler.postDelayed(() -> startAudioRecording(), 300);
             }
 
             @Override
@@ -104,12 +102,10 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                         String reply = json.getString("text");
                         processBackgroundActions(reply);
                         
-                        // UI کو سگنل بھیجیں
                         Intent uiIntent = new Intent("NEW_MESSAGE_FROM_CALL");
                         uiIntent.putExtra("message", reply);
                         sendBroadcast(uiIntent);
                         
-                        // 🚀 صاف کی گئی آواز کو بولیں 🚀
                         speak(reply.replaceAll("\\[.*?\\]", "").trim());
                     }
                 } catch (Exception e) {
@@ -131,12 +127,20 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
 
     private void startAudioRecording() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Log.e("AyeshaCall", "مائیک کی پرمیشن نہیں ملی!");
             return;
         }
         
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         
+        // 🚀 اینڈرائیڈ کا ڈائریکٹ اور سب سے طاقتور مائیک سورس (MIC) 🚀
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+        
+        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+            Log.e("AyeshaCall", "مائیک آن ہونے میں فیل ہو گیا! (کسی اور ایپ نے پکڑا ہوا ہے)");
+            return;
+        }
+
         audioRecord.startRecording();
         isRecording = true;
         
@@ -146,10 +150,9 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 int read = audioRecord.read(buffer, 0, buffer.length);
                 if (read > 0 && webSocket != null && !tts.isSpeaking()) {
                     
-                    // 🚀 جادو یہاں ہے: Audio Booster (آواز کو 3 گنا بڑھانا) 🚀
+                    // آڈیو بوسٹر (آواز 3 گنا تیز کر کے سرور کو بھیجے گا)
                     for (int i = 0; i < read; i += 2) {
                         short audioSample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
-                        // آواز کو 3 گنا بڑھائیں تاکہ سرور کا 1200 والا فلٹر اسے مس نہ کرے
                         audioSample = (short) Math.min(Math.max(audioSample * 3, Short.MIN_VALUE), Short.MAX_VALUE);
                         buffer[i] = (byte) (audioSample & 0xff);
                         buffer[i + 1] = (byte) ((audioSample >> 8) & 0xff);
@@ -189,6 +192,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 .setOngoing(true)
                 .build();
 
+        // 🚀 اینڈرائیڈ 14+ کے لیے مائیکروفون فورگراؤنڈ سروس ٹائپ ضروری ہے 🚀
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
         } else {
@@ -218,7 +222,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         if (tts != null && !text.isEmpty()) { 
             Bundle params = new Bundle();
             params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
-            // اب یہ جملوں کو جوڑ کر نارمل انداز میں بولے گی
             tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AyeshaCallID_" + System.currentTimeMillis()); 
         } 
     }
@@ -254,4 +257,4 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-    }
+                }
