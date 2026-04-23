@@ -89,7 +89,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
 
     private void connectWebSocket() {
-        Request request = new Request.Builder().url("ws://13.60.217.225:8000/ws/audio").build();
+        // 🚨 سیکیور کلاؤڈ فلئیر ڈومین (WSS) 🚨
+        Request request = new Request.Builder().url("wss://ayesha.aigrowthbox.com/ws/audio").build();
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
@@ -256,5 +257,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-                                               }
-            
+        }
+                                 
