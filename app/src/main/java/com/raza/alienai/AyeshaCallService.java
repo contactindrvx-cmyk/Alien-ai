@@ -51,13 +51,15 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
     
-    // 🚀 WebSocket اور Raw AudioRecord کے ویری ایبلز (بغیر کسی بیپ کے) 🚀
     private OkHttpClient client;
     private WebSocket webSocket;
     private AudioRecord audioRecord;
     private boolean isRecording = false;
     private Thread recordingThread;
     private static final int SAMPLE_RATE = 16000;
+
+    // 🚀 سٹریمنگ اور جملوں کو جوڑنے کے لیے 🚀
+    private StringBuilder sentenceBuilder = new StringBuilder();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -87,12 +89,10 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
 
     private void connectWebSocket() {
-        // 🚨 یہ سرور کا نیا آڈیو ویب ساکٹ لنک ہے 🚨
         Request request = new Request.Builder().url("ws://13.60.217.225:8000/ws/audio").build();
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
-                // کنکشن بنتے ہی مائیک خاموشی سے آن ہو جائے گا
                 startAudioRecording(); 
             }
 
@@ -104,10 +104,12 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                         String reply = json.getString("text");
                         processBackgroundActions(reply);
                         
+                        // UI کو سگنل بھیجیں
                         Intent uiIntent = new Intent("NEW_MESSAGE_FROM_CALL");
                         uiIntent.putExtra("message", reply);
                         sendBroadcast(uiIntent);
                         
+                        // 🚀 صاف کی گئی آواز کو بولیں 🚀
                         speak(reply.replaceAll("\\[.*?\\]", "").trim());
                     }
                 } catch (Exception e) {
@@ -142,8 +144,17 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             byte[] buffer = new byte[bufferSize];
             while (isRecording && !isMutedByUser) {
                 int read = audioRecord.read(buffer, 0, buffer.length);
-                // جب عائشہ بول رہی ہو تو مائیک سرور کو آواز نہیں بھیجے گا تاکہ ڈبل آواز نہ آئے
                 if (read > 0 && webSocket != null && !tts.isSpeaking()) {
+                    
+                    // 🚀 جادو یہاں ہے: Audio Booster (آواز کو 3 گنا بڑھانا) 🚀
+                    for (int i = 0; i < read; i += 2) {
+                        short audioSample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
+                        // آواز کو 3 گنا بڑھائیں تاکہ سرور کا 1200 والا فلٹر اسے مس نہ کرے
+                        audioSample = (short) Math.min(Math.max(audioSample * 3, Short.MIN_VALUE), Short.MAX_VALUE);
+                        buffer[i] = (byte) (audioSample & 0xff);
+                        buffer[i + 1] = (byte) ((audioSample >> 8) & 0xff);
+                    }
+                    
                     webSocket.send(ByteString.of(buffer, 0, read));
                 }
             }
@@ -173,7 +184,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         
         Notification notification = new NotificationCompat.Builder(this, channelId)
                 .setContentTitle("عائشہ لائیو کال")
-                .setContentText("عائشہ آپ کی آواز سن رہی ہے (بغیر کسی بیپ کے)...")
+                .setContentText("عائشہ آپ کی آواز سن رہی ہے...")
                 .setSmallIcon(R.drawable.app_logo)
                 .setOngoing(true)
                 .build();
@@ -207,7 +218,8 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         if (tts != null && !text.isEmpty()) { 
             Bundle params = new Bundle();
             params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, "AyeshaCallID"); 
+            // اب یہ جملوں کو جوڑ کر نارمل انداز میں بولے گی
+            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AyeshaCallID_" + System.currentTimeMillis()); 
         } 
     }
 
@@ -242,4 +254,4 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-}
+    }
