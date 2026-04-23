@@ -88,6 +88,12 @@ public class MainActivity extends AppCompatActivity {
         webView.getSettings().setAllowFileAccess(true);
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         
+        // 🚀 یہ وہ لائنیں ہیں جو میں بھول گئی تھی، اب یہ کلاؤڈ فلئیر کے ڈیزائن کو بلاک نہیں ہونے دیں گی 🚀
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webView.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+        webView.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
+
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
         webView.setWebViewClient(new WebViewClient());
 
@@ -235,7 +241,6 @@ public class MainActivity extends AppCompatActivity {
         public void sendNativeRequest(String message, String base64Image) {
             new Thread(() -> {
                 try {
-                    // 🚨 نیا کلاؤڈ فلئیر سیکیور لنک یہاں اپڈیٹ کر دیا گیا ہے 🚨
                     URL url = new URL("https://ayesha.aigrowthbox.com/chat");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
@@ -321,5 +326,5 @@ public class MainActivity extends AppCompatActivity {
         if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-            }
-                
+                            }
+                    
