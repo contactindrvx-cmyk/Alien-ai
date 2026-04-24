@@ -13,7 +13,6 @@
         .cg-wave { width: 4px; background-color: #3a8ff7; border-radius: 4px; animation: cgwave 1s ease-in-out infinite; margin: 0 1.5px; }
         @keyframes cgwave { 0%, 100% { height: 6px; } 50% { height: 16px; } }
 
-        /* 🚀 بٹن غائب کرنے کی بلٹ پروف کلاس 🚀 */
         .btn-collapse { width: 0 !important; padding: 0 !important; border-width: 0 !important; opacity: 0 !important; overflow: hidden !important; margin: 0 !important; pointer-events: none !important; }
         .transition-layout { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         
@@ -36,30 +35,30 @@
         
         <header class="flex items-center justify-between p-4 bg-black z-50 relative">
             <div class="relative">
-                <button id="profile-btn" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3a8ff7] to-purple-600 text-white font-bold flex items-center justify-center shadow-md cursor-pointer relative z-50">
+                <button id="profile-btn" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3a8ff7] to-purple-600 text-white font-bold flex items-center justify-center shadow-md cursor-pointer relative z-50 outline-none">
                     R
                 </button>
-                <div id="profile-menu" class="hidden absolute top-12 left-0 w-64 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50">
+                <div id="profile-menu" class="absolute top-12 left-0 w-64 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50 transition-all duration-300 origin-top-left opacity-0 scale-95 pointer-events-none">
                     <div class="px-4 py-3 border-b border-gray-700 mb-1">
                         <p class="text-sm font-bold text-white">Ali Raza</p>
                         <p class="text-xs text-gray-400 mt-1">alirazasabir007@gmail.com</p>
                     </div>
-                    <button onclick="if(window.AndroidBridge && window.AndroidBridge.startPayment) window.AndroidBridge.startPayment();" class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2 cursor-pointer"><svg width="16" height="16" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2ll3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg> Upgrade Premium</button>
-                    <button class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 cursor-pointer">Switch Account</button>
-                    <button class="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 cursor-pointer">Sign Out</button>
+                    <button onclick="if(window.AndroidBridge && window.AndroidBridge.startPayment) window.AndroidBridge.startPayment();" class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2 cursor-pointer outline-none"><svg width="16" height="16" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2ll3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg> Upgrade Premium</button>
+                    <button class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 cursor-pointer outline-none">Switch Account</button>
+                    <button class="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 cursor-pointer outline-none">Sign Out</button>
                 </div>
             </div>
 
             <div class="relative">
-                <button id="assistant-btn" class="flex items-center gap-2 bg-[#16243d] border border-[#3a8ff7]/40 px-4 py-2 rounded-full text-gray-200 font-medium shadow-sm cursor-pointer z-50 relative">
-                    <span id="current-assistant" class="text-sm">عائشہ</span>
-                    <svg id="assistant-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
+                <button id="assistant-btn" class="flex items-center gap-2 bg-[#16243d] border border-[#3a8ff7]/40 px-4 py-2 rounded-full text-gray-200 font-medium shadow-sm cursor-pointer z-50 relative outline-none">
+                    <span id="current-assistant" class="text-sm">Ayesha</span>
+                    <svg id="assistant-arrow" class="transition-transform duration-300" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
                 </button>
-                <div id="assistant-menu" class="hidden absolute top-12 right-0 w-48 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50">
-                    <button onclick="selectAssistant('ast-1')" class="w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer"><span id="ast-1">عائشہ</span> <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span></button>
-                    <button onclick="selectAssistant('ast-2')" class="w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer"><span id="ast-2">رضا</span> <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span></button>
-                    <button onclick="selectAssistant('ast-3')" class="w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer"><span id="ast-3">سارہ</span> <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span></button>
-                    <button onclick="selectAssistant('ast-4')" class="w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer"><span id="ast-4">ایلکس</span> <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span></button>
+                <div id="assistant-menu" class="absolute top-12 right-0 w-48 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50 transition-all duration-300 origin-top-right opacity-0 scale-95 pointer-events-none">
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-1">Ayesha</span> <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span></button>
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-2">Raza</span> <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span></button>
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-3">Sarah</span> <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span></button>
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-4">Alex</span> <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span></button>
                 </div>
             </div>
         </header>
@@ -74,7 +73,7 @@
                 <div id="image-preview-container" class="hidden absolute bottom-4 left-4 md:left-6 z-40">
                     <div class="relative inline-block">
                         <img id="preview-img" src="" class="h-16 w-16 object-cover rounded-xl border-2 border-[#3a8ff7] shadow-lg">
-                        <button id="remove-img-btn" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-50 cursor-pointer">
+                        <button id="remove-img-btn" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-50 cursor-pointer outline-none">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
@@ -87,49 +86,49 @@
             <div class="px-4 md:px-6 pb-6 bg-transparent z-30 w-full max-w-4xl mx-auto absolute bottom-0 left-0 right-0">
                 
                 <div id="normal-mode-bar" class="flex items-center justify-between w-full h-14 transition-layout">
-                    <button id="out-plus" class="btn-collapse transition-layout h-14 rounded-full bg-[#16243d] border border-[#2f3037] flex items-center justify-center text-[#3a8ff7] shadow-lg mr-2 flex-shrink-0 cursor-pointer">
+                    <button id="out-plus" class="btn-collapse transition-layout h-14 rounded-full bg-[#16243d] border border-[#2f3037] flex items-center justify-center text-[#3a8ff7] shadow-lg mr-2 flex-shrink-0 cursor-pointer outline-none">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
                     <div id="main-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center transition-layout overflow-hidden shadow-lg relative">
-                        <button id="in-plus" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer">
+                        <button id="in-plus" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:text-white">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
                         
                         <input type="text" id="user-input" class="flex-1 h-full bg-transparent px-3 text-white outline-none transition-layout min-w-[50px] text-right" placeholder="...میسج ٹائپ کریں" autocomplete="off" dir="rtl">
                         
-                        <button id="in-send" class="btn-collapse transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer pr-5 pl-2">
+                        <button id="in-send" class="btn-collapse transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:text-white pr-5 pl-2">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                         </button>
                         
-                        <button id="in-mic" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 relative cursor-pointer">
+                        <button id="in-mic" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 relative cursor-pointer outline-none hover:text-white">
                             <svg id="icon-mic-normal" class="absolute transition-all" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
                             <svg id="icon-mic-stop" class="hidden absolute text-white" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
                         </button>
                         
-                        <button id="in-call" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer">
+                        <button id="in-call" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:text-white border-none">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
                         </button>
                     </div>
                 </div>
 
                 <div id="call-mode-bar" class="hidden items-center justify-between w-full h-14 gap-2 transition-layout">
-                    <button id="cg-plus" class="w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer">
+                    <button id="cg-plus" class="w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer outline-none transition-layout">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
                     
                     <div class="flex-1 h-12 bg-black border border-[#3a8ff7]/40 rounded-full flex items-center px-4 relative shadow-[0_0_8px_rgba(58,143,247,0.3)] transition-layout">
-                         <input type="text" id="cg-input" class="flex-1 bg-transparent text-white outline-none w-full text-sm" placeholder="Type..." autocomplete="off">
-                         <button id="cg-send" class="hidden w-8 h-8 text-[#3a8ff7] items-center justify-center absolute right-2 cursor-pointer">
+                         <input type="text" id="cg-input" class="flex-1 bg-transparent text-white outline-none w-full text-sm text-right" placeholder="...ٹائپ کریں" autocomplete="off" dir="rtl">
+                         <button id="cg-send" class="hidden w-8 h-8 text-[#3a8ff7] items-center justify-center absolute left-2 cursor-pointer outline-none">
                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                          </button>
                     </div>
                     
-                    <button id="cg-mic" class="transition-layout w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer">
+                    <button id="cg-mic" class="transition-layout w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer outline-none">
                         <svg id="cg-mic-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
                         <svg id="cg-mic-off" class="hidden text-red-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                     </button>
                     
-                    <button id="cg-end" class="transition-layout h-12 bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] font-semibold text-sm px-5 rounded-full flex items-center gap-2 flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer">
+                    <button id="cg-end" class="transition-layout h-12 bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] font-semibold text-sm px-5 rounded-full flex items-center gap-2 flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer outline-none">
                         End
                     </button>
                 </div>
