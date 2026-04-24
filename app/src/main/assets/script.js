@@ -15,13 +15,13 @@ let fullStreamedText = "";
 
 // 🚀 سمارٹ ملٹی لینگویج ڈکشنری 🚀
 const translations = {
-    'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں' },
-    'ar': { a: 'عائشة', r: 'رضا', s: 'سارة', x: 'أليكس', title: 'دعنا نتحدث' },
-    'ru': { a: 'Аиша', r: 'Раза', s: 'Сара', x: 'Алекс', title: 'Давайте пообщаемся' },
-    'zh': { a: '艾莎', r: '拉扎', s: '莎拉', x: '亚历克斯', title: '我们聊天吧' },
-    'ja': { a: 'アイシャ', r: 'ラザ', s: 'サラ', x: 'アレックス', title: '話しましょう' },
-    'es': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Hablemos' },
-    'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Let\'s chat' }
+    'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں', cam: 'کیمرہ', gal: 'گیلری' },
+    'ar': { a: 'عائشة', r: 'رضا', s: 'سارة', x: 'أليكس', title: 'دعنا نتحدث', cam: 'كاميرا', gal: 'معرض الصور' },
+    'ru': { a: 'Аиша', r: 'Раза', s: 'Сара', x: 'Алекс', title: 'Давайте пообщаемся', cam: 'Камера', gal: 'Галерея' },
+    'zh': { a: '艾莎', r: '拉扎', s: '莎拉', x: '亚历克斯', title: '我们聊天吧', cam: '相机', gal: '画廊' },
+    'ja': { a: 'アイシャ', r: 'ラザ', s: 'サラ', x: 'アレックス', title: '話しましょう', cam: 'カメラ', gal: 'ギャラリー' },
+    'es': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Hablemos', cam: 'Cámara', gal: 'Galería' },
+    'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Let\'s chat', cam: 'Camera', gal: 'Gallery' }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -36,28 +36,30 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ast-4').innerText = langData.x;
     document.getElementById('current-assistant').innerText = langData.a; 
     document.getElementById('welcome-title').innerText = langData.title;
+    document.getElementById('cam-text').innerText = langData.cam;
+    document.getElementById('gal-text').innerText = langData.gal;
 
-    // 🚀 بلٹ پروف ہیڈر بٹنز (کوئی جام نہیں ہوں گے) 🚀
+    // 🚀 تمام مینیوز کا کنٹرول سینٹر (Profile, Assistant, Attachment) 🚀
     const profileBtn = document.getElementById('profile-btn');
     const profileMenu = document.getElementById('profile-menu');
     const assistantBtn = document.getElementById('assistant-btn');
     const assistantMenu = document.getElementById('assistant-menu');
     const assistantArrow = document.getElementById('assistant-arrow');
     const currentAssistant = document.getElementById('current-assistant');
+    const attachmentMenu = document.getElementById('attachment-menu'); // نیا مینیو
 
     function closeAllMenus() {
         profileMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
         assistantMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+        attachmentMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
         assistantArrow.classList.remove('rotate-180');
     }
 
     profileBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const isClosed = profileMenu.classList.contains('opacity-0');
-        closeAllMenus(); // پہلے سب بند کرو
-        if (isClosed) { // پھر کھولو
-            profileMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-        }
+        closeAllMenus(); 
+        if (isClosed) profileMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
     });
 
     assistantBtn.addEventListener('click', (e) => {
@@ -79,9 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.addEventListener('click', () => {
-        closeAllMenus();
-    });
+    document.addEventListener('click', () => { closeAllMenus(); });
 
     // 🚀 آپ کے تمام پرانے فنکشنز (کیمرہ، کال، مائیک) 🚀
     inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
@@ -133,25 +133,39 @@ document.addEventListener('DOMContentLoaded', () => {
     inputNormal.addEventListener('input', (e) => { inputCall.value = e.target.value; updateUIState(); });
     if(inputCall) inputCall.addEventListener('input', (e) => { inputNormal.value = e.target.value; updateUIState(); });
 
-    // 🚀 کال بار میں ٹائپنگ اینیمیشن 🚀
+    // کال بار میں ٹائپنگ اینیمیشن
     if(inputCall) {
         inputCall.addEventListener('focus', () => {
-            cgMic.classList.add('btn-collapse');
-            cgEnd.classList.add('btn-collapse');
+            cgMic.classList.add('btn-collapse'); cgEnd.classList.add('btn-collapse');
         });
         inputCall.addEventListener('blur', () => {
-            setTimeout(() => {
-                cgMic.classList.remove('btn-collapse');
-                cgEnd.classList.remove('btn-collapse');
-            }, 200); 
+            setTimeout(() => { cgMic.classList.remove('btn-collapse'); cgEnd.classList.remove('btn-collapse'); }, 200); 
         });
     }
 
+    // 🚀 نیا جمع (Plus) کا لاجک: اب سیدھا گیلری نہیں، بلکہ مینیو کھلے گا 🚀
     const handlePlusClick = (e) => {
         e.preventDefault();
-        if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else fileIn.click();
+        e.stopPropagation();
+        const isClosed = attachmentMenu.classList.contains('opacity-0');
+        closeAllMenus(); 
+        if (isClosed) attachmentMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
     };
     outPlus.onclick = handlePlusClick; inPlus.onclick = handlePlusClick; if(cgPlus) cgPlus.onclick = handlePlusClick;
+
+    // 🚀 کیمرہ بٹن 🚀
+    document.getElementById('btn-camera').addEventListener('click', (e) => {
+        e.stopPropagation(); closeAllMenus();
+        if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera(); 
+        else window.copyToClipboard("کیمرہ فنکشن"); // ٹیسٹنگ کے لیے
+    });
+
+    // 🚀 گیلری بٹن 🚀
+    document.getElementById('btn-gallery').addEventListener('click', (e) => {
+        e.stopPropagation(); closeAllMenus();
+        if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
+        else fileIn.click();
+    });
 
     fileIn.onchange = (e) => {
         if(e.target.files[0]) {
@@ -372,36 +386,4 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 reader.readAsDataURL(pendingImg);
             } else {
-                addMessage(text, 'user', null);
-                inputNormal.value = ''; if(inputCall) inputCall.value = ''; window.isAyeshaRecording = false; updateUIState();
-                document.getElementById('thinking-indicator').classList.remove('hidden');
-                window.isAyeshaProcessing = true;
-                if (window.AndroidBridge) window.AndroidBridge.sendNativeRequest(text, "");
-            }
-        }
-    };
-    inSend.onclick = handleSendClick; 
-    if(cgSend) cgSend.onclick = handleSendClick;
-
-    // کی بورڈ انٹر
-    inputNormal.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            handleSendClick(e);
-        }
-    });
-});
-
-window.playNativeAudio = function(text, btn) {
-    window.AyeshaAudio.isPlaying = true;
-    window.AyeshaAudio.activeBtn = btn;
-
-    if (btn) {
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
-        btn.classList.add('text-[#3a8ff7]'); 
-    }
-    if (window.AndroidBridge && window.AndroidBridge.speakText) {
-        window.AndroidBridge.speakText(text);
-    }
-}
-
-function addMe
+                addMessage(tex
