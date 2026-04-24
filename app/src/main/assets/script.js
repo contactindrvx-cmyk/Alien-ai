@@ -13,33 +13,57 @@ let fileIn, preview, pendingImg = null, voiceTimeout;
 let currentStreamBubble = null;
 let fullStreamedText = "";
 
-// 🚀 سمارٹ ملٹی لینگویج ڈکشنری 🚀
-const translations = {
-    'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں', cam: 'کیمرہ', gal: 'گیلری' },
-    'ar': { a: 'عائشة', r: 'رضا', s: 'سارة', x: 'أليكس', title: 'دعنا نتحدث', cam: 'كاميرا', gal: 'معرض الصور' },
-    'ru': { a: 'Аиша', r: 'Раза', s: 'Сара', x: 'Алекс', title: 'Давайте пообщаемся', cam: 'Камера', gal: 'Галерея' },
-    'zh': { a: '艾莎', r: '拉扎', s: '莎拉', x: '亚历克斯', title: '我们聊天吧', cam: '相机', gal: '画廊' },
-    'ja': { a: 'アイシャ', r: 'ラザ', s: 'サラ', x: 'アレックス', title: '話しましょう', cam: 'カメラ', gal: 'ギャラリー' },
-    'es': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Hablemos', cam: 'Cámara', gal: 'Galería' },
-    'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Let\'s chat', cam: 'Camera', gal: 'Gallery' }
+function playNativeAudio(text, btn) {
+    window.AyeshaAudio.isPlaying = true;
+    window.AyeshaAudio.activeBtn = btn;
+
+    if (btn) {
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
+        btn.classList.add('text-[#3a8ff7]'); 
+    }
+    if (window.AndroidBridge && window.AndroidBridge.speakText) {
+        window.AndroidBridge.speakText(text);
+    }
+}
+
+window.onSpeechDone = function() {
+    window.AyeshaAudio.isPlaying = false;
+    let btn = window.AyeshaAudio.activeBtn;
+    if (btn) {
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
+        btn.classList.remove('text-[#3a8ff7]'); 
+    }
+    
+    if (isCallActive && !isCallMuted && !window.isAyeshaRecording && !window.isAyeshaProcessing && window.AndroidBridge) {
+        window.AndroidBridge.toggleInlineMic(); 
+    }
+};
+
+window.stopAyeshaCompletely = function() {
+    window.AyeshaAudio.isPlaying = false;
+    if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) {
+        window.AndroidBridge.stopSpeaking();
+    }
+    document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
+        b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
+        b.classList.remove('text-[#3a8ff7]'); 
+    });
+};
+
+window.copyToClipboard = function(encodedText) {
+    const text = decodeURIComponent(encodedText);
+    navigator.clipboard.writeText(text);
+    const toast = document.getElementById('top-toast');
+    if(toast) {
+        document.getElementById('toast-text').innerText = "Copied!";
+        toast.classList.remove('opacity-0', '-translate-y-10');
+        setTimeout(() => { toast.classList.add('opacity-0', '-translate-y-10'); }, 2000);
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // 🚀 لینگویج اپلائی کرنا 🚀
-    const userLang = (navigator.language || navigator.userLanguage).substring(0, 2);
-    const langData = translations[userLang] || translations['en']; 
-    
-    document.getElementById('ast-1').innerText = langData.a;
-    document.getElementById('ast-2').innerText = langData.r;
-    document.getElementById('ast-3').innerText = langData.s;
-    document.getElementById('ast-4').innerText = langData.x;
-    document.getElementById('current-assistant').innerText = langData.a; 
-    document.getElementById('welcome-title').innerText = langData.title;
-    document.getElementById('cam-text').innerText = langData.cam;
-    document.getElementById('gal-text').innerText = langData.gal;
-
-    // 🚀 تمام مینیوز کا بلٹ پروف کنٹرول سینٹر 🚀
+    // 🚀 ہیڈر مینیو کا بلٹ پروف لاجک (اوریجنل .onclick اپروچ کے ساتھ) 🚀
     const profileBtn = document.getElementById('profile-btn');
     const profileMenu = document.getElementById('profile-menu');
     const assistantBtn = document.getElementById('assistant-btn');
@@ -56,16 +80,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if(profileBtn) {
-        profileBtn.addEventListener('click', (e) => {
+        profileBtn.onclick = (e) => {
             e.stopPropagation();
             const isClosed = profileMenu.classList.contains('opacity-0');
             closeAllMenus(); 
             if (isClosed) profileMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-        });
+        };
     }
 
     if(assistantBtn) {
-        assistantBtn.addEventListener('click', (e) => {
+        assistantBtn.onclick = (e) => {
             e.stopPropagation();
             const isClosed = assistantMenu.classList.contains('opacity-0');
             closeAllMenus();
@@ -73,21 +97,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 assistantMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
                 if(assistantArrow) assistantArrow.classList.add('rotate-180');
             }
-        });
+        };
     }
 
     document.querySelectorAll('.asst-option').forEach(btn => {
-        btn.addEventListener('click', function(e) {
+        btn.onclick = function(e) {
             e.stopPropagation();
-            const asstName = this.querySelector('.ast-name').innerText;
+            const asstName = this.innerText.trim();
             if(currentAssistant) currentAssistant.innerText = asstName;
             closeAllMenus();
-        });
+        };
     });
 
-    document.addEventListener('click', () => { closeAllMenus(); });
+    document.onclick = () => closeAllMenus();
 
-    // 🚀 آپ کے تمام پرانے فنکشنز 🚀
+    // 🚀 آپ کے اوریجنل بٹن بائنڈنگز (یہاں سے نیچے آپ کا سارا پرانا کوڈ ہے) 🚀
     inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill'); inPlus = document.getElementById('in-plus'); 
     inSend = document.getElementById('in-send'); inMic = document.getElementById('in-mic'); inCall = document.getElementById('in-call'); 
@@ -164,39 +188,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 🚀 نیا جمع (Plus) کا لاجک: کیمرہ/گیلری مینیو 🚀
+    // 🚀 جمع (Plus) بٹن کا لاجک 🚀
     const handlePlusClick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         if(attachmentMenu) {
             const isClosed = attachmentMenu.classList.contains('opacity-0');
             closeAllMenus(); 
             if (isClosed) attachmentMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+        } else {
+            if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else fileIn.click();
         }
     };
     if(outPlus) outPlus.onclick = handlePlusClick; 
     if(inPlus) inPlus.onclick = handlePlusClick; 
     if(cgPlus) cgPlus.onclick = handlePlusClick;
 
-    // کیمرہ بٹن
+    // کیمرہ اور گیلری کے بٹن
     const btnCam = document.getElementById('btn-camera');
-    if(btnCam) {
-        btnCam.addEventListener('click', (e) => {
-            e.stopPropagation(); closeAllMenus();
-            if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera(); 
-            else window.copyToClipboard("کیمرہ فنکشن (ٹیسٹ)"); 
-        });
-    }
-
-    // گیلری بٹن
+    if(btnCam) btnCam.onclick = (e) => { e.stopPropagation(); closeAllMenus(); if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera(); };
     const btnGal = document.getElementById('btn-gallery');
-    if(btnGal) {
-        btnGal.addEventListener('click', (e) => {
-            e.stopPropagation(); closeAllMenus();
-            if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
-            else if(fileIn) fileIn.click();
-        });
-    }
+    if(btnGal) btnGal.onclick = (e) => { e.stopPropagation(); closeAllMenus(); if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else if(fileIn) fileIn.click(); };
 
     if(fileIn) {
         fileIn.onchange = (e) => {
@@ -226,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(isRecording) { 
             if(inputNormal) inputNormal.placeholder = "سن رہی ہوں..."; 
         } else { 
-            if(inputNormal) inputNormal.placeholder = "کچھ پوچھیں..."; 
+            if(inputNormal) inputNormal.placeholder = "Ask something..."; 
             if (isCallActive && !isCallMuted) {
                 if (!window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
                     setTimeout(() => {
@@ -274,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(false); 
     };
 
+    // 🚀 سٹریمنگ کے دوران سادہ ٹیکسٹ، بغیر ببل کے 🚀
     window.onStreamStart = function() {
         const welcomeEl = document.getElementById('empty-chat-welcome');
         if(welcomeEl) welcomeEl.classList.add('hidden');
@@ -288,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
         
         msgDiv.innerHTML = `
-            <div class="ai-text-container text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
+            <div class="text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
                 <span id="streaming-text-target" class="typing-cursor"></span>
             </div>
             <div class="action-buttons-container flex items-center gap-4 mt-2 opacity-0 transition-opacity duration-500"></div>
@@ -393,9 +405,4 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if(actionsContainer) {
                 actionsContainer.innerHTML = `
-                    <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
-                    <button class="gemini-speaker-btn text-gray-500 hover:text-[#3a8ff7] transition flex items-center" data-text="${enc}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button>
-                `;
-                actionsContainer.classList.remove('opacity-0');
-                
-                le
+                    <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path
