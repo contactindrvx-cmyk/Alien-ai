@@ -45,8 +45,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
 
 public class AyeshaCallService extends Service implements TextToSpeech.OnInitListener {
 
@@ -67,7 +65,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     public static boolean isMutedByUser = false; 
 
     private OkHttpClient httpClient;
-    private WebSocket webSocket;
     private AudioRecord audioRecord;
     private boolean isRecording = false;
     private boolean isAyeshaSpeaking = false;
@@ -78,7 +75,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     private TextToSpeech tts;
 
     private static final int SAMPLE_RATE = 16000;
-    private static final int SILENCE_THRESHOLD = 500; 
+    private static final int SILENCE_THRESHOLD = 500; // ہلکی آواز پکڑنے کے لیے
     private static final int SILENCE_DURATION_MS = 1000; 
 
     @Override
@@ -114,8 +111,11 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             audioManager.requestAudioFocus(focusChange -> {}, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
             
             httpClient = new OkHttpClient();
-            connectToAyeshaServer();
+            
+            // 🚀 ویب ساکٹ ختم، سیدھا مائیک آن کرو 🚀
+            startDirectMic();
             playConnectSound();
+            showToast("کال کنیکٹ ہو گئی ہے!");
         }
         return START_STICKY;
     }
@@ -130,42 +130,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 @Override public void onError(String utteranceId) { isAyeshaSpeaking = false; }
             });
         }
-    }
-
-    private void connectToAyeshaServer() {
-        Request request = new Request.Builder().url("wss://ayesha.aigrowthbox.com/ws/text_chat").build();
-        webSocket = httpClient.newWebSocket(request, new WebSocketListener() {
-            @Override
-            public void onOpen(WebSocket webSocket, Response response) {
-                startDirectMic();
-                showToast("کال کنیکٹ ہو گئی ہے!");
-            }
-
-            @Override
-            public void onMessage(WebSocket webSocket, String text) {
-                try {
-                    JSONObject json = new JSONObject(text);
-                    String reply = json.optString("text", "");
-                    
-                    if (!reply.isEmpty()) {
-                        processActions(reply);
-                        sendBroadcast(new Intent("NEW_MESSAGE_FROM_CALL").putExtra("message", reply));
-                        
-                        // 🚀 کمانڈز کو ہٹا کر صرف عام باتیں عظمیٰ کو بولنے کے لیے دو 🚀
-                        String cleanText = reply.replaceAll("\\[.*?\\]", "").trim();
-                        if (!cleanText.isEmpty() && tts != null) {
-                            HashMap<String, String> params = new HashMap<>();
-                            params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "AYESHA_VOICE");
-                            params.put(TextToSpeech.Engine.KEY_PARAM_STREAM, String.valueOf(AudioManager.STREAM_VOICE_CALL));
-                            tts.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params);
-                        }
-                    }
-                } catch (Exception e) {}
-            }
-
-            @Override public void onClosed(WebSocket webSocket, int code, String reason) { stopRecording(); showToast("سرور سے رابطہ کٹ گیا۔"); }
-            @Override public void onFailure(WebSocket webSocket, Throwable t, Response response) { stopRecording(); showToast("سرور ایرر: " + t.getMessage()); }
-        });
     }
 
     private void startDirectMic() {
@@ -187,7 +151,7 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
 
             short[] audioData = new short[finalBufferSize / 2];
             while (isRecording) {
-                // 🚀 اگر عظمیٰ بول رہی ہے یا یوزر نے میوٹ کیا ہے تو مائیک نہیں سنے گا 🚀
+                // 🚀 ایکو کینسلیشن: عظمیٰ بول رہی ہو تو مائیک بند 🚀
                 if (isAyeshaSpeaking || isMutedByUser) {
                     pcmBuffer.reset();
                     continue;
@@ -217,8 +181,9 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         recordingThread.start();
     }
 
+    // 🚀 1. آواز گروک کو بھیجو 🚀
     private void sendToGroq(byte[] pcmData) {
-        showToast("آواز گروک کو بھیجی جا رہی ہے...");
+        showToast("سن رہی ہوں...");
         byte[] wavData = addWavHeader(pcmData);
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
@@ -239,18 +204,64 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
                 if (response.isSuccessful()) {
                     try {
                         String result = response.body().string();
-                        String text = new JSONObject(result).getString("text");
-                        if (text.length() > 1 && webSocket != null) {
-                            webSocket.send(new JSONObject().put("text", text).toString());
+                        String text = new JSONObject(result).optString("text", "");
+                        if (text.length() > 1) {
+                            // 🚀 2. گروک سے ٹیکسٹ ملا، اب سرور کو بھیجو 🚀
+                            sendToServer(text);
                         }
                     } catch (Exception e) {}
                 } else if (response.code() == 429) {
                     currentKeyIndex = (currentKeyIndex + 1) % GROQ_KEYS.length;
-                    showToast("گروک کی Key روٹیٹ ہو رہی ہے۔");
+                    showToast("گروک Key تبدیل ہو رہی ہے...");
                 }
             }
-            @Override public void onFailure(Call call, IOException e) {}
+            @Override public void onFailure(Call call, IOException e) { showToast("انٹرنیٹ کا مسئلہ"); }
         });
+    }
+
+    // 🚀 3. سرور (AWS) کو ٹیکسٹ بھیجنے والا الٹیمیٹ ڈاکیا 🚀
+    private void sendToServer(String userText) {
+        try {
+            JSONObject jsonBody = new JSONObject();
+            jsonBody.put("message", userText);
+            
+            RequestBody body = RequestBody.create(jsonBody.toString(), MediaType.parse("application/json; charset=utf-8"));
+            Request request = new Request.Builder()
+                    .url("https://ayesha.aigrowthbox.com/chat")
+                    .post(body)
+                    .build();
+
+            httpClient.newCall(request).enqueue(new Callback() {
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    if (response.isSuccessful()) {
+                        try {
+                            String responseBody = response.body().string();
+                            JSONObject json = new JSONObject(responseBody);
+                            String replyText = json.optString("text", "");
+                            
+                            if (!replyText.isEmpty()) {
+                                // سکرین پر ٹیکسٹ دکھاؤ
+                                sendBroadcast(new Intent("NEW_MESSAGE_FROM_CALL").putExtra("message", replyText));
+                                
+                                // واٹس ایپ/فیس بک کے ایکشن چلاؤ
+                                processActions(replyText);
+                                
+                                // کمانڈز ہٹا کر عظمیٰ سے بلواؤ
+                                String cleanText = replyText.replaceAll("\\[.*?\\]", "").trim();
+                                if (!cleanText.isEmpty() && tts != null) {
+                                    HashMap<String, String> params = new HashMap<>();
+                                    params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "AYESHA_VOICE");
+                                    params.put(TextToSpeech.Engine.KEY_PARAM_STREAM, String.valueOf(AudioManager.STREAM_VOICE_CALL));
+                                    tts.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params);
+                                }
+                            }
+                        } catch (Exception e) {}
+                    }
+                }
+                @Override public void onFailure(Call call, IOException e) { showToast("سرور ڈاؤن ہے"); }
+            });
+        } catch (Exception e) {}
     }
 
     private byte[] addWavHeader(byte[] pcm) {
@@ -343,7 +354,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         isCallActive = false;
         stopRecording();
         if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
-        if (webSocket != null) webSocket.close(1000, "Ended");
         if (audioManager != null) { 
             audioManager.setSpeakerphoneOn(false); 
             audioManager.setMode(AudioManager.MODE_NORMAL);
@@ -356,5 +366,5 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     @Override public void onCreate() { super.onCreate(); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent i) { return null; }
-            }
-                            
+                                                  }
+                    
