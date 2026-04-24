@@ -13,81 +13,60 @@ let fileIn, preview, pendingImg = null, voiceTimeout;
 let currentStreamBubble = null;
 let fullStreamedText = "";
 
-// 🚀 سمارٹ ملٹی لینگویج ڈکشنری (دنیا کی ہر زبان کے لیے) 🚀
+// 🚀 سمارٹ ملٹی لینگویج ڈکشنری 🚀
 const translations = {
-    'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', msg: 'اسسٹنٹ تیار ہے۔ آپ کا دن کیسا گزر رہا ہے؟' },
-    'ar': { a: 'عائشة', r: 'رضا', s: 'سارة', x: 'أليكس', msg: 'المساعد جاهز. كيف يسير يومك؟' },
-    'ru': { a: 'Аиша', r: 'Раза', s: 'Сара', x: 'Алекс', msg: 'Ассистент готов. Как проходит ваш день?' },
-    'zh': { a: '艾莎', r: '拉扎', s: '莎拉', x: '亚历克斯', msg: '助手已准备就绪。你今天过得怎么样？' },
-    'ja': { a: 'アイシャ', r: 'ラザ', s: 'サラ', x: 'アレックス', msg: 'アシスタントの準備ができました。今日はどんな一日ですか？' },
-    'es': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', msg: 'El asistente está listo. ¿Cómo va tu día?' },
-    'fr': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', msg: 'L\'assistant est prêt. Comment se passe votre journée ?' },
-    'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', msg: 'Assistant is ready. How is your day going?' }
+    'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں' },
+    'ar': { a: 'عائشة', r: 'رضا', s: 'سارة', x: 'أليكس', title: 'دعنا نتحدث' },
+    'ru': { a: 'Аиша', r: 'Раза', s: 'Сара', x: 'Алекс', title: 'Давайте пообщаемся' },
+    'zh': { a: '艾莎', r: '拉扎', s: '莎拉', x: '亚历克斯', title: '我们聊天吧' },
+    'ja': { a: 'アイシャ', r: 'ラザ', s: 'サラ', x: 'アレックス', title: '話しましょう' },
+    'es': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Hablemos' },
+    'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Let\'s chat' }
 };
-
-// 🚀 بٹنز کی ڈراپ ڈاؤن اینیمیشن (HTML سے براہ راست کال ہوں گے) 🚀
-window.toggleProfileMenu = function(e) {
-    e.stopPropagation();
-    const pMenu = document.getElementById('profile-menu');
-    const aMenu = document.getElementById('assistant-menu');
-    const aArrow = document.getElementById('assistant-arrow');
-    
-    pMenu.classList.toggle('opacity-0');
-    pMenu.classList.toggle('scale-95');
-    pMenu.classList.toggle('pointer-events-none');
-    
-    // کلوز ادر مینیو
-    aMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-    if(aArrow) aArrow.classList.remove('rotate-180');
-};
-
-window.toggleAssistantMenu = function(e) {
-    e.stopPropagation();
-    const pMenu = document.getElementById('profile-menu');
-    const aMenu = document.getElementById('assistant-menu');
-    const aArrow = document.getElementById('assistant-arrow');
-    
-    aMenu.classList.toggle('opacity-0');
-    aMenu.classList.toggle('scale-95');
-    aMenu.classList.toggle('pointer-events-none');
-    if(aArrow) aArrow.classList.toggle('rotate-180');
-    
-    // کلوز ادر مینیو
-    pMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-};
-
-window.selectAssistant = function(btnElement, spanId) {
-    const text = document.getElementById(spanId).innerText;
-    document.getElementById('current-assistant').innerText = text;
-    document.getElementById('assistant-menu').classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-    document.getElementById('assistant-arrow').classList.remove('rotate-180');
-};
-
-// باہر کلک کرنے پر بند ہونا
-document.addEventListener('click', () => {
-    const pMenu = document.getElementById('profile-menu');
-    const aMenu = document.getElementById('assistant-menu');
-    const aArrow = document.getElementById('assistant-arrow');
-    if(pMenu) pMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-    if(aMenu) aMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-    if(aArrow) aArrow.classList.remove('rotate-180');
-});
-
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // 🚀 لینگویج کو اپلائی کرنا 🚀
+    // 🚀 لینگویج اپلائی کرنا 🚀
     const userLang = (navigator.language || navigator.userLanguage).substring(0, 2);
-    const langData = translations[userLang] || translations['en']; // ڈیفالٹ انگلش
+    const langData = translations[userLang] || translations['en']; 
     
     document.getElementById('ast-1').innerText = langData.a;
     document.getElementById('ast-2').innerText = langData.r;
     document.getElementById('ast-3').innerText = langData.s;
     document.getElementById('ast-4').innerText = langData.x;
-    document.getElementById('current-assistant').innerText = langData.a; // ڈیفالٹ عائشہ
-    document.getElementById('welcome-msg').innerText = langData.msg;
+    document.getElementById('current-assistant').innerText = langData.a; 
+    document.getElementById('welcome-title').innerText = langData.title;
 
-    // 🚀 آپ کا پرانا سارا کوڈ 🚀
+    // 🚀 ہیڈر بٹن لاجک (بلٹ پروف جاوا سکرپٹ کلک ایونٹس) 🚀
+    const profileBtn = document.getElementById('profile-btn');
+    const profileMenu = document.getElementById('profile-menu');
+    const assistantBtn = document.getElementById('assistant-btn');
+    const assistantMenu = document.getElementById('assistant-menu');
+
+    profileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        profileMenu.classList.toggle('hidden');
+        assistantMenu.classList.add('hidden');
+    });
+
+    assistantBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        assistantMenu.classList.toggle('hidden');
+        profileMenu.classList.add('hidden');
+    });
+
+    window.selectAssistant = function(spanId) {
+        const text = document.getElementById(spanId).innerText;
+        document.getElementById('current-assistant').innerText = text;
+        assistantMenu.classList.add('hidden');
+    };
+
+    document.addEventListener('click', () => {
+        profileMenu.classList.add('hidden');
+        assistantMenu.classList.add('hidden');
+    });
+
+    // 🚀 باقی پرانا سسٹم 🚀
     inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill'); inPlus = document.getElementById('in-plus'); 
     inSend = document.getElementById('in-send'); inMic = document.getElementById('in-mic'); inCall = document.getElementById('in-call'); 
@@ -137,17 +116,16 @@ document.addEventListener('DOMContentLoaded', () => {
     inputNormal.addEventListener('input', (e) => { inputCall.value = e.target.value; updateUIState(); });
     if(inputCall) inputCall.addEventListener('input', (e) => { inputNormal.value = e.target.value; updateUIState(); });
 
+    // 🚀 کال بار میں ٹائپنگ اینیمیشن (Mic اور End غائب ہوں گے) 🚀
     if(inputCall) {
         inputCall.addEventListener('focus', () => {
             cgMic.classList.add('btn-collapse');
             cgEnd.classList.add('btn-collapse');
-            cgPlus.classList.add('btn-collapse');
         });
         inputCall.addEventListener('blur', () => {
             setTimeout(() => {
                 cgMic.classList.remove('btn-collapse');
                 cgEnd.classList.remove('btn-collapse');
-                cgPlus.classList.remove('btn-collapse');
             }, 200); 
         });
     }
@@ -178,9 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onInlineMicState = function(isRecording) {
         window.isAyeshaRecording = isRecording;
         if(isRecording) { 
-            inputNormal.placeholder = "Listening..."; 
+            inputNormal.placeholder = "سن رہی ہوں..."; 
         } else { 
-            inputNormal.placeholder = "Ask something..."; 
+            inputNormal.placeholder = "کچھ پوچھیں..."; 
             if (isCallActive && !isCallMuted) {
                 if (!window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
                     setTimeout(() => {
@@ -219,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.onStreamStart = function() {
+        document.getElementById('empty-chat-welcome').classList.add('hidden'); // پہلا میسج آنے پر سینٹر ٹیکسٹ غائب
         document.getElementById('thinking-indicator').classList.add('hidden');
         const chatBox = document.getElementById('chat-box'); 
         const msgDiv = document.createElement('div');
@@ -257,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onStreamError = function() {
         window.isAyeshaProcessing = false;
         document.getElementById('thinking-indicator').classList.add('hidden');
-        addMessage("Connection error.", 'assistant');
+        addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
         currentStreamBubble = null;
     };
 
@@ -386,6 +365,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     inSend.onclick = handleSendClick; 
     if(cgSend) cgSend.onclick = handleSendClick;
+
+    // کی بورڈ انٹر
+    inputNormal.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            handleSendClick(e);
+        }
+    });
 });
 
 window.playNativeAudio = function(text, btn) {
@@ -393,4 +379,21 @@ window.playNativeAudio = function(text, btn) {
     window.AyeshaAudio.activeBtn = btn;
 
     if (btn) {
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentC
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
+        btn.classList.add('text-[#3a8ff7]'); 
+    }
+    if (window.AndroidBridge && window.AndroidBridge.speakText) {
+        window.AndroidBridge.speakText(text);
+    }
+}
+
+function addMessage(text, sender, imgUrl = null) {
+    document.getElementById('empty-chat-welcome').classList.add('hidden'); // 🚀 پہلا میسج آنے پر سینٹر ٹیکسٹ غائب 🚀
+    const chatBox = document.getElementById('chat-box'); 
+    const msgDiv = document.createElement('div');
+    let imgHTML = imgUrl ? `<img src="${imgUrl}" class="w-48 h-48 object-cover rounded-xl mb-3 border-2 border-[#3a8ff7] shadow-sm">` : '';
+
+    if (sender === 'user') {
+        msgDiv.className = 'w-full flex justify-end mt-4 mb-2';
+        msgDiv.innerHTML = `<div class="chat-bubble bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end text-[1.05rem] text-gray-200 shadow-md" dir="rtl">${imgHTML}<p dir="auto">${text}</p></div>`;
+        chatBox
