@@ -16,9 +16,12 @@ import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.ToneGenerator;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Base64;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -51,7 +54,7 @@ public class AyeshaCallService extends Service {
     public static final String ACTION_MUTE_CALL = "MUTE_AYESHA_CALL";
     public static final String ACTION_STOP_AUDIO = "ACTION_STOP_AUDIO";
 
-    // 🚀 گٹ ہب کے روبوٹ کو بائی پاس کرنے کے لیے کیز کو دو حصوں میں توڑ دیا گیا ہے 🚀
+    // 🚀 گٹ ہب کے روبوٹ کو بائی پاس کرنے کے لیے 🚀
     private static final String[] GROQ_KEYS = {
         "gsk_f4y3anqb" + "NY97LjeVtgdfWGdyb3FYQb6CYeik6yWBK8N0ARERzqLh",
         "gsk_xyyTzTpq" + "yfcDEsKLm3OEWGdyb3FYQMGQGg4tWculx68JMgaMjEDK",
@@ -70,10 +73,12 @@ public class AyeshaCallService extends Service {
     private boolean isRecording = false;
     private boolean isAyeshaSpeaking = false;
     private Thread recordingThread;
+    private Handler mainHandler;
 
     private static final int SAMPLE_RATE = 16000;
-    private static final int SILENCE_THRESHOLD = 1500; // مائیک کی حساسیت
-    private static final int SILENCE_DURATION_MS = 800; // کتنی دیر خاموشی پر جواب بھیجے
+    // 🚀 حساسیت کم کر دی گئی ہے تاکہ آپ کی آواز جلدی پکڑے 🚀
+    private static final int SILENCE_THRESHOLD = 500; 
+    private static final int SILENCE_DURATION_MS = 1000; 
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -93,6 +98,7 @@ public class AyeshaCallService extends Service {
 
         if (!isCallActive) {
             isCallActive = true;
+            mainHandler = new Handler(Looper.getMainLooper());
             startCallForeground(); 
             
             audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -116,6 +122,7 @@ public class AyeshaCallService extends Service {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
                 startDirectMic();
+                showToast("کال کنیکٹ ہو گئی ہے!");
             }
 
             @Override
@@ -129,12 +136,16 @@ public class AyeshaCallService extends Service {
                         processActions(reply);
                         sendBroadcast(new Intent("NEW_MESSAGE_FROM_CALL").putExtra("message", reply));
                     }
-                    if (!audioB64.isEmpty()) playAudio(audioB64);
+                    if (!audioB64.isEmpty()) {
+                        playAudio(audioB64);
+                    } else {
+                        showToast("OpenAI کی آواز فیل ہو گئی۔ کیا اکاؤنٹ میں بیلنس ہے؟");
+                    }
                 } catch (Exception e) {}
             }
 
-            @Override public void onClosed(WebSocket webSocket, int code, String reason) { stopRecording(); }
-            @Override public void onFailure(WebSocket webSocket, Throwable t, Response response) { stopRecording(); }
+            @Override public void onClosed(WebSocket webSocket, int code, String reason) { stopRecording(); showToast("سرور سے رابطہ کٹ گیا۔"); }
+            @Override public void onFailure(WebSocket webSocket, Throwable t, Response response) { stopRecording(); showToast("سرور ایرر: " + t.getMessage()); }
         });
     }
 
@@ -145,10 +156,7 @@ public class AyeshaCallService extends Service {
         int finalBufferSize = Math.max(4096, bufferSize);
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, finalBufferSize);
         
-        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-            Log.e("AyeshaCall", "Mic failed to initialize");
-            return;
-        }
+        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) return;
 
         audioRecord.startRecording();
         isRecording = true;
@@ -189,13 +197,8 @@ public class AyeshaCallService extends Service {
         recordingThread.start();
     }
 
-    private void stopRecording() {
-        isRecording = false;
-        if (audioRecord != null) { audioRecord.stop(); audioRecord.release(); audioRecord = null; }
-        if (recordingThread != null) { recordingThread.interrupt(); recordingThread = null; }
-    }
-
     private void sendToGroq(byte[] pcmData) {
+        showToast("آواز گروک کو بھیجی جا رہی ہے...");
         byte[] wavData = addWavHeader(pcmData);
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
@@ -223,9 +226,14 @@ public class AyeshaCallService extends Service {
                     } catch (Exception e) {}
                 } else if (response.code() == 429) {
                     currentKeyIndex = (currentKeyIndex + 1) % GROQ_KEYS.length;
+                    showToast("گروک کی Key روٹیٹ ہو رہی ہے۔");
+                } else {
+                    showToast("گروک ایرر: " + response.code());
                 }
             }
-            @Override public void onFailure(Call call, IOException e) {}
+            @Override public void onFailure(Call call, IOException e) {
+                showToast("انٹرنیٹ یا گروک کا مسئلہ: " + e.getMessage());
+            }
         });
     }
 
@@ -338,6 +346,18 @@ public class AyeshaCallService extends Service {
         tg.startTone(ToneGenerator.TONE_PROP_BEEP, 150); 
     }
 
+    private void showToast(String message) {
+        if (mainHandler != null) {
+            mainHandler.post(() -> Toast.makeText(AyeshaCallService.this, message, Toast.LENGTH_SHORT).show());
+        }
+    }
+
+    private void stopRecording() {
+        isRecording = false;
+        if (audioRecord != null) { audioRecord.stop(); audioRecord.release(); audioRecord = null; }
+        if (recordingThread != null) { recordingThread.interrupt(); recordingThread = null; }
+    }
+
     private void endCallCompletely() {
         isCallActive = false;
         stopRecording();
@@ -355,5 +375,5 @@ public class AyeshaCallService extends Service {
     @Override public void onCreate() { super.onCreate(); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent i) { return null; }
-        }
-                
+                    }
+            
