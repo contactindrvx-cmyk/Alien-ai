@@ -37,36 +37,53 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('current-assistant').innerText = langData.a; 
     document.getElementById('welcome-title').innerText = langData.title;
 
-    // 🚀 ہیڈر بٹن لاجک (بلٹ پروف جاوا سکرپٹ کلک ایونٹس) 🚀
+    // 🚀 بلٹ پروف ہیڈر بٹنز (کوئی جام نہیں ہوں گے) 🚀
     const profileBtn = document.getElementById('profile-btn');
     const profileMenu = document.getElementById('profile-menu');
     const assistantBtn = document.getElementById('assistant-btn');
     const assistantMenu = document.getElementById('assistant-menu');
+    const assistantArrow = document.getElementById('assistant-arrow');
+    const currentAssistant = document.getElementById('current-assistant');
+
+    function closeAllMenus() {
+        profileMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+        assistantMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+        assistantArrow.classList.remove('rotate-180');
+    }
 
     profileBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        profileMenu.classList.toggle('hidden');
-        assistantMenu.classList.add('hidden');
+        const isClosed = profileMenu.classList.contains('opacity-0');
+        closeAllMenus(); // پہلے سب بند کرو
+        if (isClosed) { // پھر کھولو
+            profileMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+        }
     });
 
     assistantBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        assistantMenu.classList.toggle('hidden');
-        profileMenu.classList.add('hidden');
+        const isClosed = assistantMenu.classList.contains('opacity-0');
+        closeAllMenus();
+        if (isClosed) {
+            assistantMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+            assistantArrow.classList.add('rotate-180');
+        }
     });
 
-    window.selectAssistant = function(spanId) {
-        const text = document.getElementById(spanId).innerText;
-        document.getElementById('current-assistant').innerText = text;
-        assistantMenu.classList.add('hidden');
-    };
+    document.querySelectorAll('.asst-option').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const asstName = this.querySelector('.ast-name').innerText;
+            currentAssistant.innerText = asstName;
+            closeAllMenus();
+        });
+    });
 
     document.addEventListener('click', () => {
-        profileMenu.classList.add('hidden');
-        assistantMenu.classList.add('hidden');
+        closeAllMenus();
     });
 
-    // 🚀 باقی پرانا سسٹم 🚀
+    // 🚀 آپ کے تمام پرانے فنکشنز (کیمرہ، کال، مائیک) 🚀
     inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill'); inPlus = document.getElementById('in-plus'); 
     inSend = document.getElementById('in-send'); inMic = document.getElementById('in-mic'); inCall = document.getElementById('in-call'); 
@@ -116,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inputNormal.addEventListener('input', (e) => { inputCall.value = e.target.value; updateUIState(); });
     if(inputCall) inputCall.addEventListener('input', (e) => { inputNormal.value = e.target.value; updateUIState(); });
 
-    // 🚀 کال بار میں ٹائپنگ اینیمیشن (Mic اور End غائب ہوں گے) 🚀
+    // 🚀 کال بار میں ٹائپنگ اینیمیشن 🚀
     if(inputCall) {
         inputCall.addEventListener('focus', () => {
             cgMic.classList.add('btn-collapse');
@@ -197,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.onStreamStart = function() {
-        document.getElementById('empty-chat-welcome').classList.add('hidden'); // پہلا میسج آنے پر سینٹر ٹیکسٹ غائب
+        document.getElementById('empty-chat-welcome').classList.add('hidden');
         document.getElementById('thinking-indicator').classList.add('hidden');
         const chatBox = document.getElementById('chat-box'); 
         const msgDiv = document.createElement('div');
@@ -387,13 +404,4 @@ window.playNativeAudio = function(text, btn) {
     }
 }
 
-function addMessage(text, sender, imgUrl = null) {
-    document.getElementById('empty-chat-welcome').classList.add('hidden'); // 🚀 پہلا میسج آنے پر سینٹر ٹیکسٹ غائب 🚀
-    const chatBox = document.getElementById('chat-box'); 
-    const msgDiv = document.createElement('div');
-    let imgHTML = imgUrl ? `<img src="${imgUrl}" class="w-48 h-48 object-cover rounded-xl mb-3 border-2 border-[#3a8ff7] shadow-sm">` : '';
-
-    if (sender === 'user') {
-        msgDiv.className = 'w-full flex justify-end mt-4 mb-2';
-        msgDiv.innerHTML = `<div class="chat-bubble bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end text-[1.05rem] text-gray-200 shadow-md" dir="rtl">${imgHTML}<p dir="auto">${text}</p></div>`;
-        chatBox
+function addMe
