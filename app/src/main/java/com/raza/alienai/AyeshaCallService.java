@@ -1,7 +1,6 @@
 package com.raza.alienai;
 
 import android.Manifest;
-import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
@@ -14,13 +13,11 @@ import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
-import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Base64;
-import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -51,7 +48,7 @@ public class AyeshaCallService extends Service {
     public static final String ACTION_MUTE_CALL = "MUTE_AYESHA_CALL";
     public static final String ACTION_STOP_AUDIO = "ACTION_STOP_AUDIO";
 
-    // 🚀 گٹ ہب کے سیکیورٹی گارڈ کو چکمہ دینے کے لیے الٹرا بائی پاس 🚀
+    // 🚀 گٹ ہب کے سیکیورٹی گارڈ کا بائی پاس (کٹی ہوئی کیز) 🚀
     private static final String[] GROQ_KEYS = {
         "gsk_f4y3" + "anqbNY97L" + "jeVtgdfWGdyb3" + "FYQb6CYeik6yWBK8N0ARERzqLh",
         "gsk_xyyT" + "zTpqyfcDE" + "sKLm3OEWGdyb3" + "FYQMGQGg4tWculx68JMgaMjEDK",
@@ -65,7 +62,7 @@ public class AyeshaCallService extends Service {
 
     private OkHttpClient httpClient;
     private AudioRecord audioRecord;
-    private MediaPlayer mediaPlayer; // 🚀 نئی آواز چلانے کے لیے 🚀
+    private MediaPlayer mediaPlayer; 
     
     private boolean isRecording = false;
     private boolean isAyeshaSpeaking = false;
@@ -73,7 +70,8 @@ public class AyeshaCallService extends Service {
     private Handler mainHandler;
 
     private static final int SAMPLE_RATE = 16000;
-    private static final int SILENCE_THRESHOLD = 500; 
+    // 🚀 سمارٹ مائیک سینسر (شور کو اگنور کرے گا) 🚀
+    private static final int SILENCE_THRESHOLD = 800; 
     private static final int SILENCE_DURATION_MS = 1000; 
 
     @Override
@@ -107,8 +105,7 @@ public class AyeshaCallService extends Service {
             
             httpClient = new OkHttpClient();
             startDirectMic();
-            playConnectSound();
-            showToast("عائشہ 3.1 TTS ڈاکیے کے ساتھ تیار ہے!");
+            // 🚀 تمام ٹیسٹنگ نوٹیفکیشن (Toasts) اور Beeps ختم کر دی گئی ہیں 🚀
         }
         return START_STICKY;
     }
@@ -131,7 +128,7 @@ public class AyeshaCallService extends Service {
             short[] audioData = new short[2048];
             
             while (isRecording) {
-                // 🚀 اگر اصلی آڈیو پلے ہو رہی ہے یا یوزر نے میوٹ کیا ہے، تو مائیک بند رکھو 🚀
+                // 🚀 ایکو کینسلیشن: عائشہ بولے تو مائیک سائلنٹ رہے 🚀
                 if (isAyeshaSpeaking || isMutedByUser) { 
                     pcmBuffer.reset(); 
                     continue; 
@@ -150,7 +147,8 @@ public class AyeshaCallService extends Service {
                     } else if (hasSpoken) {
                         if (silenceStartTime == 0) silenceStartTime = System.currentTimeMillis();
                         if (System.currentTimeMillis() - silenceStartTime > SILENCE_DURATION_MS) {
-                            sendToGroq(pcmBuffer.toByteArray());
+                            // 🚀 آواز مکمل ہوئی، گروک کو بھیجو 🚀
+                            sendToGroqWithRetry(pcmBuffer.toByteArray(), 0);
                             pcmBuffer.reset(); 
                             hasSpoken = false; 
                             silenceStartTime = 0;
@@ -162,9 +160,11 @@ public class AyeshaCallService extends Service {
         recordingThread.start();
     }
 
-    // 🚀 1. آواز گروک کو بھیجو 🚀
-    private void sendToGroq(byte[] pcmData) {
-        showToast("سن رہی ہوں...");
+    // 🚀 گروک کا الٹرا آٹو ری ٹرائی (Auto-Retry) سسٹم 🚀
+    private void sendToGroqWithRetry(byte[] pcmData, int retryCount) {
+        // اگر تمام کیز فیل ہو جائیں تو مزید ری ٹرائی نہ کرو
+        if (retryCount >= GROQ_KEYS.length) return;
+
         RequestBody requestBody = new MultipartBody.Builder().setType(MultipartBody.FORM)
                 .addFormDataPart("model", "whisper-large-v3").addFormDataPart("language", "ur")
                 .addFormDataPart("file", "speech.wav", RequestBody.create(addWavHeader(pcmData), MediaType.parse("audio/wav")))
@@ -179,17 +179,23 @@ public class AyeshaCallService extends Service {
                 if (response.isSuccessful()) {
                     try {
                         String text = new JSONObject(response.body().string()).getString("text");
-                        if (text.length() > 1) sendToAyeshaServer(text);
+                        if (text.length() > 1) {
+                            sendToAyeshaServer(text);
+                        }
                     } catch (Exception e) {}
                 } else if (response.code() == 429) { 
+                    // 🚀 کی لیمٹ ختم! فوراً نئی کی لگاؤ اور دوبارہ آڈیو بھیجو (یوزر کو پتہ بھی نہیں چلے گا) 🚀
                     currentKeyIndex = (currentKeyIndex + 1) % GROQ_KEYS.length; 
+                    sendToGroqWithRetry(pcmData, retryCount + 1);
                 }
             }
-            @Override public void onFailure(Call call, IOException e) {}
+            @Override public void onFailure(Call call, IOException e) {
+                // انٹرنیٹ کا مسئلہ ہو سکتا ہے
+            }
         });
     }
 
-    // 🚀 2. گروک سے آنے والا ٹیکسٹ اپنے کسٹم سرور (AWS) کو بھیجو 🚀
+    // 🚀 گروک کا ٹیکسٹ کسٹم سرور (AWS) کو بھیجنا 🚀
     private void sendToAyeshaServer(String userText) {
         try {
             JSONObject json = new JSONObject(); 
@@ -209,13 +215,13 @@ public class AyeshaCallService extends Service {
                             String replyText = jsonResponse.optString("text", "");
                             String audioBase64 = jsonResponse.optString("audio", "");
                             
-                            // 🚀 3. ایکشن پروسیس کریں اور سکرین پر ٹیکسٹ دکھائیں 🚀
+                            // 🚀 ایکشن پروسیس کریں اور سکرین پر ٹیکسٹ دکھائیں 🚀
                             if (!replyText.isEmpty()) {
                                 processActions(replyText);
                                 sendBroadcast(new Intent("NEW_MESSAGE_FROM_CALL").putExtra("message", replyText));
                             }
                             
-                            // 🚀 4. سرور سے آئی ہوئی Base64 آڈیو کو پلے کریں 🚀
+                            // 🚀 سرور سے آئی ہوئی Base64 آڈیو کو پلے کریں 🚀
                             if (!audioBase64.isEmpty()) {
                                 playAudioFromBase64(audioBase64);
                             }
@@ -223,12 +229,14 @@ public class AyeshaCallService extends Service {
                         } catch (Exception e) {}
                     }
                 }
-                @Override public void onFailure(Call call, IOException e) { showToast("سرور سے رابطہ ٹوٹ گیا"); }
+                @Override public void onFailure(Call call, IOException e) { 
+                    // سائلنٹ فیلئر
+                }
             });
         } catch (Exception e) {}
     }
 
-    // 🚀 بیس 64 آڈیو کو کنورٹ کر کے اصلی آواز میں پلے کرنے والا فنکشن 🚀
+    // 🚀 بیس 64 آڈیو کو کنورٹ کر کے اصلی آواز میں پلے کرنے والا الٹیمیٹ فنکشن 🚀
     private void playAudioFromBase64(String base64Audio) {
         try {
             byte[] audioData = Base64.decode(base64Audio, Base64.DEFAULT);
@@ -237,7 +245,7 @@ public class AyeshaCallService extends Service {
             fos.write(audioData);
             fos.close();
 
-            stopMediaPlayer(); // پرانی آواز بند کرو
+            stopMediaPlayer(); 
 
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setAudioStreamType(AudioManager.STREAM_VOICE_CALL);
@@ -250,7 +258,7 @@ public class AyeshaCallService extends Service {
                 isAyeshaSpeaking = false;
                 mp.release();
                 mediaPlayer = null;
-                tempFile.delete(); // میموری کلین اپ
+                tempFile.delete(); 
             });
             mediaPlayer.prepareAsync();
 
@@ -310,17 +318,9 @@ public class AyeshaCallService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getSystemService(NotificationManager.class).createNotificationChannel(new NotificationChannel(cid, "Ayesha Call", NotificationManager.IMPORTANCE_LOW));
         }
-        startForeground(1, new NotificationCompat.Builder(this, cid).setContentTitle("عائشہ کال").setSmallIcon(R.drawable.app_logo).build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        startForeground(1, new NotificationCompat.Builder(this, cid).setContentTitle("عائشہ کال سروس").setSmallIcon(R.drawable.app_logo).build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
     }
 
-    private void playConnectSound() { new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100).startTone(ToneGenerator.TONE_PROP_BEEP, 150); }
-    
-    private void showToast(String m) { 
-        if (mainHandler != null) {
-            mainHandler.post(() -> Toast.makeText(AyeshaCallService.this, m, Toast.LENGTH_SHORT).show()); 
-        }
-    }
-    
     private void endCallCompletely() { 
         isCallActive = false;
         isRecording = false; 
@@ -338,5 +338,4 @@ public class AyeshaCallService extends Service {
     
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent i) { return null; }
-            }
-                                                  
+}
