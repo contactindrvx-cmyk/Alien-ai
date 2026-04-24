@@ -40,7 +40,7 @@
         <header class="flex items-center justify-between p-4 bg-black z-40 relative">
             
             <div class="relative">
-                <button id="profile-btn" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3a8ff7] to-purple-600 text-white font-bold flex items-center justify-center shadow-md hover:opacity-80 transition-transform duration-300 outline-none focus:outline-none cursor-pointer">
+                <button onclick="toggleProfileMenu(event)" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3a8ff7] to-purple-600 text-white font-bold flex items-center justify-center shadow-md hover:opacity-80 transition-transform duration-300 outline-none focus:outline-none cursor-pointer">
                     R
                 </button>
                 <div id="profile-menu" class="absolute top-12 left-0 w-64 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50 transition-all duration-300 origin-top-left opacity-0 scale-95 pointer-events-none">
@@ -48,22 +48,22 @@
                         <p class="text-sm font-bold text-white">Ali Raza</p>
                         <p class="text-xs text-gray-400 mt-1">alirazasabir007@gmail.com</p>
                     </div>
-                    <button class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-gray-700 flex items-center gap-2 transition"><svg width="16" height="16" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2ll3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg> Upgrade Premium</button>
+                    <button onclick="if(window.AndroidBridge && window.AndroidBridge.startPayment) window.AndroidBridge.startPayment(); showToast('Opening Play Store...');" class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-gray-700 flex items-center gap-2 transition"><svg width="16" height="16" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2ll3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg> Upgrade Premium</button>
                     <button class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition">Switch Account</button>
                     <button class="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-gray-700 transition">Sign Out</button>
                 </div>
             </div>
 
             <div class="relative">
-                <button id="assistant-btn" class="flex items-center gap-2 bg-[#16243d] border border-[#3a8ff7]/40 px-4 py-2 rounded-full text-gray-200 font-medium hover:bg-[#2f3037] transition-all duration-300 shadow-sm outline-none focus:outline-none cursor-pointer active:scale-95">
-                    <span id="current-assistant" class="text-sm">عائشہ</span>
+                <button onclick="toggleAssistantMenu(event)" class="flex items-center gap-2 bg-[#16243d] border border-[#3a8ff7]/40 px-4 py-2 rounded-full text-gray-200 font-medium hover:bg-[#2f3037] transition-all duration-300 shadow-sm outline-none focus:outline-none cursor-pointer active:scale-95">
+                    <span id="current-assistant" class="text-sm">Ayesha</span>
                     <svg id="assistant-arrow" class="transition-transform duration-300" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
                 </button>
                 <div id="assistant-menu" class="absolute top-12 right-0 w-48 h-auto bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50 transition-all duration-300 origin-top-right opacity-0 scale-95 pointer-events-none">
-                    <button class="asst-option w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3">عائشہ <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span></button>
-                    <button class="asst-option w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3">رضا <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span></button>
-                    <button class="asst-option w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3">سارہ <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span></button>
-                    <button class="asst-option w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3">ایلکس <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span></button>
+                    <button onclick="selectAssistant(this, 'ast-1')" class="w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3"><span id="ast-1">Ayesha</span> <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span></button>
+                    <button onclick="selectAssistant(this, 'ast-2')" class="w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3"><span id="ast-2">Raza</span> <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span></button>
+                    <button onclick="selectAssistant(this, 'ast-3')" class="w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3"><span id="ast-3">Sarah</span> <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span></button>
+                    <button onclick="selectAssistant(this, 'ast-4')" class="w-full text-right px-4 py-2.5 text-sm text-white hover:bg-gray-700 transition flex justify-end items-center gap-3"><span id="ast-4">Alex</span> <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span></button>
                 </div>
             </div>
         </header>
@@ -80,7 +80,7 @@
                 </div>
                 
                 <div class="flex flex-col items-end mb-8 w-full pr-2">
-                    <div class="ai-text-container text-gray-400 text-[1.05rem]">اسسٹنٹ تیار ہے۔ آپ کا دن کیسا گزر رہا ہے؟</div>
+                    <div id="welcome-msg" class="ai-text-container text-gray-400 text-[1.05rem]">Assistant is ready. How is your day going?</div>
                 </div>
                 <div id="thinking-indicator" class="hidden w-full flex justify-end px-2 pb-6"><span class="text-[#3a8ff7] animate-pulse font-medium text-sm">سوچ رہی ہے...</span></div>
             </div>
@@ -148,4 +148,5 @@
     </div>
     <script src="script.js"></script>
 </body>
-</html>
+                            </html>
+                                                                                                                                                                                                                                                                                              
