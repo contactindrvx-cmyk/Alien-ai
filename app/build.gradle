@@ -12,6 +12,11 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        
+        // 🚀 Vosk کے لیے ضروری CPU سیٹنگز 🚀
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
     }
 
     compileOptions {
@@ -23,12 +28,9 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
-    
-    // 🚀 Lottie اینیمیشن کی لائبریری 🚀
     implementation 'com.airbnb.android:lottie:6.0.0'
-    
-    // 🚀 لائیو کالنگ کے لیے OkHttp 🚀
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     
-    // ❌ ہم نے وہ WebRTC والی لائن اڑا دی ہے جو ایرر دے رہی تھی ❌
+    // 🚀 آف لائن آواز پہچاننے (STT) کے لیے Vosk لائبریری 🚀
+    implementation 'com.alphacephei:vosk-android:0.3.32'
 }
