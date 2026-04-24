@@ -37,6 +37,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
@@ -108,6 +109,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.loadUrl("file:///android_asset/index.html");
+        
+        // 🚀 اب چاروں پرمیشنز یہاں سے مانگی جائیں گی 🚀
         requestPermissions();
         
         initTextToSpeech();
@@ -194,9 +197,20 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    // 🚀 سمارٹ پرمیشن ریکویسٹ (مائیک، کیمرہ، نوٹیفیکیشن، گیلری) 🚀
     private void requestPermissions() {
-        String[] perms = {Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA};
-        ActivityCompat.requestPermissions(this, perms, 100);
+        List<String> perms = new ArrayList<>();
+        perms.add(Manifest.permission.RECORD_AUDIO);
+        perms.add(Manifest.permission.CAMERA);
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS);
+            perms.add(Manifest.permission.READ_MEDIA_IMAGES);
+        } else {
+            perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+        
+        ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), 100);
     }
 
     public class WebAppInterface {
@@ -300,7 +314,7 @@ public class MainActivity extends AppCompatActivity {
             startService(intent);
         }
 
-        @JavascriptInterface public void muteCall(boolean isMuted) { Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); intent.setAction(AyeshaCallService.ACTION_MUTE_CALL); intent.putExtra("isMuted", isMuted); startService(intent); }
+        @JavascriptInterface public void muteCall(boolean isMuted) { Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); intent.setAction("ACTION_MUTE_CALL"); intent.putExtra("isMuted", isMuted); startService(intent); }
         
         @JavascriptInterface 
         public void sendAccessibilityCommand(String action, String data) { 
@@ -330,4 +344,4 @@ public class MainActivity extends AppCompatActivity {
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
             }
-            
+        
