@@ -12,6 +12,7 @@ import android.graphics.Bitmap;
 import android.graphics.Path;
 import android.hardware.HardwareBuffer;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -41,12 +42,13 @@ public class AyeshaAccessibilityService extends AccessibilityService {
             String data = intent.getStringExtra("data");
             
             if (action != null) {
+                // 🚀 سرور سے آنے والی تمام کمانڈز کو قطار (Queue) میں لگاؤ 🚀
                 if (action.equals("MULTI_TASK") && data != null) {
                     String[] tasks = data.split("&&");
                     for (String task : tasks) {
                         taskQueue.add(task.trim());
                     }
-                } else if (action.equals("ANALYZE_SCREEN") || action.equals("READ_SCREEN") || action.equals("TAKE_SCREENSHOT")) {
+                } else {
                     taskQueue.add(action + "||" + (data != null ? data : "none"));
                 }
                 
@@ -58,43 +60,88 @@ public class AyeshaAccessibilityService extends AccessibilityService {
     private void processNextTask() {
         if (taskQueue.isEmpty()) { isTaskRunning = false; return; }
         isTaskRunning = true;
+        
         String currentTask = taskQueue.poll();
         String[] parts = currentTask.split("\\|\\|");
         String cmdType = parts[0].trim();
+        String arg1 = parts.length > 1 ? parts[1].trim() : "";
+        String arg2 = parts.length > 2 ? parts[2].trim() : "";
 
-        if (cmdType.equals("ANALYZE_SCREEN") || cmdType.equals("TAKE_SCREENSHOT") || cmdType.equals("READ_SCREEN")) {
+        if (cmdType.equals("APP")) {
+            fastOpenApp(arg1);
+            mainHandler.postDelayed(this::processNextTask, 2000);
+            
+        } else if (cmdType.equals("PLAY_YOUTUBE")) {
+            // 🚀 یوٹیوب پر بجلی کی طرح گانا سرچ کرنے والا جادو 🚀
+            playOnYouTube(arg1);
+            mainHandler.postDelayed(this::processNextTask, 2000);
+            
+        } else if (cmdType.equals("INSTALL_APP")) {
+            // 🚀 پلے سٹور پر سیدھا ایپ کھولنے والا جادو 🚀
+            searchInPlayStore(arg1);
+            mainHandler.postDelayed(this::processNextTask, 2000);
+            
+        } else if (cmdType.equals("SCREEN_READ") || cmdType.equals("ANALYZE_SCREEN")) {
             latestScreenText = extractAllText(); 
-            takeAndSendScreenshot();
+            sendResultToChat("سکرین پر یہ لکھا ہے: " + latestScreenText);
             mainHandler.postDelayed(this::processNextTask, 3000);
-        } else if (cmdType.equals("APP")) {
-            fastOpenApp(parts.length > 1 ? parts[1].trim() : "");
-            mainHandler.postDelayed(this::processNextTask, 3000); 
-        } else if (cmdType.equals("CLICK")) {
-            smartClick(parts.length > 1 ? parts[1].trim() : "");
-            mainHandler.postDelayed(this::processNextTask, 2000);
-        } else if (cmdType.equals("TYPE")) {
-            // 🚀 نیا ٹائپنگ انجن 🚀
-            typeTextInField(parts.length > 1 ? parts[1].trim() : "");
-            mainHandler.postDelayed(this::processNextTask, 2000);
-        } else if (cmdType.equals("SCROLL")) {
-            performSmoothScroll(parts.length > 1 ? parts[1].trim() : "DOWN");
+            
+        } else if (cmdType.equals("TYPE_MSG")) {
+            // 🚀 واٹس ایپ پر پہلے کانٹیکٹ پر کلک کرے گا، پھر میسج لکھے گا 🚀
+            smartClick(arg1); 
+            mainHandler.postDelayed(() -> {
+                typeTextInField(arg2); 
+                mainHandler.postDelayed(this::processNextTask, 2000);
+            }, 1500);
+            
+        } else if (cmdType.equals("SEND_MSG")) {
+            smartClick("Send"); // سینڈ بٹن دبائے گا
             mainHandler.postDelayed(this::processNextTask, 1500);
-        } else if (cmdType.equals("VOLUME")) {
-            changeVolume(parts.length > 1 ? parts[1].trim() : "MAX");
-            mainHandler.postDelayed(this::processNextTask, 1000);
+            
+        } else if (cmdType.equals("CLICK")) {
+            smartClick(arg1);
+            mainHandler.postDelayed(this::processNextTask, 1500);
+            
+        } else if (cmdType.equals("SCROLL")) {
+            performSmoothScroll(arg1.isEmpty() ? "DOWN" : arg1);
+            mainHandler.postDelayed(this::processNextTask, 1500);
+            
         } else { 
             processNextTask(); 
         }
     }
 
-    // 🚀 ہینگ فری ٹیکسٹ ایکسٹریکشن 🚀
+    // 🚀 یوٹیوب ڈیپ لنک (انتہائی فاسٹ) 🚀
+    private void playOnYouTube(String query) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_SEARCH);
+            intent.setPackage("com.google.android.youtube");
+            intent.putExtra("query", query);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            fastOpenApp("youtube");
+        }
+    }
+
+    // 🚀 پلے سٹور ڈیپ لنک (انتہائی فاسٹ) 🚀
+    private void searchInPlayStore(String query) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("market://search?q=" + query));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            fastOpenApp("play store");
+        }
+    }
+
     private String extractAllText() {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return "سکرین خالی ہے۔";
         StringBuilder sb = new StringBuilder();
         extractTextFromNodes(root, sb, 0); 
         String finalTxt = sb.toString().trim();
-        // لمٹ: اگر ٹیکسٹ بہت زیادہ ہو تو کاٹ دو تاکہ ایپ کریش نہ ہو
         if (finalTxt.length() > 2000) return finalTxt.substring(0, 2000); 
         return finalTxt;
     }
@@ -106,44 +153,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         for (int i = 0; i < node.getChildCount(); i++) extractTextFromNodes(node.getChild(i), sb, depth + 1);
     }
 
-    // 🚀 اینٹی کریش الٹرا کمپریسڈ سکرین شاٹ 🚀
-    private void takeAndSendScreenshot() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            takeScreenshot(Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
-                @Override
-                public void onSuccess(ScreenshotResult result) {
-                    try {
-                        HardwareBuffer hwBuffer = result.getHardwareBuffer();
-                        Bitmap hwBitmap = Bitmap.wrapHardwareBuffer(hwBuffer, result.getColorSpace());
-                        if (hwBitmap != null) {
-                            Bitmap swBitmap = hwBitmap.copy(Bitmap.Config.ARGB_8888, false);
-                            
-                            // 🚨 ہینگ ہونے سے بچانے کا فکسڈ ریزولوشن طریقہ 🚨
-                            int w = swBitmap.getWidth();
-                            int h = swBitmap.getHeight();
-                            float ratio = (float) w / h;
-                            int newW = 500; // تصویر کو 500 پکسل تک چھوٹا کر دیا (AI پھر بھی سمجھ لے گی)
-                            int newH = (int) (newW / ratio);
-                            
-                            Bitmap resized = Bitmap.createScaledBitmap(swBitmap, newW, newH, true);
-                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                            resized.compress(Bitmap.CompressFormat.JPEG, 30, bos);
-                            
-                            latestScreenshotBase64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
-                            sendBroadcast(new Intent("SCREEN_ANALYZED"));
-                            
-                            hwBuffer.close(); 
-                            swBitmap.recycle(); 
-                            resized.recycle();
-                        } else { sendBroadcast(new Intent("SCREEN_ANALYZED")); }
-                    } catch (Exception e) { sendBroadcast(new Intent("SCREEN_ANALYZED")); }
-                }
-                @Override public void onFailure(int i) { sendBroadcast(new Intent("SCREEN_ANALYZED")); }
-            });
-        } else { sendBroadcast(new Intent("SCREEN_ANALYZED")); }
-    }
-
-    // 🚀 نیا ٹائپنگ انجن 🚀
     private void typeTextInField(String textToType) {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode != null) {
@@ -152,11 +161,9 @@ public class AyeshaAccessibilityService extends AccessibilityService {
                 Bundle arguments = new Bundle();
                 arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, textToType);
                 inputNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
-                sendResultToChat("میں نے سرچ میں لکھ دیا ہے: " + textToType);
-                // ٹائپ کرنے کے بعد کی بورڈ کا سرچ/انٹر بٹن دبانے کی کوشش
-                inputNode.performAction(AccessibilityNodeInfo.ACTION_CLICK); 
+                sendResultToChat("ٹائپ کر دیا ہے: " + textToType);
             } else {
-                sendResultToChat("مجھے ٹائپ کرنے کے لیے سرچ بار نہیں ملا۔");
+                sendResultToChat("مجھے ٹائپ کرنے کی جگہ نہیں ملی۔");
             }
         }
     }
@@ -190,20 +197,18 @@ public class AyeshaAccessibilityService extends AccessibilityService {
                 }
             }
         }
-        if (!appFound) sendResultToChat("رضا بھائی، موبائل میں '" + targetApp + "' نہیں ملی۔");
+        if (!appFound) sendResultToChat("موبائل میں '" + targetApp + "' نہیں ملی۔");
     }
 
-    // 🚀 سمارٹ کلک اب partial text (ادھورے نام) پر بھی کلک کرے گا 🚀
     private void smartClick(String targetText) {
         AccessibilityNodeInfo rootNode = getRootInActiveWindow();
         if (rootNode == null) return;
         List<AccessibilityNodeInfo> nodes = rootNode.findAccessibilityNodeInfosByText(targetText);
         if (nodes.isEmpty() && targetText.toLowerCase().contains("search")) {
-            nodes = rootNode.findAccessibilityNodeInfosByViewId("com.google.android.youtube:id/menu_search"); // یوٹیوب سرچ آئیکون
+            nodes = rootNode.findAccessibilityNodeInfosByViewId("com.google.android.youtube:id/menu_search");
         }
         if (!nodes.isEmpty()) {
             clickFirstClickable(nodes.get(0));
-            sendResultToChat("میں نے کلک کر دیا ہے۔");
         } else {
             deepSearchByDescription(rootNode, targetText);
         }
@@ -241,14 +246,6 @@ public class AyeshaAccessibilityService extends AccessibilityService {
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(new GestureDescription.StrokeDescription(path, 100, 500));
         dispatchGesture(builder.build(), null, null);
-    }
-
-    private void changeVolume(String level) {
-        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        if (audioManager != null) {
-            int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, level.equals("MAX") ? max : 0, 0);
-        }
     }
 
     private void sendResultToChat(String msg) {
