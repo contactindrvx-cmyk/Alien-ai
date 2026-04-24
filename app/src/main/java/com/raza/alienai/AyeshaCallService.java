@@ -12,25 +12,27 @@ import android.content.pm.ServiceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
+import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.ToneGenerator;
 import android.media.audiofx.AcousticEchoCanceler;
 import android.media.audiofx.AutomaticGainControl;
 import android.media.audiofx.NoiseSuppressor;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.speech.tts.TextToSpeech;
+import android.util.Base64;
 import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
 import org.json.JSONObject;
+import org.vosk.Recognizer;
 
-import java.util.Locale;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,151 +41,206 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
-import okio.ByteString;
 
-public class AyeshaCallService extends Service implements TextToSpeech.OnInitListener {
+public class AyeshaCallService extends Service {
 
     public static final String ACTION_STOP_SERVICE = "STOP_AYESHA_CALL";
     public static final String ACTION_MUTE_CALL = "MUTE_AYESHA_CALL";
+    public static final String ACTION_STOP_AUDIO = "ACTION_STOP_AUDIO";
 
-    private TextToSpeech tts;
     private AudioManager audioManager;
     private boolean isCallActive = false;
     public static boolean isMutedByUser = false; 
-    private Handler mainHandler = new Handler(Looper.getMainLooper());
+    
     private OkHttpClient client;
     private WebSocket webSocket;
+    
+    // 🚀 Vosk STT اور آڈیو پلے بیک 🚀
+    private Recognizer voskRecognizer;
     private AudioRecord audioRecord;
+    private MediaPlayer mediaPlayer;
     private boolean isRecording = false;
+    private boolean isAyeshaSpeaking = false;
     private Thread recordingThread;
     
-    // 🚀 سرور کی ڈیمانڈ کے مطابق پرفیکٹ آڈیو سیٹنگ 🚀
     private static final int SAMPLE_RATE = 16000;
-    private static final int FRAME_SIZE = 960; 
-
+    
     private AcousticEchoCanceler aec;
     private NoiseSuppressor ns;
     private AutomaticGainControl agc;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
-            endCallCompletely();
-            return START_NOT_STICKY;
+        if (intent != null) {
+            String action = intent.getAction();
+            if (ACTION_STOP_SERVICE.equals(action)) {
+                endCallCompletely();
+                return START_NOT_STICKY;
+            } else if (ACTION_MUTE_CALL.equals(action)) {
+                isMutedByUser = intent.getBooleanExtra("isMuted", false);
+                return START_STICKY;
+            } else if (ACTION_STOP_AUDIO.equals(action)) {
+                stopMediaPlayer();
+                return START_STICKY;
+            }
         }
 
-        isCallActive = true;
-        startCallForeground(); 
-        
-        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        // 🚀 VoIP موڈ تاکہ اینڈرائیڈ مائیک کو روکے نہیں 🚀
-        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION); 
-        audioManager.setSpeakerphoneOn(true);
-        
-        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
-        audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVol, 0);
-        
-        audioManager.requestAudioFocus(focusChange -> {}, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
-        
-        client = new OkHttpClient();
-        connectWebSocket();
-        playConnectSound();
-        
+        if (!isCallActive) {
+            isCallActive = true;
+            startCallForeground(); 
+            
+            audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION); 
+            audioManager.setSpeakerphoneOn(true);
+            
+            int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVol, 0);
+            audioManager.requestAudioFocus(focusChange -> {}, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
+            
+            client = new OkHttpClient();
+            connectWebSocket();
+            playConnectSound();
+        }
         return START_STICKY;
     }
 
     private void connectWebSocket() {
-        Request request = new Request.Builder().url("wss://ayesha.aigrowthbox.com/ws/audio").build();
+        // 🚀 اب ہم ٹیکسٹ والے راکٹ روٹ سے جڑ رہے ہیں 🚀
+        Request request = new Request.Builder().url("wss://ayesha.aigrowthbox.com/ws/text_chat").build();
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
-                startAudioRecording();
+                startVoskRecording();
             }
 
             @Override
             public void onMessage(WebSocket webSocket, String text) {
                 try {
                     JSONObject json = new JSONObject(text);
-                    if (json.has("text")) {
-                        String reply = json.getString("text");
-                        
-                        // 🚀 کمانڈز کو فلٹر کر کے براڈکاسٹ کرنا 🚀
+                    String reply = json.optString("text", "");
+                    String audioB64 = json.optString("audio", "");
+                    
+                    if (!reply.isEmpty()) {
                         processBackgroundActions(reply); 
                         
                         Intent uiIntent = new Intent("NEW_MESSAGE_FROM_CALL");
                         uiIntent.putExtra("message", reply);
                         sendBroadcast(uiIntent);
-                        
-                        // 🚀 کلین ٹیکسٹ (بغیر کمانڈ کے) پڑھنا 🚀
-                        speak(reply.replaceAll("\\[.*?\\]", "").trim());
+                    }
+                    
+                    if (!audioB64.isEmpty()) {
+                        playBase64Audio(audioB64);
                     }
                 } catch (Exception e) {}
             }
 
             @Override
-            public void onClosed(WebSocket webSocket, int code, String reason) { stopAudioRecording(); }
+            public void onClosed(WebSocket webSocket, int code, String reason) { stopVoskRecording(); }
             @Override
-            public void onFailure(WebSocket webSocket, Throwable t, Response response) { stopAudioRecording(); }
+            public void onFailure(WebSocket webSocket, Throwable t, Response response) { stopVoskRecording(); }
         });
     }
 
-    private void startAudioRecording() {
+    private void startVoskRecording() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return;
-        
-        int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        int bufferSize = Math.max(FRAME_SIZE, minBufferSize);
-        
-        // 🚀 اینڈرائیڈ 14 کی سیکیورٹی سے بچنے کے لیے اسے واپس MIC کر دیا گیا ہے 🚀
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
-        
-        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-            Log.e("AyeshaCallService", "Mic failed to initialize!");
+        if (MainActivity.voskModel == null) {
+            Log.e("AyeshaCall", "Vosk Model not loaded yet!");
             return;
         }
 
-        int audioSessionId = audioRecord.getAudioSessionId();
-
         try {
-            if (AcousticEchoCanceler.isAvailable()) {
-                aec = AcousticEchoCanceler.create(audioSessionId);
-                if (aec != null) aec.setEnabled(true);
-            }
-            if (NoiseSuppressor.isAvailable()) {
-                ns = NoiseSuppressor.create(audioSessionId);
-                if (ns != null) ns.setEnabled(true);
-            }
-            if (AutomaticGainControl.isAvailable()) {
-                agc = AutomaticGainControl.create(audioSessionId);
-                if (agc != null) agc.setEnabled(true);
-            }
-        } catch (Exception e) {
-            Log.e("AyeshaCallService", "Hardware Filters Error", e);
-        }
+            voskRecognizer = new Recognizer(MainActivity.voskModel, SAMPLE_RATE);
+            int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+            int bufferSize = Math.max(4096, minBufferSize);
+            
+            audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+            
+            int audioSessionId = audioRecord.getAudioSessionId();
+            if (AcousticEchoCanceler.isAvailable()) { aec = AcousticEchoCanceler.create(audioSessionId); if (aec != null) aec.setEnabled(true); }
+            if (NoiseSuppressor.isAvailable()) { ns = NoiseSuppressor.create(audioSessionId); if (ns != null) ns.setEnabled(true); }
+            if (AutomaticGainControl.isAvailable()) { agc = AutomaticGainControl.create(audioSessionId); if (agc != null) agc.setEnabled(true); }
 
-        audioRecord.startRecording();
-        isRecording = true;
-        
-        recordingThread = new Thread(() -> {
-            byte[] buffer = new byte[FRAME_SIZE]; // 🚀 بالکل 960 بائٹس سرور کے لیے 🚀
-            while (isRecording) {
-                int read = audioRecord.read(buffer, 0, buffer.length);
-                // 🚀 جب عائشہ بول رہی ہو تو ہماری آواز سرور پر نہ جائے (Echo Prevention) 🚀
-                if (read > 0 && webSocket != null && !tts.isSpeaking() && !isMutedByUser) {
-                    webSocket.send(ByteString.of(buffer, 0, read));
+            audioRecord.startRecording();
+            isRecording = true;
+            
+            recordingThread = new Thread(() -> {
+                byte[] buffer = new byte[4096];
+                while (isRecording) {
+                    int read = audioRecord.read(buffer, 0, buffer.length);
+                    // 🚀 ایکو سے بچنے کے لیے: جب عائشہ بول رہی ہو یا یوزر نے میوٹ کیا ہو، تو سننا بند 🚀
+                    if (isAyeshaSpeaking || isMutedByUser) continue;
+
+                    if (read > 0) {
+                        // 🚀 Vosk جادو: جیسے ہی یوزر چپ ہوگا، یہ true دے گا 🚀
+                        if (voskRecognizer.acceptWaveForm(buffer, read)) {
+                            String jsonResult = voskRecognizer.getResult();
+                            try {
+                                JSONObject obj = new JSONObject(jsonResult);
+                                String recognizedText = obj.optString("text", "");
+                                if (recognizedText.trim().length() > 2 && webSocket != null) {
+                                    // 🚀 صرف سمارٹ ٹیکسٹ سرور کو بھیجو (کوئی آڈیو اپلوڈ نہیں ہوگی) 🚀
+                                    JSONObject payload = new JSONObject();
+                                    payload.put("text", recognizedText);
+                                    webSocket.send(payload.toString());
+                                }
+                            } catch (Exception e) {}
+                        }
+                    }
                 }
-            }
-        });
-        recordingThread.start();
+            });
+            recordingThread.start();
+        } catch (Exception e) {
+            Log.e("AyeshaCall", "Vosk Setup Error", e);
+        }
     }
 
-    private void stopAudioRecording() {
+    private void stopVoskRecording() {
         isRecording = false;
         if (audioRecord != null) { audioRecord.stop(); audioRecord.release(); audioRecord = null; }
         if (recordingThread != null) { recordingThread.interrupt(); recordingThread = null; }
-        
+        if (voskRecognizer != null) { voskRecognizer.close(); voskRecognizer = null; }
         if (aec != null) { aec.release(); aec = null; }
         if (ns != null) { ns.release(); ns = null; }
         if (agc != null) { agc.release(); agc = null; }
+    }
+
+    private void playBase64Audio(String base64String) {
+        try {
+            isAyeshaSpeaking = true;
+            byte[] decodedAudio = Base64.decode(base64String, Base64.DEFAULT);
+            File tempAudioFile = File.createTempFile("ayesha_voice", ".mp3", getCacheDir());
+            FileOutputStream fos = new FileOutputStream(tempAudioFile);
+            fos.write(decodedAudio);
+            fos.close();
+
+            stopMediaPlayer(); // پرانی آڈیو روک دو
+            
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setAudioStreamType(AudioManager.STREAM_VOICE_CALL);
+            mediaPlayer.setDataSource(tempAudioFile.getAbsolutePath());
+            mediaPlayer.prepare();
+            mediaPlayer.setOnCompletionListener(mp -> {
+                isAyeshaSpeaking = false;
+                mp.release();
+                mediaPlayer = null;
+                tempAudioFile.delete();
+            });
+            mediaPlayer.start();
+        } catch (Exception e) {
+            isAyeshaSpeaking = false;
+            Log.e("AyeshaCall", "Audio Playback Error", e);
+        }
+    }
+
+    private void stopMediaPlayer() {
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.isPlaying()) mediaPlayer.stop();
+                mediaPlayer.release();
+            } catch (Exception e) {}
+            mediaPlayer = null;
+        }
+        isAyeshaSpeaking = false;
     }
 
     private void startCallForeground() {
@@ -193,11 +250,10 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
         Notification notification = new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("عائشہ لائیو کال")
+                .setContentTitle("عائشہ لائیو کال (Vosk Mode)")
                 .setSmallIcon(R.drawable.app_logo)
                 .setOngoing(true).build();
                 
-        // 🚀 فورگراؤنڈ مائیکروفون پرمیشن تاکہ سکرین بند ہونے پر بھی مائیک کٹ نہ ہو 🚀
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
         } else {
@@ -206,7 +262,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
     }
 
     private void processBackgroundActions(String text) {
-        // 🚀 ایپس کھولنے والی کمانڈ کو کیچ کرنا 🚀
         Pattern pattern = Pattern.compile("\\[ACTION:\\s*(.*?)(?:,\\s*DATA:\\s*(.*?))?\\]", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(text);
         while (matcher.find()) {
@@ -218,20 +273,6 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
         }
     }
 
-    private void speak(String text) { 
-        if (tts != null && !text.isEmpty()) { 
-            Bundle params = new Bundle();
-            params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_VOICE_CALL);
-            tts.speak(text, TextToSpeech.QUEUE_ADD, params, "AYESHA_TTS_" + System.currentTimeMillis()); 
-        } 
-    }
-
-    @Override public void onInit(int status) { 
-        if (status == TextToSpeech.SUCCESS) {
-            tts.setLanguage(new Locale("ur", "PK")); 
-        }
-    }
-    
     private void playConnectSound() { 
         ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100); 
         tg.startTone(ToneGenerator.TONE_PROP_BEEP, 150); 
@@ -239,19 +280,20 @@ public class AyeshaCallService extends Service implements TextToSpeech.OnInitLis
 
     private void endCallCompletely() {
         isCallActive = false;
-        stopAudioRecording();
+        stopVoskRecording();
+        stopMediaPlayer();
         if (webSocket != null) webSocket.close(1000, "Ended");
         if (audioManager != null) { 
             audioManager.setSpeakerphoneOn(false); 
             audioManager.setMode(AudioManager.MODE_NORMAL);
             audioManager.abandonAudioFocus(focusChange -> {});
         }
-        if (tts != null) { tts.stop(); tts.shutdown(); }
         stopForeground(true);
         stopSelf();
     }
 
-    @Override public void onCreate() { super.onCreate(); tts = new TextToSpeech(this, this); }
+    @Override public void onCreate() { super.onCreate(); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
-}
+            }
+            
