@@ -12,14 +12,14 @@ import android.content.pm.ServiceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
-import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.util.Base64;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -29,11 +29,11 @@ import androidx.core.app.NotificationCompat;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -48,7 +48,7 @@ import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
-public class AyeshaCallService extends Service {
+public class AyeshaCallService extends Service implements TextToSpeech.OnInitListener {
 
     public static final String ACTION_STOP_SERVICE = "STOP_AYESHA_CALL";
     public static final String ACTION_MUTE_CALL = "MUTE_AYESHA_CALL";
@@ -69,14 +69,15 @@ public class AyeshaCallService extends Service {
     private OkHttpClient httpClient;
     private WebSocket webSocket;
     private AudioRecord audioRecord;
-    private MediaPlayer mediaPlayer;
     private boolean isRecording = false;
     private boolean isAyeshaSpeaking = false;
     private Thread recordingThread;
     private Handler mainHandler;
+    
+    // 🚀 موبائل کی اپنی فری آواز (عظمیٰ) 🚀
+    private TextToSpeech tts;
 
     private static final int SAMPLE_RATE = 16000;
-    // 🚀 حساسیت کم کر دی گئی ہے تاکہ آپ کی آواز جلدی پکڑے 🚀
     private static final int SILENCE_THRESHOLD = 500; 
     private static final int SILENCE_DURATION_MS = 1000; 
 
@@ -91,7 +92,8 @@ public class AyeshaCallService extends Service {
                 isMutedByUser = intent.getBooleanExtra("isMuted", false);
                 return START_STICKY;
             } else if (ACTION_STOP_AUDIO.equals(action)) {
-                stopMediaPlayer();
+                if (tts != null && tts.isSpeaking()) tts.stop();
+                isAyeshaSpeaking = false;
                 return START_STICKY;
             }
         }
@@ -100,6 +102,8 @@ public class AyeshaCallService extends Service {
             isCallActive = true;
             mainHandler = new Handler(Looper.getMainLooper());
             startCallForeground(); 
+            
+            tts = new TextToSpeech(this, this);
             
             audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
             audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION); 
@@ -116,6 +120,18 @@ public class AyeshaCallService extends Service {
         return START_STICKY;
     }
 
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts.setLanguage(new Locale("ur", "PK"));
+            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String utteranceId) { isAyeshaSpeaking = true; }
+                @Override public void onDone(String utteranceId) { isAyeshaSpeaking = false; }
+                @Override public void onError(String utteranceId) { isAyeshaSpeaking = false; }
+            });
+        }
+    }
+
     private void connectToAyeshaServer() {
         Request request = new Request.Builder().url("wss://ayesha.aigrowthbox.com/ws/text_chat").build();
         webSocket = httpClient.newWebSocket(request, new WebSocketListener() {
@@ -130,16 +146,19 @@ public class AyeshaCallService extends Service {
                 try {
                     JSONObject json = new JSONObject(text);
                     String reply = json.optString("text", "");
-                    String audioB64 = json.optString("audio", "");
                     
                     if (!reply.isEmpty()) {
                         processActions(reply);
                         sendBroadcast(new Intent("NEW_MESSAGE_FROM_CALL").putExtra("message", reply));
-                    }
-                    if (!audioB64.isEmpty()) {
-                        playAudio(audioB64);
-                    } else {
-                        showToast("OpenAI کی آواز فیل ہو گئی۔ کیا اکاؤنٹ میں بیلنس ہے؟");
+                        
+                        // 🚀 کمانڈز کو ہٹا کر صرف عام باتیں عظمیٰ کو بولنے کے لیے دو 🚀
+                        String cleanText = reply.replaceAll("\\[.*?\\]", "").trim();
+                        if (!cleanText.isEmpty() && tts != null) {
+                            HashMap<String, String> params = new HashMap<>();
+                            params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "AYESHA_VOICE");
+                            params.put(TextToSpeech.Engine.KEY_PARAM_STREAM, String.valueOf(AudioManager.STREAM_VOICE_CALL));
+                            tts.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params);
+                        }
                     }
                 } catch (Exception e) {}
             }
@@ -168,6 +187,7 @@ public class AyeshaCallService extends Service {
 
             short[] audioData = new short[finalBufferSize / 2];
             while (isRecording) {
+                // 🚀 اگر عظمیٰ بول رہی ہے یا یوزر نے میوٹ کیا ہے تو مائیک نہیں سنے گا 🚀
                 if (isAyeshaSpeaking || isMutedByUser) {
                     pcmBuffer.reset();
                     continue;
@@ -227,13 +247,9 @@ public class AyeshaCallService extends Service {
                 } else if (response.code() == 429) {
                     currentKeyIndex = (currentKeyIndex + 1) % GROQ_KEYS.length;
                     showToast("گروک کی Key روٹیٹ ہو رہی ہے۔");
-                } else {
-                    showToast("گروک ایرر: " + response.code());
                 }
             }
-            @Override public void onFailure(Call call, IOException e) {
-                showToast("انٹرنیٹ یا گروک کا مسئلہ: " + e.getMessage());
-            }
+            @Override public void onFailure(Call call, IOException e) {}
         });
     }
 
@@ -274,41 +290,6 @@ public class AyeshaCallService extends Service {
         ByteBuffer bb = ByteBuffer.allocate(read * 2).order(ByteOrder.LITTLE_ENDIAN);
         for (int i = 0; i < read; i++) bb.putShort(data[i]);
         return bb.array();
-    }
-
-    private void playAudio(String b64) {
-        try {
-            isAyeshaSpeaking = true;
-            byte[] audio = Base64.decode(b64, Base64.DEFAULT);
-            File temp = File.createTempFile("ayesha", ".mp3", getCacheDir());
-            FileOutputStream fos = new FileOutputStream(temp);
-            fos.write(audio); fos.close();
-            
-            stopMediaPlayer(); 
-            
-            mediaPlayer = new MediaPlayer();
-            mediaPlayer.setAudioStreamType(AudioManager.STREAM_VOICE_CALL);
-            mediaPlayer.setDataSource(temp.getAbsolutePath());
-            mediaPlayer.prepare();
-            mediaPlayer.setOnCompletionListener(mp -> {
-                isAyeshaSpeaking = false;
-                mp.release();
-                mediaPlayer = null;
-                temp.delete();
-            });
-            mediaPlayer.start();
-        } catch (Exception e) { isAyeshaSpeaking = false; }
-    }
-
-    private void stopMediaPlayer() {
-        if (mediaPlayer != null) {
-            try {
-                if (mediaPlayer.isPlaying()) mediaPlayer.stop();
-                mediaPlayer.release();
-            } catch (Exception e) {}
-            mediaPlayer = null;
-        }
-        isAyeshaSpeaking = false;
     }
 
     private void processActions(String text) {
@@ -361,7 +342,7 @@ public class AyeshaCallService extends Service {
     private void endCallCompletely() {
         isCallActive = false;
         stopRecording();
-        stopMediaPlayer();
+        if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
         if (webSocket != null) webSocket.close(1000, "Ended");
         if (audioManager != null) { 
             audioManager.setSpeakerphoneOn(false); 
@@ -375,5 +356,5 @@ public class AyeshaCallService extends Service {
     @Override public void onCreate() { super.onCreate(); }
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent i) { return null; }
-                    }
-            
+            }
+                            
