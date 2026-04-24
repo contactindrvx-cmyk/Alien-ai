@@ -51,14 +51,14 @@
 
             <div class="relative">
                 <button id="assistant-btn" class="flex items-center gap-2 bg-[#16243d] border border-[#3a8ff7]/40 px-4 py-2 rounded-full text-gray-200 font-medium shadow-sm cursor-pointer z-50 relative outline-none">
-                    <span id="current-assistant" class="text-sm">Ayesha</span>
+                    <span id="current-assistant" class="text-sm">عائشہ</span>
                     <svg id="assistant-arrow" class="transition-transform duration-300" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
                 </button>
                 <div id="assistant-menu" class="absolute top-12 right-0 w-48 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50 transition-all duration-300 origin-top-right opacity-0 scale-95 pointer-events-none">
-                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-1">Ayesha</span> <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span></button>
-                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-2">Raza</span> <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span></button>
-                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-3">Sarah</span> <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span></button>
-                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-4">Alex</span> <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span></button>
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-1">عائشہ</span> <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span></button>
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-2">رضا</span> <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span></button>
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-3">سارہ</span> <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span></button>
+                    <button class="asst-option w-full text-right px-4 py-3 text-sm text-white hover:bg-gray-700 flex justify-end items-center gap-3 cursor-pointer outline-none"><span class="ast-name" id="ast-4">ایلکس</span> <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span></button>
                 </div>
             </div>
         </header>
@@ -79,6 +79,17 @@
                     </div>
                 </div>
                 <div id="thinking-indicator" class="hidden w-full flex justify-end px-2 pb-6"><span class="text-[#3a8ff7] animate-pulse font-medium text-sm">سوچ رہی ہے...</span></div>
+            </div>
+
+            <div id="attachment-menu" class="absolute bottom-20 left-4 w-40 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-50 transition-all duration-300 opacity-0 scale-95 pointer-events-none origin-bottom-left">
+                <button id="btn-camera" class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-3 outline-none cursor-pointer">
+                    <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    <span id="cam-text">Camera</span>
+                </button>
+                <button id="btn-gallery" class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-3 outline-none cursor-pointer">
+                    <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <span id="gal-text">Gallery</span>
+                </button>
             </div>
 
             <div class="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black via-black/95 to-transparent pointer-events-none z-20"></div>
@@ -137,4 +148,5 @@
     </div>
     <script src="script.js"></script>
 </body>
-</html>
+    </html>
+                    
