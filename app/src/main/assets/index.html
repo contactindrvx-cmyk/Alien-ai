@@ -6,13 +6,21 @@
     <title>Ayesha AI Premium</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .cg-wave { width: 4px; background-color: #ef4444; border-radius: 4px; animation: cgwave 1s ease-in-out infinite; margin: 0 1.5px; }
+        /* آپ کی اوریجنل اینیمیشنز */
+        .wave-bar { width: 3px; height: 12px; background-color: #3a8ff7; border-radius: 4px; animation: wave 1.2s ease-in-out infinite; margin: 0 1.5px; }
+        .wave-bar:nth-child(2) { animation-delay: 0.2s; } .wave-bar:nth-child(3) { animation-delay: 0.4s; } .wave-bar:nth-child(4) { animation-delay: 0.6s; }
+        @keyframes wave { 0%, 100% { height: 8px; } 50% { height: 22px; } }
+        
+        .cg-wave { width: 4px; background-color: #3a8ff7; border-radius: 4px; animation: cgwave 1s ease-in-out infinite; margin: 0 1.5px; }
         @keyframes cgwave { 0%, 100% { height: 6px; } 50% { height: 16px; } }
 
         .btn-collapse { width: 0 !important; padding: 0 !important; border-width: 0 !important; opacity: 0 !important; overflow: hidden !important; margin: 0 !important; pointer-events: none; }
         .btn-expand { width: 56px !important; opacity: 1 !important; pointer-events: auto; }
-        .transition-layout { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         
+        .transition-layout { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .gemini-glow { box-shadow: 0 0 12px rgba(58, 143, 247, 0.25); border-color: rgba(58, 143, 247, 0.5) !important; }
+        
+        /* 🚀 عائشہ کی پلین چیٹ اور ٹائپنگ کرسر 🚀 */
         .ai-text-container { font-size: 1.1rem; line-height: 1.8; text-align: right; font-family: sans-serif; direction: rtl; color: #e5e7eb; }
         .typing-cursor::after {
             content: '●'; color: #e5e7eb; margin-right: 4px; animation: blink 1s step-end infinite;
@@ -73,8 +81,9 @@
                         </button>
                     </div>
                 </div>
+                
                 <div class="flex flex-col items-end mb-8 w-full pr-2">
-                    <div class="ai-text-container text-gray-400 text-sm">اسسٹنٹ تیار ہے۔ آپ کا دن کیسا گزر رہا ہے؟</div>
+                    <div class="ai-text-container text-gray-400 text-[1.05rem]">اسسٹنٹ تیار ہے۔ آپ کا دن کیسا گزر رہا ہے؟</div>
                 </div>
                 <div id="thinking-indicator" class="hidden w-full flex justify-end px-2 pb-6"><span class="text-[#3a8ff7] animate-pulse font-medium text-sm">سوچ رہی ہے...</span></div>
             </div>
@@ -82,44 +91,55 @@
             <div class="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black via-black/95 to-transparent pointer-events-none z-20"></div>
 
             <div class="px-4 md:px-6 pb-6 bg-transparent z-30 w-full max-w-4xl mx-auto absolute bottom-0 left-0 right-0">
+                
                 <div id="normal-mode-bar" class="flex items-center justify-between w-full h-14 transition-layout">
-                    <button id="out-plus" class="btn-collapse transition-layout h-14 rounded-full bg-[#16243d] border border-[#2f3037] flex items-center justify-center text-gray-400 mr-2 flex-shrink-0 cursor-pointer">
+                    <button id="out-plus" class="btn-collapse transition-layout h-14 rounded-full bg-[#16243d] border border-[#2f3037] flex items-center justify-center text-[#3a8ff7] shadow-lg mr-2 flex-shrink-0 cursor-pointer hover:bg-[#2f3037] hover:border-[#3a8ff7]">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
-                    <div id="main-pill" class="flex-1 h-14 bg-[#212121] border border-[#2f3037] rounded-full flex items-center transition-layout overflow-hidden shadow-lg relative">
-                        <button id="in-plus" class="w-14 transition-layout h-full flex items-center justify-center text-gray-400 flex-shrink-0 cursor-pointer hover:text-white">
+                    <div id="main-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center transition-layout overflow-hidden shadow-lg relative gemini-glow">
+                        <button id="in-plus" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer hover:text-white">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         </button>
-                        
-                        <input type="text" id="user-input" class="flex-1 h-full bg-transparent px-3 text-white outline-none transition-layout text-right text-[1.05rem]" placeholder="...میسج ٹائپ کریں" autocomplete="off" dir="rtl">
-                        
-                        <button id="in-send" class="btn-collapse transition-layout h-full flex items-center justify-center text-white bg-white/10 rounded-full my-1 mx-1 flex-shrink-0 cursor-pointer pr-4 pl-3">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                        <input type="text" id="user-input" class="flex-1 h-full bg-transparent px-3 text-white outline-none transition-layout min-w-[50px]" placeholder="Ask something..." autocomplete="off">
+                        <button id="in-send" class="btn-collapse transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer hover:text-white pr-5 pl-2">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                         </button>
-                        
-                        <button id="in-mic" class="w-14 transition-layout h-full flex items-center justify-center text-gray-400 hover:text-white flex-shrink-0 cursor-pointer" onclick="if(window.AndroidBridge) window.AndroidBridge.toggleInlineMic()">
-                            <svg id="icon-mic-normal" class="absolute transition-all" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                            <svg id="icon-mic-stop" class="hidden absolute text-white" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+                        <button id="in-mic" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 relative cursor-pointer hover:text-white">
+                            <svg id="icon-mic-normal" class="absolute transition-all" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                            <svg id="icon-mic-stop" class="hidden absolute text-white" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
                         </button>
-                        
-                        <button id="in-call" class="w-14 transition-layout h-full flex items-center justify-center text-gray-400 hover:text-white flex-shrink-0 cursor-pointer border-l border-[#2f3037]">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
+                        <button id="in-call" class="w-14 transition-layout h-full flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer hover:text-white border-l border-[#2f3037]">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
                         </button>
                     </div>
                 </div>
 
-                <div id="call-mode-bar" class="hidden items-center justify-center w-full h-14 gap-4 transition-layout">
-                    <div class="flex-1 h-14 bg-[#212121] border border-[#2f3037] rounded-full flex items-center px-5 relative shadow-lg">
-                        <span id="call-status-text" class="text-gray-400 text-sm animate-pulse flex-1 text-center">سن رہی ہوں...</span>
+                <div id="call-mode-bar" class="hidden items-center justify-between w-full h-14 gap-2 transition-layout">
+                    <button id="cg-plus" class="w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] hover:border-[#3a8ff7] transition-all cursor-pointer">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    
+                    <div class="flex-1 h-12 bg-black border border-[#3a8ff7]/40 rounded-full flex items-center px-4 relative shadow-[0_0_8px_rgba(58,143,247,0.3)] transition-all hover:border-[#3a8ff7]">
+                         <input type="text" id="cg-input" class="flex-1 bg-transparent text-white outline-none w-full text-sm" placeholder="Type..." autocomplete="off">
+                         
+                         <button id="cg-send" class="hidden w-8 h-8 text-[#3a8ff7] hover:text-[#7abaff] items-center justify-center absolute right-2 transition-colors cursor-pointer">
+                             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                         </button>
                     </div>
                     
-                    <button id="cg-end" class="h-14 bg-red-500/20 border border-red-500 text-red-500 font-bold text-sm px-6 rounded-full flex items-center gap-3 flex-shrink-0 shadow-lg hover:bg-red-500/30 transition-all cursor-pointer">
+                    <button id="cg-mic" class="w-12 h-12 rounded-full bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] hover:border-[#3a8ff7] transition-all cursor-pointer">
+                        <svg id="cg-mic-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                        <svg id="cg-mic-off" class="hidden text-red-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                    </button>
+                    
+                    <button id="cg-end" class="h-12 bg-black border border-[#3a8ff7]/40 text-[#3a8ff7] font-semibold text-sm px-5 rounded-full flex items-center gap-2 flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] hover:border-[#3a8ff7] transition-all cursor-pointer">
                         <div class="flex items-center h-4">
                             <div class="cg-wave" style="animation-delay: 0s;"></div>
                             <div class="cg-wave" style="animation-delay: 0.2s;"></div>
                             <div class="cg-wave" style="animation-delay: 0.4s;"></div>
+                            <div class="cg-wave" style="animation-delay: 0.6s;"></div>
                         </div>
-                        End Call
+                        End
                     </button>
                 </div>
             </div>
