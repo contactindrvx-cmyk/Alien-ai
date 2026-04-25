@@ -1,4 +1,4 @@
-/* --- 🚀 آپ کا اوریجنل ببل اور گلو والا ڈیزائن 🚀 --- */
+/* --- 🚀 آپ کا اوریجنل ببل اور بٹن ڈیزائن 🚀 --- */
 .chat-bubble { border-radius: 24px; padding: 14px 20px; max-width: 85%; width: fit-content; line-height: 1.6; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.15); animation: fadeIn 0.3s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -15,7 +15,7 @@
 .recording-pulse { animation: micPulse 1.5s infinite; background: rgba(58, 143, 247, 0.1); border-radius: 50%; }
 @keyframes micPulse { 0% { box-shadow: 0 0 0 0 rgba(58, 143, 247, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(58, 143, 247, 0); } 100% { box-shadow: 0 0 0 0 rgba(58, 143, 247, 0); } }
 
-/* --- 🚀 نئے فیچرز اور اینیمیشنز 🚀 --- */
+/* --- 🚀 اینیمیشنز اور کریش فری کلاسز 🚀 --- */
 .wave-bar { width: 3px; height: 12px; background-color: #3a8ff7; border-radius: 4px; animation: wave 1.2s ease-in-out infinite; margin: 0 1.5px; }
 .wave-bar:nth-child(2) { animation-delay: 0.2s; } .wave-bar:nth-child(3) { animation-delay: 0.4s; } .wave-bar:nth-child(4) { animation-delay: 0.6s; }
 @keyframes wave { 0%, 100% { height: 8px; } 50% { height: 22px; } }
@@ -23,8 +23,8 @@
 .cg-wave { width: 4px; background-color: #3a8ff7; border-radius: 4px; animation: cgwave 1s ease-in-out infinite; margin: 0 1.5px; }
 @keyframes cgwave { 0%, 100% { height: 6px; } 50% { height: 16px; } }
 
-/* بٹن کو سموتھلی ہائیڈ کرنے کے لیے گارنٹیڈ کلاس */
-.btn-collapse { width: 0 !important; padding: 0 !important; border-width: 0 !important; opacity: 0 !important; overflow: hidden !important; margin: 0 !important; pointer-events: none !important; }
+/* یہ کلاس بٹنوں کو بغیر کریش کیے ہائیڈ کرتی ہے */
+.btn-collapse { width: 0 !important; padding: 0 !important; border-width: 0 !important; opacity: 0 !important; overflow: hidden !important; margin: 0 !important; pointer-events: none !important; display: none !important; }
 .transition-layout { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 
 /* عائشہ کی پلین چیٹ اور ٹائپنگ کرسر */
@@ -32,5 +32,4 @@
 .typing-cursor::after { content: '●'; color: #e5e7eb; margin-right: 4px; animation: blink 1s step-end infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-/* سکرول بار چھپانے کا کوڈ */
 ::-webkit-scrollbar { width: 0px; background: transparent; }
