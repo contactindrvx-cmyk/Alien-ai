@@ -60,7 +60,7 @@
                 <div id="thinking-indicator" class="hidden w-full flex justify-end px-2 pb-6"><span class="text-[#3a8ff7] animate-pulse font-medium text-sm">سوچ رہی ہے...</span></div>
             </div>
             
-            <div id="image-preview-container" class="hidden absolute bottom-28 left-6 z-[9999]">
+            <div id="image-preview-container" class="hidden absolute bottom-20 left-4 md:left-6 z-[9999]">
                 <div class="relative inline-block">
                     <img id="preview-img" src="" class="h-20 w-20 object-cover rounded-xl border-2 border-[#3a8ff7] shadow-[0_0_15px_rgba(58,143,247,0.4)]">
                     <button id="remove-img-btn" onclick="window.removeImage(event)" class="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1.5 shadow-lg hover:bg-red-600 transition-colors cursor-pointer outline-none active:scale-95">
@@ -115,10 +115,10 @@
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </button>
                     
-                    <div class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center px-2 relative shadow-[0_0_8px_rgba(58,143,247,0.3)] transition-layout hover:border-[#3a8ff7]" dir="rtl">
-                         <input type="text" id="cg-input" oninput="window.syncInputs(this.value)" onfocus="window.handleInputFocus()" onblur="window.handleInputBlur()" onkeypress="window.handleKeyPress(event)" class="flex-1 bg-transparent text-white outline-none w-full text-[1.05rem] px-3 text-right" placeholder="...ٹائپ کریں" autocomplete="off" dir="rtl">
+                    <div class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center relative shadow-[0_0_8px_rgba(58,143,247,0.3)] transition-layout hover:border-[#3a8ff7]">
+                         <input type="text" id="cg-input" oninput="window.syncInputs(this.value)" onfocus="window.handleInputFocus()" onblur="window.handleInputBlur()" onkeypress="window.handleKeyPress(event)" class="flex-1 h-full bg-transparent px-4 pl-14 text-white outline-none w-full text-[1.05rem] text-right" placeholder="...ٹائپ کریں" autocomplete="off" dir="rtl">
                          
-                         <button id="cg-send" onclick="window.handleSendClick(event)" class="hidden w-10 h-10 rounded-full flex-shrink-0 text-[#3a8ff7] flex items-center justify-center cursor-pointer outline-none hover:bg-[#2f3037] transition active:scale-95 mr-1">
+                         <button id="cg-send" onclick="window.handleSendClick(event)" class="hidden absolute left-1 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full text-[#3a8ff7] flex items-center justify-center cursor-pointer outline-none hover:bg-[#2f3037] transition active:scale-95 z-20">
                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                          </button>
                     </div>
@@ -143,5 +143,5 @@
     </div>
     <script src="script.js"></script>
 </body>
-                                                                                                                                                                           </html>
+    </html>
     
