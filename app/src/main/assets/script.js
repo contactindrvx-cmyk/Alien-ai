@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(document.getElementById('gal-text')) document.getElementById('gal-text').innerText = langData.gal;
     } catch(e) { console.log(e); }
 
-    // 🚀 بلٹ پروف مینیو کنٹرولز (JS Event Listeners) 🚀
+    // 🚀 100% گارنٹیڈ مینیو کنٹرولز (Display: None/Block کے ساتھ) 🚀
     const profileBtn = document.getElementById('profile-btn');
     const profileMenu = document.getElementById('profile-menu');
     const assistantBtn = document.getElementById('assistant-btn');
@@ -51,55 +51,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const attachmentMenu = document.getElementById('attachment-menu');
     const btnUpgrade = document.getElementById('btn-upgrade');
 
-    function closeAllMenus() {
-        if(profileMenu) profileMenu.classList.add('hidden');
-        if(assistantMenu) assistantMenu.classList.add('hidden');
-        if(attachmentMenu) attachmentMenu.classList.add('hidden');
-        if(assistantArrow) assistantArrow.classList.remove('rotate-180');
-    }
+    window.closeAllMenus = function() {
+        if(profileMenu) profileMenu.style.display = 'none';
+        if(assistantMenu) assistantMenu.style.display = 'none';
+        if(attachmentMenu) attachmentMenu.style.display = 'none';
+        if(assistantArrow) assistantArrow.style.transform = 'rotate(0deg)';
+    };
 
     if(profileBtn) {
-        profileBtn.addEventListener('click', (e) => {
+        profileBtn.onclick = function(e) {
             e.stopPropagation();
-            const isHidden = profileMenu.classList.contains('hidden');
-            closeAllMenus(); 
-            if (isHidden) profileMenu.classList.remove('hidden');
-        });
+            const isHidden = (profileMenu.style.display === 'none' || profileMenu.style.display === '');
+            window.closeAllMenus(); 
+            if (isHidden) profileMenu.style.display = 'block';
+        };
     }
 
     if(assistantBtn) {
-        assistantBtn.addEventListener('click', (e) => {
+        assistantBtn.onclick = function(e) {
             e.stopPropagation();
-            const isHidden = assistantMenu.classList.contains('hidden');
-            closeAllMenus();
+            const isHidden = (assistantMenu.style.display === 'none' || assistantMenu.style.display === '');
+            window.closeAllMenus();
             if (isHidden) {
-                assistantMenu.classList.remove('hidden');
-                if(assistantArrow) assistantArrow.classList.add('rotate-180');
+                assistantMenu.style.display = 'block';
+                if(assistantArrow) assistantArrow.style.transform = 'rotate(180deg)';
             }
-        });
+        };
     }
 
     if(btnUpgrade) {
-        btnUpgrade.addEventListener('click', (e) => {
+        btnUpgrade.onclick = function(e) {
             e.stopPropagation();
-            closeAllMenus();
+            window.closeAllMenus();
             if(window.AndroidBridge && window.AndroidBridge.startPayment) window.AndroidBridge.startPayment();
-        });
+        };
     }
 
     document.querySelectorAll('.asst-option').forEach(btn => {
-        btn.addEventListener('click', function(e) {
+        btn.onclick = function(e) {
             e.stopPropagation();
             const asstNameElement = this.querySelector('.ast-name') || this;
             if(currentAssistant) currentAssistant.innerText = asstNameElement.innerText;
-            closeAllMenus();
-        });
+            window.closeAllMenus();
+        };
     });
 
-    // سکرین پر کہیں بھی کلک کرنے سے مینیو بند ہو جائیں گے
-    document.addEventListener('click', () => { closeAllMenus(); });
+    document.onclick = function() { window.closeAllMenus(); };
 
-    // 🚀 آپ کا اوریجنل کوڈ (نیچے کے بٹنز کے لیے) 🚀
+    // 🚀 آپ کے تمام پرانے ان پٹ اور کال بٹنز 🚀
     inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill'); inPlus = document.getElementById('in-plus'); 
     inSend = document.getElementById('in-send'); inMic = document.getElementById('in-mic'); inCall = document.getElementById('in-call'); 
@@ -159,55 +158,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if(inputNormal) inputNormal.addEventListener('input', (e) => { if(inputCall) inputCall.value = e.target.value; updateUIState(); });
-    if(inputCall) inputCall.addEventListener('input', (e) => { if(inputNormal) inputNormal.value = e.target.value; updateUIState(); });
+    if(inputNormal) inputNormal.oninput = (e) => { if(inputCall) inputCall.value = e.target.value; updateUIState(); };
+    if(inputCall) inputCall.oninput = (e) => { if(inputNormal) inputNormal.value = e.target.value; updateUIState(); };
 
-    // 🚀 کال بار میں ٹائپنگ اینیمیشن (مائیک اور اینڈ غائب) 🚀
+    // 🚀 کال بار میں ٹائپنگ پر بٹن غائب ہونے کی اینیمیشن 🚀
     if(inputCall) {
-        inputCall.addEventListener('focus', () => {
+        inputCall.onfocus = () => {
             if(cgMic) cgMic.classList.add('btn-collapse'); 
             if(cgEnd) cgEnd.classList.add('btn-collapse');
-        });
-        inputCall.addEventListener('blur', () => {
+        };
+        inputCall.onblur = () => {
             setTimeout(() => { 
                 if(cgMic) cgMic.classList.remove('btn-collapse'); 
                 if(cgEnd) cgEnd.classList.remove('btn-collapse'); 
             }, 200); 
-        });
+        };
     }
 
-    // 🚀 جمع (Plus) بٹن کا لاجک - اٹیچمنٹ مینیو کھولنا 🚀
+    // 🚀 جمع (Plus) بٹن اب سیدھا گیلری نہیں بلکہ مینیو کھولے گا 🚀
     const handlePlusClick = (e) => {
         e.preventDefault(); e.stopPropagation();
         if(attachmentMenu) {
-            const isHidden = attachmentMenu.classList.contains('hidden');
-            closeAllMenus(); 
-            if (isHidden) attachmentMenu.classList.remove('hidden');
+            const isHidden = (attachmentMenu.style.display === 'none' || attachmentMenu.style.display === '');
+            window.closeAllMenus(); 
+            if (isHidden) attachmentMenu.style.display = 'block';
         } else {
             if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else if(fileIn) fileIn.click();
         }
     };
     
-    if(outPlus) outPlus.addEventListener('click', handlePlusClick); 
-    if(inPlus) inPlus.addEventListener('click', handlePlusClick); 
-    if(cgPlus) cgPlus.addEventListener('click', handlePlusClick);
+    if(outPlus) outPlus.onclick = handlePlusClick; 
+    if(inPlus) inPlus.onclick = handlePlusClick; 
+    if(cgPlus) cgPlus.onclick = handlePlusClick;
 
     // کیمرہ اور گیلری کے بٹن کے کلکس
     const btnCam = document.getElementById('btn-camera');
     if(btnCam) {
-        btnCam.addEventListener('click', (e) => {
-            e.stopPropagation(); closeAllMenus(); 
+        btnCam.onclick = (e) => {
+            e.stopPropagation(); window.closeAllMenus(); 
             if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera(); 
-        });
+        };
     }
 
     const btnGal = document.getElementById('btn-gallery');
     if(btnGal) {
-        btnGal.addEventListener('click', (e) => {
-            e.stopPropagation(); closeAllMenus(); 
+        btnGal.onclick = (e) => {
+            e.stopPropagation(); window.closeAllMenus(); 
             if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
             else if(fileIn) fileIn.click(); 
-        });
+        };
     }
 
     if(fileIn) {
@@ -224,25 +223,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const rmImgBtn = document.getElementById('remove-img-btn');
     if(rmImgBtn) {
-        rmImgBtn.addEventListener('click', () => { 
+        rmImgBtn.onclick = () => { 
             pendingImg = null; 
             if(preview) preview.classList.add('hidden'); 
             if(fileIn) fileIn.value=''; 
             updateUIState(); 
-        });
+        };
     }
     
     if(inMic) {
-        inMic.addEventListener('click', () => { 
+        inMic.onclick = () => { 
             if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); 
-        });
+        };
     }
     
     if(cgMic) {
-        cgMic.addEventListener('click', () => { 
+        cgMic.onclick = () => { 
             isCallMuted = !isCallMuted; updateUIState(); 
             if(window.AndroidBridge && window.AndroidBridge.muteCall) window.AndroidBridge.muteCall(isCallMuted); 
-        });
+        };
     }
 
     window.onInlineMicState = function(isRecording) {
@@ -281,15 +280,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if(inCall) {
-        inCall.addEventListener('click', () => { 
+        inCall.onclick = () => { 
             isCallActive = true; isCallMuted = false; updateUIState(); 
             if(window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(true); 
             if(!window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic();
-        });
+        };
     }
     
     if(cgEnd) {
-        cgEnd.addEventListener('click', () => { 
+        cgEnd.onclick = () => { 
             isCallActive = false; window.stopAyeshaCompletely(); 
             if(inputNormal) inputNormal.value = ''; 
             if(inputCall) inputCall.value = ''; 
@@ -299,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); 
             updateUIState(); 
             if(window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(false); 
-        });
+        };
     }
 
     // 🚀 سٹریمنگ کے دوران سادہ ٹیکسٹ، بغیر ببل کے 🚀
@@ -370,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let cleanText = text.replace(/\[ACTION:.*?\]/gi, '').trim();
         if (cleanText.length > 0) {
             let btn = addMessage(cleanText, 'assistant');
-            if(btn && !isCallActive) { playNativeAudio(cleanText, btn); }
+            if(btn && !isCallActive) { window.playNativeAudio(cleanText, btn); }
         }
     };
 
@@ -414,4 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (existingBubble) {
-            e
+            existingBubble.innerText = cleanText;
+            existingBubble.classList.remove('typing-cursor');
+            
+            const enc = encodeURIComponent(cleanText);
+  
