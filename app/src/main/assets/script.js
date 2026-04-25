@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 🚀 2. مینیو کنٹرولز اور اسسٹنٹ سلیکشن 🚀
+// 🚀 2. مینیو اور اٹیچمنٹ کنٹرولز 🚀
 // ==========================================
 window.closeAllMenus = function() {
     const profileMenu = document.getElementById('profile-menu');
@@ -101,9 +101,6 @@ window.triggerPayment = function(e) {
     if(window.AndroidBridge && window.AndroidBridge.startPayment) window.AndroidBridge.startPayment();
 };
 
-// ==========================================
-// 🚀 3. کیمرہ، گیلری اور امیج ہینڈلنگ 🚀
-// ==========================================
 window.triggerCamera = function(e) {
     if(e) e.stopPropagation();
     window.closeAllMenus();
@@ -139,7 +136,7 @@ window.removeImage = function(e) {
 };
 
 // ==========================================
-// 🚀 4. UI اور ان پٹ اپڈیٹ (جہاز اور مائیک) 🚀
+// 🚀 3. UI اور ان پٹ اپڈیٹ لاجک 🚀
 // ==========================================
 window.syncInputs = function(val) {
     const inputNormal = document.getElementById('user-input');
@@ -166,9 +163,7 @@ window.handleInputBlur = function() {
 };
 
 window.handleKeyPress = function(e) {
-    if (e.key === 'Enter') {
-        window.handleSendClick(e);
-    }
+    if (e.key === 'Enter') window.handleSendClick(e);
 };
 
 window.updateUIState = function() {
@@ -194,19 +189,13 @@ window.updateUIState = function() {
         if (isCallActive) {
             if(normalBar) { normalBar.classList.add('hidden'); normalBar.classList.remove('flex'); }
             if(callBar) { callBar.classList.remove('hidden'); callBar.classList.add('flex'); }
-            
-            if (text.length > 0 || pendingImg) { 
-                if(cgSend) { cgSend.classList.remove('hidden'); cgSend.classList.add('flex'); }
-            } else { 
-                if(cgSend) { cgSend.classList.add('hidden'); cgSend.classList.remove('flex'); }
-            }
-            
+            if (text.length > 0 || pendingImg) { if(cgSend) { cgSend.classList.remove('hidden'); cgSend.classList.add('flex'); } } 
+            else { if(cgSend) { cgSend.classList.add('hidden'); cgSend.classList.remove('flex'); } }
             if(cgMicOn) cgMicOn.classList.toggle('hidden', isCallMuted); 
             if(cgMicOff) cgMicOff.classList.toggle('hidden', !isCallMuted);
         } else {
             if(callBar) { callBar.classList.add('hidden'); callBar.classList.remove('flex'); }
             if(normalBar) { normalBar.classList.remove('hidden'); normalBar.classList.add('flex'); }
-            
             if(outPlus) { outPlus.classList.add('btn-collapse'); outPlus.classList.remove('btn-expand'); }
             if(inPlus) inPlus.classList.add('btn-collapse'); 
             if(inSend) inSend.classList.add('btn-collapse');
@@ -236,10 +225,10 @@ window.updateUIState = function() {
         }
     } catch (e) { console.error("UI Update Error:", e); }
 };
-            // ==========================================
-// 🚀 5. چیٹ، مائیک اور کال ایکشنز (سینڈ، آٹو سینڈ) 🚀
-// ==========================================
 
+// ==========================================
+// 🚀 4. چیٹ اور ایکشنز (سینڈ، مائیک، آٹو سینڈ) 🚀
+// ==========================================
 window.handleSendClick = function(e) {
     if(e) e.preventDefault(); 
     const activeInput = isCallActive ? document.getElementById('cg-input') : document.getElementById('user-input');
@@ -248,7 +237,6 @@ window.handleSendClick = function(e) {
     if (text || pendingImg) {
         let imgUrl = pendingImg ? URL.createObjectURL(pendingImg) : null;
         let currentB64 = "";
-        
         if (pendingImg) {
             const reader = new FileReader();
             reader.onloadend = function() {
@@ -326,34 +314,23 @@ window.handleEndCall = function(e) {
     if(e) e.preventDefault();
     isCallActive = false; 
     window.stopAyeshaCompletely(); 
-    
     const inputNormal = document.getElementById('user-input');
     const inputCall = document.getElementById('cg-input');
     if(inputNormal) inputNormal.value = ''; 
     if(inputCall) inputCall.value = ''; 
-    
     pendingImg = null; 
     const previewCont = document.getElementById('image-preview-container');
     if(previewCont) previewCont.classList.add('hidden'); 
-    
     const fileIn = document.getElementById('hidden-file-input');
     if(fileIn) fileIn.value = '';
-    
     window.isAyeshaRecording = false;
     
-    if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
-        window.AndroidBridge.toggleInlineMic(); 
-    }
+    if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); 
     window.updateUIState(); 
-    if(window.AndroidBridge && window.AndroidBridge.toggleCall) {
-        window.AndroidBridge.toggleCall(false); 
-    }
+    if(window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(false); 
 };
 
-// ==========================================
-// 🚀 6. لائیو ٹائپنگ اور آٹو سینڈ (جاوا برج) 🚀
-// ==========================================
-
+// 🚀 جاوا برج - لائیو ٹائپنگ اور آٹو سینڈ 🚀
 window.onInlineMicState = function(isRecording) {
     window.isAyeshaRecording = isRecording;
     const inputNormal = document.getElementById('user-input');
@@ -361,7 +338,6 @@ window.onInlineMicState = function(isRecording) {
         if(isRecording) inputNormal.placeholder = "سن رہی ہوں..."; 
         else inputNormal.placeholder = "...میسج ٹائپ کریں"; 
     }
-    
     if (!isRecording && isCallActive && !isCallMuted && !window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
         setTimeout(() => { if (window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); }, 500); 
     }
@@ -393,9 +369,8 @@ window.updateInputFromJava = function(text, finalResult) {
 };
 
 // ==========================================
-// 🚀 7. آڈیو، سٹریمنگ اور میسج رینڈرنگ 🚀
+// 🚀 5. آڈیو اور سٹریمنگ کنٹرولز 🚀
 // ==========================================
-
 window.playNativeAudio = function(text, btn) {
     window.AyeshaAudio.isPlaying = true;
     window.AyeshaAudio.activeBtn = btn;
@@ -403,9 +378,7 @@ window.playNativeAudio = function(text, btn) {
         btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
         btn.classList.add('text-[#3a8ff7]'); 
     }
-    if (window.AndroidBridge && window.AndroidBridge.speakText) {
-        window.AndroidBridge.speakText(text);
-    }
+    if (window.AndroidBridge && window.AndroidBridge.speakText) window.AndroidBridge.speakText(text);
 };
 
 window.onSpeechDone = function() {
@@ -422,9 +395,7 @@ window.onSpeechDone = function() {
 
 window.stopAyeshaCompletely = function() {
     window.AyeshaAudio.isPlaying = false;
-    if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) {
-        window.AndroidBridge.stopSpeaking();
-    }
+    if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) window.AndroidBridge.stopSpeaking();
     document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
         b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
         b.classList.remove('text-[#3a8ff7]'); 
@@ -445,7 +416,6 @@ window.copyToClipboard = function(encodedText) {
 window.onStreamStart = function() {
     const welcomeEl = document.getElementById('empty-chat-welcome');
     if(welcomeEl) welcomeEl.style.display = 'none';
-    
     const thinkInd = document.getElementById('thinking-indicator');
     if(thinkInd) thinkInd.classList.add('hidden');
     
@@ -454,7 +424,7 @@ window.onStreamStart = function() {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
-    // 🚨 ڈاٹ (ٹائپنگ کرسر) کو یہاں سے ہٹا دیا گیا ہے 🚨
+    // 🚨 ڈاٹ کو جڑ سے اکھاڑ دیا گیا ہے 🚨
     msgDiv.innerHTML = `
         <div class="ai-text-container text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
             <span id="streaming-text-target"></span> 
@@ -471,9 +441,7 @@ window.onStreamStart = function() {
 window.onStreamChunk = function(chunk) {
     if (currentStreamBubble) {
         fullStreamedText += chunk;
-        if (!fullStreamedText.includes("[ACTION:")) {
-            currentStreamBubble.innerText = fullStreamedText;
-        }
+        if (!fullStreamedText.includes("[ACTION:")) currentStreamBubble.innerText = fullStreamedText;
         const chatBox = document.getElementById('chat-box');
         if(chatBox) chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
     }
@@ -496,8 +464,8 @@ window.onStreamError = function() {
 window.addMessageFromJava = function(text) {
     if (text.startsWith("SCREEN_DATA||")) {
         let screenData = text.replace("SCREEN_DATA||", "");
-        
         window.isAyeshaProcessing = true;
+        
         const currAsstEl = document.getElementById('current-assistant');
         const asstName = currAsstEl ? currAsstEl.innerText.trim() : 'Ayesha';
         const isMale = (asstName === 'Raza' || asstName === 'Alex' || asstName === 'رضا' || asstName === 'ایلکس');
@@ -519,7 +487,7 @@ window.addMessageFromJava = function(text) {
     if (cleanText.length > 0) {
         if(window.addMessage) {
             let btn = window.addMessage(cleanText, 'assistant');
-            if(btn && !isCallActive) { window.playNativeAudio(cleanText, btn); }
+            if(btn && !isCallActive) window.playNativeAudio(cleanText, btn);
         }
     }
 };
@@ -529,10 +497,8 @@ window.analyzeScreen = function() {
     if (window.AndroidBridge) {
         if (window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
         if (window.AndroidBridge.pullScreenText) screenText = window.AndroidBridge.pullScreenText();
-        
         if (window.AndroidBridge.sendNativeRequest) {
             window.isAyeshaProcessing = true;
-            
             const currAsstEl = document.getElementById('current-assistant');
             const asstName = currAsstEl ? currAsstEl.innerText.trim() : 'Ayesha';
             const isMale = (asstName === 'Raza' || asstName === 'Alex' || asstName === 'رضا' || asstName === 'ایلکس');
@@ -551,16 +517,12 @@ window.analyzeScreen = function() {
 window.processAIResponse = function(cleanText, existingBubble = null) {
     let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?)(?:,\s*DATA:\s*(.*?))?\]/i);
     let action = ""; let actionData = "none";
-    
     if (cmdMatch) {
         action = cmdMatch[1] ? cmdMatch[1].trim() : "";
         actionData = cmdMatch[2] ? cmdMatch[2].trim() : "none";
         if (action.includes("||") && !action.includes("MULTI_TASK")) { actionData = action; action = "MULTI_TASK"; }
-        if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
-            window.AndroidBridge.sendAccessibilityCommand(action, actionData);
-        }
+        if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) window.AndroidBridge.sendAccessibilityCommand(action, actionData);
     }
-    
     cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
 
     if (action === "ANALYZE_SCREEN" || action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
@@ -585,7 +547,6 @@ window.processAIResponse = function(cleanText, existingBubble = null) {
                 <button class="gemini-speaker-btn text-gray-500 hover:text-[#3a8ff7] transition flex items-center" data-text="${enc}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button>
             `;
             actionsContainer.classList.remove('opacity-0');
-            
             let btn = actionsContainer.querySelector('.gemini-speaker-btn');
             if(btn) {
                 btn.onclick = function() {
@@ -593,14 +554,12 @@ window.processAIResponse = function(cleanText, existingBubble = null) {
                     window.playNativeAudio(cleanText, this);
                 };
             }
-
-            if (!isCallActive && !isActionOnly) { window.playNativeAudio(cleanText, btn); }
+            if (!isCallActive && !isActionOnly) window.playNativeAudio(cleanText, btn); 
         }
-
     } else {
         if(window.addMessage) {
             let btn = window.addMessage(cleanText, 'assistant');
-            if (btn && !isCallActive && !isActionOnly) { window.playNativeAudio(cleanText, btn); }
+            if (btn && !isCallActive && !isActionOnly) window.playNativeAudio(cleanText, btn); 
         }
     }
 
@@ -619,7 +578,6 @@ window.processAIResponse = function(cleanText, existingBubble = null) {
 window.addMessage = function(text, sender, imgUrl = null) {
     const welcomeEl = document.getElementById('empty-chat-welcome');
     if(welcomeEl) welcomeEl.style.display = 'none'; 
-    
     const chatBox = document.getElementById('chat-box'); 
     if(!chatBox) return null;
 
@@ -635,8 +593,7 @@ window.addMessage = function(text, sender, imgUrl = null) {
     } else {
         const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
-        
-        // 🚨 یہاں سے بھی ڈاٹ (ٹائپنگ کرسر) ہٹا دیا گیا ہے 🚨
+        // 🚨 یہاں سے بھی ڈاٹ ہٹا دیا گیا ہے 🚨
         msgDiv.innerHTML = `
             <div class="ai-text-container text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
                 ${imgHTML}<span id="text-node"></span>
@@ -674,4 +631,8 @@ window.addMessage = function(text, sender, imgUrl = null) {
                     if(actionsDiv) actionsDiv.classList.remove('opacity-0');
                 }
             }
-      
+            typeWriter();
+        }
+        return btn;
+    }
+};
