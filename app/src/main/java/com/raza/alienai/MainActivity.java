@@ -6,11 +6,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -34,6 +40,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
@@ -41,7 +48,12 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
 
+    // 🚨 یہ وہ چیزیں ہیں جو میں نے پچھلی بار اڑا دی تھیں! 🚨
+    private SpeechRecognizer textModeRecognizer;
+    private Intent textModeIntent;
+    private boolean isTextModeRecording = false;
     private boolean isCallModeActive = false;
+    private TextToSpeech tts;
 
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
@@ -49,7 +61,6 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             new Handler(Looper.getMainLooper()).post(() -> {
                 if (webView == null) return;
-                
                 if ("NEW_MESSAGE_FROM_CALL".equals(action)) {
                     String msg = intent.getStringExtra("message");
                     if (msg != null) {
@@ -116,6 +127,10 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("file:///android_asset/index.html");
         
         requestPermissions();
+        
+        // 🚨 یہ دو لائنیں نہ ہونے کی وجہ سے مائیک فریز ہو رہا تھا 🚨
+        initTextToSpeech();
+        setupTextModeRecognizer();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction("NEW_MESSAGE_FROM_CALL");
@@ -132,9 +147,70 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void initTextToSpeech() {
+        tts = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                tts.setLanguage(new Locale("ur", "PK"));
+                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override public void onStart(String utteranceId) {}
+                    @Override public void onError(String utteranceId) {}
+                    @Override public void onDone(String utteranceId) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            if (webView != null) webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null);
+                        });
+                    }
+                });
+            }
+        });
+    }
+
     private boolean isAccessibilityServiceEnabled(Context context, Class<?> accessibilityService) {
         String enabled = android.provider.Settings.Secure.getString(context.getContentResolver(), android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
         return enabled != null && enabled.contains(context.getPackageName() + "/" + accessibilityService.getName());
+    }
+
+    private void setupTextModeRecognizer() {
+        textModeRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        textModeIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        textModeIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        textModeIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
+
+        textModeRecognizer.setRecognitionListener(new RecognitionListener() {
+            @Override public void onReadyForSpeech(Bundle params) {}
+            @Override public void onBeginningOfSpeech() {}
+            @Override public void onRmsChanged(float rmsdB) {}
+            @Override public void onBufferReceived(byte[] buffer) {}
+            @Override public void onEndOfSpeech() {}
+            @Override public void onError(int error) { stopTextRecordingState(); }
+            @Override public void onResults(Bundle results) {
+                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (matches != null && !matches.isEmpty() && matches.get(0).trim().length() >= 2) {
+                    sendTextToJS(matches.get(0).trim(), true);
+                }
+                stopTextRecordingState();
+            }
+            @Override public void onPartialResults(Bundle partialResults) {
+                ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                if (matches != null && !matches.isEmpty()) sendTextToJS(matches.get(0).trim(), false);
+            }
+            @Override public void onEvent(int eventType, Bundle params) {}
+        });
+    }
+
+    private void sendTextToJS(String text, boolean isFinal) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (webView != null && text != null) {
+                String safeText = text.replace("'", "\\'"); 
+                webView.evaluateJavascript("javascript:if(window.updateInputFromJava) window.updateInputFromJava('" + safeText + "', " + isFinal + ");", null);
+            }
+        });
+    }
+
+    private void stopTextRecordingState() {
+        isTextModeRecording = false;
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (webView != null) webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(false);", null);
+        });
     }
 
     private void requestPermissions() {
@@ -179,6 +255,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
                     if (start) {
+                        if (isTextModeRecording) { textModeRecognizer.stopListening(); stopTextRecordingState(); }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
                         else startService(intent);
                     } else {
@@ -189,7 +266,25 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 🚀 اب ہم یہاں assistantName بھی ریسیو کر رہے ہیں 🚀
+        @JavascriptInterface
+        public void toggleInlineMic() {
+            if (isCallModeActive) return; 
+            runOnUiThread(() -> {
+                if (isTextModeRecording) {
+                    textModeRecognizer.stopListening(); stopTextRecordingState();
+                } else {
+                    AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                    try { am.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0); } catch (Exception e) {}
+                    textModeRecognizer.startListening(textModeIntent);
+                    isTextModeRecording = true;
+                    webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        try { am.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0); } catch (Exception e) {}
+                    }, 400);
+                }
+            });
+        }
+
         @JavascriptInterface
         public void sendNativeRequest(String message, String base64Image, String assistantName) {
             new Thread(() -> {
@@ -204,7 +299,7 @@ public class MainActivity extends AppCompatActivity {
                     payload.put("message", message);
                     payload.put("email", "alirazasabir007@gmail.com");
                     payload.put("mode", "text");
-                    payload.put("assistant", assistantName); // 👈 یہ لائن پائتھن کو نام بتائے گی
+                    payload.put("assistant", assistantName); 
                     
                     if (base64Image != null && !base64Image.isEmpty()) payload.put("image", base64Image);
                     
@@ -239,7 +334,15 @@ public class MainActivity extends AppCompatActivity {
             }).start();
         }
 
+        @JavascriptInterface 
+        public void speakText(String text) { 
+            if (tts != null) {
+                tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaTTS_ID"); 
+            }
+        }
+
         @JavascriptInterface public void stopSpeaking() { 
+            if (tts != null && tts.isSpeaking()) { tts.stop(); }
             Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); 
             intent.setAction(AyeshaCallService.ACTION_STOP_AUDIO); 
             startService(intent);
@@ -279,7 +382,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override protected void onDestroy() {
         super.onDestroy();
+        if (textModeRecognizer != null) textModeRecognizer.destroy();
+        if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
-    }
-                            }
-                                                              
+          }
+}
+                
