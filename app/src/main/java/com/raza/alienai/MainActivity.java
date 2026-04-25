@@ -20,12 +20,14 @@ import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.util.Base64;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -46,9 +48,10 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
+    private RelativeLayout splashScreen;
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
-    private final static int REQUEST_CAMERA = 1002; // 🚀 کیمرے کے لیے نیا کوڈ 🚀
+    private final static int REQUEST_CAMERA = 1002; 
 
     private SpeechRecognizer textModeRecognizer;
     private Intent textModeIntent;
@@ -89,6 +92,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         
         webView = findViewById(R.id.webView);
+        splashScreen = findViewById(R.id.splashScreen);
+
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setAllowFileAccess(true);
@@ -100,7 +105,17 @@ public class MainActivity extends AppCompatActivity {
         webView.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
-        webView.setWebViewClient(new WebViewClient());
+        
+        // 🚀 سمارٹ سپلیش سکرین ہینڈلر 🚀
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // جیسے ہی پیج مکمل لوڈ ہو، اینیمیشن غائب اور چیٹ حاضر!
+                splashScreen.setVisibility(View.GONE);
+                webView.setVisibility(View.VISIBLE);
+            }
+        });
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -116,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("file:///android_asset/index.html");
         
         requestPermissions();
-        
         initTextToSpeech();
         setupTextModeRecognizer();
 
@@ -218,7 +232,6 @@ public class MainActivity extends AppCompatActivity {
 
     public class WebAppInterface {
 
-        // 🚀 1. نیٹو کیمرہ اوپن کرنے کا فنکشن 🚀
         @JavascriptInterface
         public void openCamera() {
             runOnUiThread(() -> {
@@ -231,7 +244,6 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 🚀 2. گیلری اوپن کرنے کا فنکشن 🚀
         @JavascriptInterface
         public void openGallery() {
             runOnUiThread(() -> {
@@ -356,11 +368,9 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface public String pullScreenText() { String text = AyeshaAccessibilityService.latestScreenText; AyeshaAccessibilityService.latestScreenText = ""; return text != null ? text : ""; }
     }
 
-    // 🚀 3. رزلٹ ہینڈلنگ (گیلری اور کیمرہ دونوں کے لیے) 🚀
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         
-        // گیلری کا رزلٹ
         if (requestCode == FILECHOOSER_RESULTCODE && filePathCallback != null) {
             Uri[] results = null;
             if (resultCode == RESULT_OK && data != null) {
@@ -374,7 +384,6 @@ public class MainActivity extends AppCompatActivity {
             filePathCallback.onReceiveValue(results); 
             filePathCallback = null;
         } 
-        // کیمرے کا رزلٹ
         else if (requestCode == REQUEST_CAMERA && resultCode == RESULT_OK) {
             if (data != null && data.getExtras() != null) {
                 Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
@@ -384,7 +393,6 @@ public class MainActivity extends AppCompatActivity {
                     byte[] imageBytes = baos.toByteArray();
                     String base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
                     
-                    // یہ جادوئی جاوا سکرپٹ تصویر کو سیدھا آپ کے چیٹ انٹرفیس میں فٹ کر دے گی
                     String js = "fetch('data:image/jpeg;base64," + base64Image + "')" +
                                 ".then(res => res.blob())" +
                                 ".then(blob => { " +
@@ -403,11 +411,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override protected void onDestroy() {
+      @Override protected void onDestroy() {
         super.onDestroy();
         if (textModeRecognizer != null) textModeRecognizer.destroy();
         if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-            }
-                                                   
+}
