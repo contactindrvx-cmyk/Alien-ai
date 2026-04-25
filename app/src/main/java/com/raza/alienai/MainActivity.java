@@ -6,20 +6,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.MediaStore;
-import android.speech.RecognitionListener;
-import android.speech.RecognizerIntent;
-import android.speech.SpeechRecognizer;
-import android.speech.tts.TextToSpeech;
-import android.speech.tts.UtteranceProgressListener;
-import android.util.Base64;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -37,28 +28,20 @@ import androidx.core.content.ContextCompat;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private RelativeLayout splashScreen;
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
-    private final static int REQUEST_CAMERA = 1002; 
 
-    private SpeechRecognizer textModeRecognizer;
-    private Intent textModeIntent;
-    private boolean isTextModeRecording = false;
     private boolean isCallModeActive = false;
-    
-    private TextToSpeech tts;
 
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
@@ -106,12 +89,10 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
         
-        // 🚀 سمارٹ سپلیش سکرین ہینڈلر 🚀
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // جیسے ہی پیج مکمل لوڈ ہو، اینیمیشن غائب اور چیٹ حاضر!
                 splashScreen.setVisibility(View.GONE);
                 webView.setVisibility(View.VISIBLE);
             }
@@ -124,15 +105,18 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); 
                 return true;
             }
+            // 🚀 لائیو کیمرہ کی پرمیشنز جاوا سکرپٹ کو دینے کے لیے 🚀
             @Override
-            public void onPermissionRequest(final PermissionRequest request) { request.grant(request.getResources()); }
+            public void onPermissionRequest(final PermissionRequest request) { 
+                runOnUiThread(() -> {
+                    request.grant(request.getResources()); 
+                });
+            }
         });
 
         webView.loadUrl("file:///android_asset/index.html");
         
         requestPermissions();
-        initTextToSpeech();
-        setupTextModeRecognizer();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction("NEW_MESSAGE_FROM_CALL");
@@ -149,70 +133,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void initTextToSpeech() {
-        tts = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                tts.setLanguage(new Locale("ur", "PK"));
-                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override public void onStart(String utteranceId) {}
-                    @Override public void onError(String utteranceId) {}
-                    @Override public void onDone(String utteranceId) {
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            if (webView != null) webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null);
-                        });
-                    }
-                });
-            }
-        });
-    }
-
     private boolean isAccessibilityServiceEnabled(Context context, Class<?> accessibilityService) {
         String enabled = android.provider.Settings.Secure.getString(context.getContentResolver(), android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
         return enabled != null && enabled.contains(context.getPackageName() + "/" + accessibilityService.getName());
-    }
-
-    private void setupTextModeRecognizer() {
-        textModeRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        textModeIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        textModeIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        textModeIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK");
-
-        textModeRecognizer.setRecognitionListener(new RecognitionListener() {
-            @Override public void onReadyForSpeech(Bundle params) {}
-            @Override public void onBeginningOfSpeech() {}
-            @Override public void onRmsChanged(float rmsdB) {}
-            @Override public void onBufferReceived(byte[] buffer) {}
-            @Override public void onEndOfSpeech() {}
-            @Override public void onError(int error) { stopTextRecordingState(); }
-            @Override public void onResults(Bundle results) {
-                ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty() && matches.get(0).trim().length() >= 2) {
-                    sendTextToJS(matches.get(0).trim(), true);
-                }
-                stopTextRecordingState();
-            }
-            @Override public void onPartialResults(Bundle partialResults) {
-                ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) sendTextToJS(matches.get(0).trim(), false);
-            }
-            @Override public void onEvent(int eventType, Bundle params) {}
-        });
-    }
-
-    private void sendTextToJS(String text, boolean isFinal) {
-        new Handler(Looper.getMainLooper()).post(() -> {
-            if (webView != null && text != null) {
-                String safeText = text.replace("'", "\\'"); 
-                webView.evaluateJavascript("javascript:if(window.updateInputFromJava) window.updateInputFromJava('" + safeText + "', " + isFinal + ");", null);
-            }
-        });
-    }
-
-    private void stopTextRecordingState() {
-        isTextModeRecording = false;
-        new Handler(Looper.getMainLooper()).post(() -> {
-            if (webView != null) webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(false);", null);
-        });
     }
 
     private void requestPermissions() {
@@ -232,14 +155,12 @@ public class MainActivity extends AppCompatActivity {
 
     public class WebAppInterface {
 
+        // 🚀 کیمرہ کلک کرنے پر جاوا سکرپٹ کا لائیو کیمرہ آن کرنے کا سگنل 🚀
         @JavascriptInterface
         public void openCamera() {
             runOnUiThread(() -> {
-                Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-                    startActivityForResult(takePictureIntent, REQUEST_CAMERA);
-                } else {
-                    Toast.makeText(MainActivity.this, "کیمرہ ایپ نہیں ملی", Toast.LENGTH_SHORT).show();
+                if (webView != null) {
+                    webView.evaluateJavascript("javascript:if(window.startLiveCamera) window.startLiveCamera();", null);
                 }
             });
         }
@@ -260,7 +181,6 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     Intent intent = new Intent(MainActivity.this, AyeshaCallService.class);
                     if (start) {
-                        if (isTextModeRecording) { textModeRecognizer.stopListening(); stopTextRecordingState(); }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
                         else startService(intent);
                     } else {
@@ -271,25 +191,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        @JavascriptInterface
-        public void toggleInlineMic() {
-            if (isCallModeActive) return; 
-            runOnUiThread(() -> {
-                if (isTextModeRecording) {
-                    textModeRecognizer.stopListening(); stopTextRecordingState();
-                } else {
-                    AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-                    try { am.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0); } catch (Exception e) {}
-                    textModeRecognizer.startListening(textModeIntent);
-                    isTextModeRecording = true;
-                    webView.evaluateJavascript("javascript:if(window.onInlineMicState) window.onInlineMicState(true);", null);
-                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                        try { am.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0); } catch (Exception e) {}
-                    }, 400);
-                }
-            });
-        }
-
+        // 🚀 میسج موڈ کے لیے پائتھن سرور سے کنکشن 🚀
         @JavascriptInterface
         public void sendNativeRequest(String message, String base64Image) {
             new Thread(() -> {
@@ -303,6 +205,8 @@ public class MainActivity extends AppCompatActivity {
                     JSONObject payload = new JSONObject();
                     payload.put("message", message);
                     payload.put("email", "alirazasabir007@gmail.com");
+                    payload.put("mode", "text");
+                    
                     if (base64Image != null && !base64Image.isEmpty()) payload.put("image", base64Image);
                     
                     OutputStream os = conn.getOutputStream();
@@ -336,18 +240,7 @@ public class MainActivity extends AppCompatActivity {
             }).start();
         }
 
-        @JavascriptInterface 
-        public void speakText(String text) { 
-            if (tts != null) {
-                tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaTTS_ID"); 
-            }
-        }
-
-        @JavascriptInterface 
-        public void stopSpeaking() { 
-            if (tts != null && tts.isSpeaking()) {
-                tts.stop();
-            }
+        @JavascriptInterface public void stopSpeaking() { 
             Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); 
             intent.setAction(AyeshaCallService.ACTION_STOP_AUDIO); 
             startService(intent);
@@ -370,7 +263,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        
         if (requestCode == FILECHOOSER_RESULTCODE && filePathCallback != null) {
             Uri[] results = null;
             if (resultCode == RESULT_OK && data != null) {
@@ -384,37 +276,11 @@ public class MainActivity extends AppCompatActivity {
             filePathCallback.onReceiveValue(results); 
             filePathCallback = null;
         } 
-        else if (requestCode == REQUEST_CAMERA && resultCode == RESULT_OK) {
-            if (data != null && data.getExtras() != null) {
-                Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
-                if (imageBitmap != null) {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-                    byte[] imageBytes = baos.toByteArray();
-                    String base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
-                    
-                    String js = "fetch('data:image/jpeg;base64," + base64Image + "')" +
-                                ".then(res => res.blob())" +
-                                ".then(blob => { " +
-                                "  window.pendingImg = new File([blob], 'camera_capture.jpg', {type: 'image/jpeg'}); " +
-                                "  const preview = document.getElementById('preview-img');" +
-                                "  if(preview) preview.src = 'data:image/jpeg;base64," + base64Image + "'; " +
-                                "  const cont = document.getElementById('image-preview-container');" +
-                                "  if(cont) cont.classList.remove('hidden'); " +
-                                "  if(window.updateUIState) window.updateUIState(); " +
-                                "});";
-                    if (webView != null) {
-                        webView.evaluateJavascript("javascript:" + js, null);
-                    }
-                }
-            }
-        }
     }
 
-      @Override protected void onDestroy() {
+    @Override protected void onDestroy() {
         super.onDestroy();
-        if (textModeRecognizer != null) textModeRecognizer.destroy();
-        if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-}
+        }
+                         
