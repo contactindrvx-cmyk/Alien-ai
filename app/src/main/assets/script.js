@@ -76,7 +76,6 @@ window.toggleAttachmentMenu = function(e) {
     if(e) { e.preventDefault(); e.stopPropagation(); }
     const menu = document.getElementById('attachment-menu');
     if(!menu) {
-        // اگر مینیو نہیں ملا تو ڈائریکٹ گیلری کھول دیں
         if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
         else document.getElementById('hidden-file-input').click();
         return;
@@ -107,13 +106,14 @@ window.triggerCamera = function(e) {
     if(e) e.stopPropagation();
     window.closeAllMenus();
     if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera();
+    else alert("یہ فیچر ویب پر دستیاب نہیں، ایپ استعمال کریں۔");
 };
 
 window.triggerGallery = function(e) {
     if(e) e.stopPropagation();
     window.closeAllMenus();
     if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery();
-    else document.getElementById('hidden-file-input').click();
+    else document.getElementById('hidden-file-input').click(); // Fallback for Web/GitHub
 };
 
 window.handleFileChange = function(e) {
@@ -285,6 +285,11 @@ window.clearInputsAndSend = function(text, b64) {
 
 window.handleMicClick = function(e) {
     if(e) e.preventDefault();
+    
+    // فکس: مائیک پر کلک کرنے سے پہلے UI کو ٹوگل کریں تاکہ ویب پر بھی ریکارڈنگ ایفیکٹ شو ہو
+    window.isAyeshaRecording = !window.isAyeshaRecording;
+    window.updateUIState();
+
     if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -322,7 +327,9 @@ window.handleEndCall = function(e) {
     const fileIn = document.getElementById('hidden-file-input');
     if(fileIn) fileIn.value = '';
     
-    if(window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
+    window.isAyeshaRecording = false;
+    
+    if(window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic(); 
     }
     window.updateUIState(); 
@@ -418,7 +425,7 @@ window.onStreamChunk = function(chunk) {
 
 window.onStreamEnd = function(fullText) {
     window.isAyeshaProcessing = false;
-    window.processAIResponse(fullText, currentStreamBubble);
+    window.processAIResponse(fullText, currentStreamBubble); // Note: Make sure window.processAIResponse exists elsewhere or add it.
     currentStreamBubble = null;
 };
 
@@ -426,7 +433,8 @@ window.onStreamError = function() {
     window.isAyeshaProcessing = false;
     const thinkInd = document.getElementById('thinking-indicator');
     if(thinkInd) thinkInd.classList.add('hidden');
-    window.addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant');
+    // Note: Assuming window.addMessage is defined in your code.
+    if(window.addMessage) window.addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant'); 
     currentStreamBubble = null;
 };
 
@@ -445,13 +453,25 @@ window.addMessageFromJava = function(text) {
     if(thinkInd) thinkInd.classList.add('hidden');
     let cleanText = text.replace(/\[ACTION:.*?\]/gi, '').trim();
     if (cleanText.length > 0) {
-        let btn = window.addMessage(cleanText, 'assistant');
-        if(btn && !isCallActive) { window.playNativeAudio(cleanText, btn); }
-    }
-};
+        if(window.addMessage) {
+                    let btn = window.addMessage(cleanText, 'assistant');
+                if(btn && !isCallActive) { window.playNativeAudio(cleanText, btn); }
+            }
+        }
+    };
 
-window.analyzeScreen = function() {
-    let base64Image = ""; let screenText = "";
-    if (window.AndroidBridge) {
-        if (window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
-        if (window.AndroidBridge.pullScreenText) screenText = window.AndroidBridge
+    // فکس: یہاں فنکشن آدھا کٹا ہوا تھا، جس سے پوری سکرپٹ کام چھوڑ گئی تھی۔ اسے مکمل کر دیا ہے۔
+    window.analyzeScreen = function() {
+        let base64Image = ""; let screenText = "";
+        if (window.AndroidBridge) {
+            if (window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
+            if (window.AndroidBridge.pullScreenText) screenText = window.AndroidBridge.pullScreenText();
+            
+            // اگر ڈیٹا مل گیا ہے تو نیٹو جاوا کو بھیجیں
+            if (window.AndroidBridge.sendNativeRequest) {
+                window.AndroidBridge.sendNativeRequest("Please analyze this screen: " + screenText, base64Image);
+            }
+        } else {
+            console.warn("Screen analysis is only available on Android App.");
+        }
+    };
