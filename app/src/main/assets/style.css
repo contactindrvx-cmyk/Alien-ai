@@ -33,3 +33,17 @@
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 ::-webkit-scrollbar { width: 0px; background: transparent; }
+/* 🚀 اپگریڈ بٹن کا پریمیم گلو 🚀 */
+.premium-glow {
+    background: linear-gradient(90deg, rgba(58,143,247,0.1) 0%, rgba(147,51,234,0.1) 100%);
+    border: 1px solid rgba(58,143,247,0.3);
+    box-shadow: 0 0 10px rgba(58,143,247,0.15);
+    border-radius: 8px;
+    margin: 4px 8px;
+    width: calc(100% - 16px) !important;
+}
+.premium-glow:hover {
+    box-shadow: 0 0 15px rgba(58,143,247,0.3);
+    border-color: #3a8ff7;
+}
+.aspect-square { aspect-ratio: 1 / 1; }
