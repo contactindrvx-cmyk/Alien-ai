@@ -236,7 +236,7 @@ window.updateUIState = function() {
         }
     } catch (e) { console.error("UI Update Error:", e); }
 };
-    // ==========================================
+            // ==========================================
 // 🚀 5. چیٹ، مائیک اور کال ایکشنز (سینڈ، آٹو سینڈ) 🚀
 // ==========================================
 
@@ -254,12 +254,12 @@ window.handleSendClick = function(e) {
             reader.onloadend = function() {
                 currentB64 = reader.result.split(',')[1];
                 window.addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
-                window.clearInputsAndSend(text, currentB64, true); // true for image
+                window.clearInputsAndSend(text, currentB64, true); 
             };
             reader.readAsDataURL(pendingImg);
         } else {
             window.addMessage(text, 'user', null);
-            window.clearInputsAndSend(text, "", false); // false for no image
+            window.clearInputsAndSend(text, "", false); 
         }
     }
 };
@@ -277,7 +277,6 @@ window.clearInputsAndSend = function(text, b64, hasImg) {
     window.isAyeshaRecording = false; 
     window.updateUIState();
     
-    // 🚀 ڈائنیمک نام اور جینڈر کے حساب سے انڈیکیٹر ٹیکسٹ 🚀
     const currAsstEl = document.getElementById('current-assistant');
     const asstName = currAsstEl ? currAsstEl.innerText.trim() : 'Ayesha';
     const isMale = (asstName === 'Raza' || asstName === 'Alex' || asstName === 'رضا' || asstName === 'ایلکس');
@@ -293,7 +292,6 @@ window.clearInputsAndSend = function(text, b64, hasImg) {
     if(thinkInd) thinkInd.classList.remove('hidden');
     window.isAyeshaProcessing = true;
     
-    // 🚨 سیدھا عائشہ/اسسٹنٹ کو سگنل بھیجیں 🚨
     if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) {
         window.AndroidBridge.sendNativeRequest(text, b64);
     }
@@ -456,9 +454,10 @@ window.onStreamStart = function() {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
+    // 🚨 ڈاٹ (ٹائپنگ کرسر) کو یہاں سے ہٹا دیا گیا ہے 🚨
     msgDiv.innerHTML = `
         <div class="ai-text-container text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
-            <span id="streaming-text-target" class="typing-cursor"></span>
+            <span id="streaming-text-target"></span> 
         </div>
         <div class="action-buttons-container flex items-center gap-4 mt-2 opacity-0 transition-opacity duration-500"></div>
     `;
@@ -577,8 +576,6 @@ window.processAIResponse = function(cleanText, existingBubble = null) {
 
     if (existingBubble) {
         existingBubble.innerText = cleanText;
-        existingBubble.classList.remove('typing-cursor');
-        
         const enc = encodeURIComponent(cleanText);
         const actionsContainer = existingBubble.closest('.group').querySelector('.action-buttons-container');
         
@@ -639,8 +636,9 @@ window.addMessage = function(text, sender, imgUrl = null) {
         const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
         
+        // 🚨 یہاں سے بھی ڈاٹ (ٹائپنگ کرسر) ہٹا دیا گیا ہے 🚨
         msgDiv.innerHTML = `
-            <div class="ai-text-container typing-cursor text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
+            <div class="ai-text-container text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
                 ${imgHTML}<span id="text-node"></span>
             </div>
             <div class="action-buttons-container flex items-center gap-4 mt-2 opacity-0 transition-opacity duration-500">
@@ -663,10 +661,8 @@ window.addMessage = function(text, sender, imgUrl = null) {
 
         if(text === "جی ٹھیک ہے، میں کر رہی ہوں۔" || text.trim() === "") {
             if(textNode) textNode.innerText = text;
-            const aiCont = msgDiv.querySelector('.ai-text-container');
-            if(aiCont) aiCont.classList.remove('typing-cursor');
             if(actionsDiv) actionsDiv.classList.remove('opacity-0');
-         } else {
+        } else {
             let i = 0;
             function typeWriter() {
                 if (i < text.length) {
@@ -675,13 +671,7 @@ window.addMessage = function(text, sender, imgUrl = null) {
                     chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
                     setTimeout(typeWriter, 20); 
                 } else {
-                    const aiCont = msgDiv.querySelector('.ai-text-container');
-                    if(aiCont) aiCont.classList.remove('typing-cursor');
                     if(actionsDiv) actionsDiv.classList.remove('opacity-0');
                 }
             }
-            typeWriter();
-        }
-        return btn;
-    }
-};
+      
