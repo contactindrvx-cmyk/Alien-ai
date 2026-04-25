@@ -105,7 +105,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(fileChooserParams.createIntent(), FILECHOOSER_RESULTCODE); 
                 return true;
             }
-            // 🚀 لائیو کیمرہ کی پرمیشنز جاوا سکرپٹ کو دینے کے لیے 🚀
             @Override
             public void onPermissionRequest(final PermissionRequest request) { 
                 runOnUiThread(() -> {
@@ -155,7 +154,6 @@ public class MainActivity extends AppCompatActivity {
 
     public class WebAppInterface {
 
-        // 🚀 کیمرہ کلک کرنے پر جاوا سکرپٹ کا لائیو کیمرہ آن کرنے کا سگنل 🚀
         @JavascriptInterface
         public void openCamera() {
             runOnUiThread(() -> {
@@ -191,9 +189,9 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // 🚀 میسج موڈ کے لیے پائتھن سرور سے کنکشن 🚀
+        // 🚀 اب ہم یہاں assistantName بھی ریسیو کر رہے ہیں 🚀
         @JavascriptInterface
-        public void sendNativeRequest(String message, String base64Image) {
+        public void sendNativeRequest(String message, String base64Image, String assistantName) {
             new Thread(() -> {
                 try {
                     URL url = new URL("https://ayesha.aigrowthbox.com/chat");
@@ -206,6 +204,7 @@ public class MainActivity extends AppCompatActivity {
                     payload.put("message", message);
                     payload.put("email", "alirazasabir007@gmail.com");
                     payload.put("mode", "text");
+                    payload.put("assistant", assistantName); // 👈 یہ لائن پائتھن کو نام بتائے گی
                     
                     if (base64Image != null && !base64Image.isEmpty()) payload.put("image", base64Image);
                     
@@ -282,5 +281,5 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-        }
-                         
+                            }
+                                                              
