@@ -6,7 +6,6 @@
     <title>Tarz AI Chat & Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css"> 
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
 </head>
 <body class="h-screen flex bg-black text-white font-sans w-full overflow-hidden relative">
     
@@ -20,17 +19,14 @@
         
         <header class="flex items-center justify-between p-4 bg-black relative z-[5000]">
             <div class="relative">
-                <button onclick="window.toggleProfileMenu(event)" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3a8ff7] to-purple-600 text-white font-bold flex items-center justify-center shadow-md cursor-pointer outline-none hover:opacity-80 active:scale-95 transition-all">
-                    R
-                </button>
+                <button onclick="window.toggleProfileMenu(event)" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3a8ff7] to-purple-600 text-white font-bold flex items-center justify-center shadow-md cursor-pointer outline-none hover:opacity-80 active:scale-95 transition-all">R</button>
                 <div id="profile-menu" class="hidden absolute top-12 left-0 w-64 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-[9999]">
                     <div class="px-4 py-3 border-b border-gray-700 mb-2">
                         <p class="text-sm font-bold text-white">Ali Raza</p>
                         <p class="text-xs text-gray-400 mt-1">alirazasabir007@gmail.com</p>
                     </div>
                     <button onclick="window.triggerPayment(event)" class="premium-glow text-left px-4 py-3 text-sm text-white flex items-center gap-3 cursor-pointer outline-none transition-all">
-                        <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2ll3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg> 
-                        Upgrade Premium
+                        <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2ll3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg> Upgrade Premium
                     </button>
                     <button class="w-full text-left px-5 py-3 text-sm text-white hover:bg-gray-700 cursor-pointer outline-none mt-1">Switch Account</button>
                     <button class="w-full text-left px-5 py-3 text-sm text-red-400 hover:bg-gray-700 cursor-pointer outline-none">Sign Out</button>
@@ -52,15 +48,13 @@
         </header>
 
         <main class="flex-1 flex flex-col relative overflow-hidden bg-black z-10" onclick="window.closeAllMenus()">
-            
             <div id="empty-chat-welcome" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
                 <h2 id="welcome-title" class="text-3xl md:text-4xl font-bold text-gray-500 tracking-wider">Let's chat</h2>
             </div>
 
             <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 relative z-20 pb-36" id="chat-box">
-                <div id="thinking-indicator" class="hidden w-full flex justify-end items-center gap-3 px-2 pb-6">
-                    <span id="thinking-text" class="text-gray-400 font-medium text-[1.05rem]" dir="rtl">عائشہ سوچ رہی ہے...</span>
-                    <lottie-player src="loading_animation.json" background="transparent" speed="1" style="width: 45px; height: 45px;" loop autoplay></lottie-player>
+                <div id="thinking-indicator" class="hidden w-full flex justify-end px-2 pb-6">
+                    <span id="thinking-text" class="text-[#3a8ff7] animate-pulse font-medium text-[1.05rem]" dir="rtl">عائشہ سوچ رہی ہے...</span>
                 </div>
             </div>
             
@@ -75,71 +69,38 @@
 
             <div id="attachment-menu" class="hidden absolute bottom-24 left-4 w-40 bg-[#2f3037] rounded-xl shadow-2xl border border-gray-700 py-2 z-[9999]">
                 <button onclick="window.triggerCamera(event)" class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-3 outline-none cursor-pointer transition">
-                    <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                    <span id="cam-text">Camera</span>
+                    <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Camera
                 </button>
                 <button onclick="window.triggerGallery(event)" class="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-3 outline-none cursor-pointer transition">
-                    <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    <span id="gal-text">Gallery</span>
+                    <svg width="18" height="18" fill="none" stroke="#3a8ff7" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Gallery
                 </button>
             </div>
 
             <div class="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black via-black/95 to-transparent pointer-events-none z-30"></div>
 
             <div class="px-4 md:px-6 pb-6 bg-transparent z-[4000] w-full max-w-4xl mx-auto absolute bottom-0 left-0 right-0">
-                
                 <div id="normal-mode-bar" class="flex items-center justify-between w-full h-14 transition-layout">
-                    <button id="out-plus" onclick="window.toggleAttachmentMenu(event)" class="btn-collapse transition-layout w-14 h-14 aspect-square rounded-full bg-[#16243d] border border-[#2f3037] flex items-center justify-center text-[#3a8ff7] shadow-lg mr-2 flex-shrink-0 cursor-pointer outline-none hover:bg-[#2f3037] active:scale-95">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
+                    <button id="out-plus" onclick="window.toggleAttachmentMenu(event)" class="btn-collapse transition-layout w-14 h-14 aspect-square rounded-full bg-[#16243d] border border-[#2f3037] flex items-center justify-center text-[#3a8ff7] shadow-lg mr-2 flex-shrink-0 cursor-pointer outline-none hover:bg-[#2f3037] active:scale-95"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                     <div id="main-pill" class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center transition-layout overflow-hidden shadow-lg relative">
-                        <button id="in-plus" onclick="window.toggleAttachmentMenu(event)" class="w-14 h-full aspect-square transition-layout flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:text-white active:scale-95">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </button>
-                        
+                        <button id="in-plus" onclick="window.toggleAttachmentMenu(event)" class="w-14 h-full aspect-square transition-layout flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:text-white active:scale-95"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                         <input type="text" id="user-input" oninput="window.syncInputs(this.value)" onfocus="window.handleInputFocus()" onblur="window.handleInputBlur()" onkeypress="window.handleKeyPress(event)" class="flex-1 h-full bg-transparent px-3 text-white outline-none transition-layout min-w-[50px] text-right" placeholder="...میسج ٹائپ کریں" autocomplete="off" dir="rtl">
-                        
-                        <button id="in-send" onclick="window.handleSendClick(event)" class="btn-collapse transition-layout h-full w-14 aspect-square flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:bg-[#2f3037] active:scale-95">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-                        </button>
-                        
-                        <button id="in-mic" onclick="window.handleMicClick(event)" class="w-14 h-14 aspect-square rounded-full transition-layout flex items-center justify-center text-[#3a8ff7] flex-shrink-0 relative cursor-pointer outline-none hover:text-white active:scale-95">
-                            <svg id="icon-mic-normal" class="absolute transition-all" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                            <svg id="icon-mic-stop" class="hidden absolute text-white z-10" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
-                        </button>
-                        
-                        <button id="in-call" onclick="window.handleCallClick(event)" class="w-14 h-full aspect-square transition-layout flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:text-white border-none active:scale-95">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg>
-                        </button>
+                        <button id="in-send" onclick="window.handleSendClick(event)" class="btn-collapse transition-layout h-full w-14 aspect-square flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:bg-[#2f3037] active:scale-95"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg></button>
+                        <button id="in-mic" onclick="window.handleMicClick(event)" class="w-14 h-14 aspect-square rounded-full transition-layout flex items-center justify-center text-[#3a8ff7] flex-shrink-0 relative cursor-pointer outline-none hover:text-white active:scale-95"><svg id="icon-mic-normal" class="absolute transition-all" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg><svg id="icon-mic-stop" class="hidden absolute text-white z-10" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="3"/></svg></button>
+                        <button id="in-call" onclick="window.handleCallClick(event)" class="w-14 h-full aspect-square transition-layout flex items-center justify-center text-[#3a8ff7] flex-shrink-0 cursor-pointer outline-none hover:text-white border-none active:scale-95"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 7v10"></path><path d="M7 10v4"></path><path d="M22 10v4"></path><path d="M2 11v2"></path></svg></button>
                     </div>
                 </div>
 
                 <div id="call-mode-bar" class="hidden items-center justify-between w-full h-14 gap-2 transition-layout">
-                    <button id="cg-plus" onclick="window.toggleAttachmentMenu(event)" class="w-14 h-14 aspect-square rounded-full bg-[#16243d] border border-[#2f3037] text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer outline-none transition-layout hover:border-[#3a8ff7] active:scale-95">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    </button>
-                    
-                    <div class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center px-2 relative shadow-[0_0_8px_rgba(58,143,247,0.3)] transition-layout hover:border-[#3a8ff7]" dir="rtl">
+                    <button id="cg-plus" onclick="window.toggleAttachmentMenu(event)" class="w-14 h-14 aspect-square rounded-full bg-[#16243d] border border-[#2f3037] text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer outline-none transition-layout hover:border-[#3a8ff7] active:scale-95"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <div class="flex-1 h-14 bg-[#16243d] border border-[#2f3037] rounded-full flex items-center relative shadow-[0_0_8px_rgba(58,143,247,0.3)] transition-layout hover:border-[#3a8ff7]" dir="rtl">
                          <input type="text" id="cg-input" oninput="window.syncInputs(this.value)" onfocus="window.handleInputFocus()" onblur="window.handleInputBlur()" onkeypress="window.handleKeyPress(event)" class="flex-1 h-full bg-transparent px-4 pl-14 text-white outline-none w-full text-[1.05rem] text-right" placeholder="...ٹائپ کریں" autocomplete="off" dir="rtl">
-                         
-                         <button id="cg-send" onclick="window.handleSendClick(event)" class="hidden absolute left-1 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full text-[#3a8ff7] flex items-center justify-center cursor-pointer outline-none hover:bg-[#2f3037] transition active:scale-95 z-20">
-                             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-                         </button>
+                         <button id="cg-send" onclick="window.handleSendClick(event)" class="hidden absolute left-1 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full text-[#3a8ff7] flex items-center justify-center cursor-pointer outline-none hover:bg-[#2f3037] transition active:scale-95 z-20"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg></button>
                     </div>
-                    
                     <button id="cg-mic" onclick="window.handleMicMute(event)" class="transition-layout w-14 h-14 aspect-square rounded-full bg-[#16243d] border border-[#2f3037] text-[#3a8ff7] flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer outline-none hover:border-[#3a8ff7] active:scale-95">
-                        <svg id="cg-mic-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
-                        <svg id="cg-mic-off" class="hidden text-red-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        <svg id="cg-mic-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg><svg id="cg-mic-off" class="hidden text-red-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                     </button>
-                    
                     <button id="cg-end" onclick="window.handleEndCall(event)" class="transition-layout h-14 bg-red-500/90 text-white font-semibold text-sm px-6 rounded-full flex items-center gap-2 flex-shrink-0 shadow-[0_0_8px_rgba(58,143,247,0.3)] cursor-pointer outline-none hover:bg-red-500 active:scale-95">
-                        <div class="flex items-center h-4">
-                            <div class="wave-bar !bg-white/80" style="animation-delay: 0s;"></div>
-                            <div class="wave-bar !bg-white/80" style="animation-delay: 0.2s;"></div>
-                            <div class="wave-bar !bg-white/80" style="animation-delay: 0.4s;"></div>
-                            <div class="wave-bar !bg-white/80" style="animation-delay: 0.6s;"></div>
-                        </div>
-                        End
+                        <div class="flex items-center h-4"><div class="wave-bar !bg-white/80" style="animation-delay: 0s;"></div><div class="wave-bar !bg-white/80" style="animation-delay: 0.2s;"></div><div class="wave-bar !bg-white/80" style="animation-delay: 0.4s;"></div><div class="wave-bar !bg-white/80" style="animation-delay: 0.6s;"></div></div> End
                     </button>
                 </div>
             </div>
@@ -147,5 +108,5 @@
     </div>
     <script src="script.js"></script>
 </body>
-    </html>
-                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                      </html>
+    
