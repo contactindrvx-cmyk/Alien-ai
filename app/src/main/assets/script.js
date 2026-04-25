@@ -1,4 +1,6 @@
-// 🚀 گلوبل ویری ایبلز 🚀
+// ==========================================
+// 🚀 1. گلوبل ویری ایبلز اور ڈکشنری 🚀
+// ==========================================
 window.AyeshaAudio = { isPlaying: false, activeBtn: null };
 let isCallActive = false; 
 let isCallMuted = false;
@@ -9,14 +11,12 @@ let voiceTimeout;
 let currentStreamBubble = null;
 let fullStreamedText = "";
 
-// 🚀 سمارٹ ملٹی لینگویج ڈکشنری 🚀
 const translations = {
     'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں', cam: 'کیمرہ', gal: 'گیلری' },
     'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Let\'s chat', cam: 'Camera', gal: 'Gallery' }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // لینگویج اپلائی (Safe Mode)
     try {
         const userLang = (navigator.language || navigator.userLanguage || 'en').substring(0, 2);
         const langData = translations[userLang] || translations['en']; 
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 🚀 1. مینیو اور ہیڈر کنٹرولز (Global) 🚀
+// 🚀 2. مینیو کنٹرولز (100% کریش پروف) 🚀
 // ==========================================
 window.closeAllMenus = function() {
     const profileMenu = document.getElementById('profile-menu');
@@ -102,7 +102,7 @@ window.triggerPayment = function(e) {
 };
 
 // ==========================================
-// 🚀 2. کیمرہ، گیلری اور امیج کنٹرولز 🚀
+// 🚀 3. کیمرہ، گیلری اور امیج ہینڈلنگ 🚀
 // ==========================================
 window.triggerCamera = function(e) {
     if(e) e.stopPropagation();
@@ -139,7 +139,7 @@ window.removeImage = function(e) {
 };
 
 // ==========================================
-// 🚀 3. ان پٹ اور UI اپڈیٹ کنٹرولز 🚀
+// 🚀 4. UI اور ان پٹ اپڈیٹ (جہاز لانے کا لاجک) 🚀
 // ==========================================
 window.syncInputs = function(val) {
     const inputNormal = document.getElementById('user-input');
@@ -236,8 +236,8 @@ window.updateUIState = function() {
         }
     } catch (e) { console.error("UI Update Error:", e); }
 };
-                                                                                     // ==========================================
-// 🚀 4. چیٹ اور کال ایکشنز (سینڈ، مائیک، کال) 🚀
+        // ==========================================
+// 🚀 5. چیٹ، مائیک اور کال ایکشنز (سینڈ، آٹو سینڈ) 🚀
 // ==========================================
 
 window.handleSendClick = function(e) {
@@ -289,9 +289,7 @@ window.clearInputsAndSend = function(text, b64) {
 
 window.handleMicClick = function(e) {
     if(e) e.preventDefault();
-    window.isAyeshaRecording = !window.isAyeshaRecording;
-    window.updateUIState();
-
+    // 🚨 مائیک کا کنٹرول اب جاوا (Android) کے پاس ہے، ڈبل ٹوگل کا مسئلہ ختم 🚨
     if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -344,7 +342,51 @@ window.handleEndCall = function(e) {
 };
 
 // ==========================================
-// 🚀 5. سٹریمنگ، ٹائپ رائٹر اور آڈیو کنٹرولز 🚀
+// 🚀 6. لائیو ٹائپنگ اور آٹو سینڈ (جاوا برج) 🚀
+// ==========================================
+
+window.onInlineMicState = function(isRecording) {
+    window.isAyeshaRecording = isRecording;
+    const inputNormal = document.getElementById('user-input');
+    if(inputNormal) {
+        if(isRecording) inputNormal.placeholder = "سن رہی ہوں..."; 
+        else inputNormal.placeholder = "...میسج ٹائپ کریں"; 
+    }
+    
+    if (!isRecording && isCallActive && !isCallMuted && !window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
+        setTimeout(() => { if (window.AndroidBridge && window.AndroidBridge.toggleInlineMic) window.AndroidBridge.toggleInlineMic(); }, 500); 
+    }
+    window.updateUIState();
+};
+
+// 🚨 لائیو ریکارڈنگ سکرین پر دکھانے اور آٹو سینڈ کرنے کا جادو 🚨
+window.updateInputFromJava = function(text, finalResult) {
+    const inputNormal = document.getElementById('user-input');
+    const inputCall = document.getElementById('cg-input');
+    if(inputNormal) inputNormal.value = text; 
+    if(inputCall) inputCall.value = text; 
+    window.updateUIState();
+    
+    // جب بولنا بند کریں، تو خود بخود سینڈ ہو جائے
+    if(finalResult) {
+        clearTimeout(window.voiceTimeout);
+        window.voiceTimeout = setTimeout(() => { 
+            const activeInput = isCallActive ? inputCall : inputNormal;
+            if (activeInput && (activeInput.value.trim().length > 0 || pendingImg)) { 
+                if(isCallActive) {
+                    const cgSend = document.getElementById('cg-send');
+                    if(cgSend) cgSend.click();
+                } else {
+                    const inSend = document.getElementById('in-send');
+                    if(inSend) inSend.click();
+                }
+            }
+        }, 1000); 
+    }
+};
+
+// ==========================================
+// 🚀 7. آڈیو، سٹریمنگ اور میسج رینڈرنگ 🚀
 // ==========================================
 
 window.playNativeAudio = function(text, btn) {
@@ -562,6 +604,7 @@ window.addMessage = function(text, sender, imgUrl = null) {
 
     if (sender === 'user') {
         msgDiv.className = 'w-full flex justify-end mt-4 mb-2';
+        // 🚨 یہ لائن اب کال اور نارمل دونوں موڈز میں چیٹ شو کرے گی 🚨
         msgDiv.innerHTML = `<div class="chat-bubble bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end text-[1.05rem] text-gray-200 shadow-md" dir="rtl">${imgHTML}<p dir="auto">${text}</p></div>`;
         chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
