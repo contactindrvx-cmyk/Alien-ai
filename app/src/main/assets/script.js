@@ -13,105 +13,103 @@ let fileIn, preview, pendingImg = null, voiceTimeout;
 let currentStreamBubble = null;
 let fullStreamedText = "";
 
-function playNativeAudio(text, btn) {
-    window.AyeshaAudio.isPlaying = true;
-    window.AyeshaAudio.activeBtn = btn;
+// 🚀 سمارٹ ملٹی لینگویج ڈکشنری 🚀
+const translations = {
+    'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں', cam: 'کیمرہ', gal: 'گیلری' },
+    'ar': { a: 'عائشة', r: 'رضا', s: 'سارة', x: 'أليكس', title: 'دعنا نتحدث', cam: 'كاميرا', gal: 'معرض الصور' },
+    'ru': { a: 'Аиша', r: 'Раза', s: 'Сара', x: 'Алекс', title: 'Давайте пообщаемся', cam: 'Камера', gal: 'Галерея' },
+    'zh': { a: '艾莎', r: '拉扎', s: '莎拉', x: '亚历克斯', title: '我们聊天吧', cam: '相机', gal: '画廊' },
+    'ja': { a: 'アイシャ', r: 'ラザ', s: 'サラ', x: 'アレックス', title: '話しましょう', cam: 'カメラ', gal: 'ギャラリー' },
+    'es': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Hablemos', cam: 'Cámara', gal: 'Galería' },
+    'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Let\'s chat', cam: 'Camera', gal: 'Gallery' }
+};
 
-    if (btn) {
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`; 
-        btn.classList.add('text-[#3a8ff7]'); 
-    }
-    if (window.AndroidBridge && window.AndroidBridge.speakText) {
-        window.AndroidBridge.speakText(text);
-    }
-}
+// 🚀 گلوبل مینیو فنکشنز (بلٹ پروف کلک ہینڈلنگ) 🚀
+window.closeAllMenus = function() {
+    const pm = document.getElementById('profile-menu');
+    const am = document.getElementById('assistant-menu');
+    const atm = document.getElementById('attachment-menu');
+    if(pm) pm.classList.add('hidden');
+    if(am) am.classList.add('hidden');
+    if(atm) atm.classList.add('hidden');
+};
 
-window.onSpeechDone = function() {
-    window.AyeshaAudio.isPlaying = false;
-    let btn = window.AyeshaAudio.activeBtn;
-    if (btn) {
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
-        btn.classList.remove('text-[#3a8ff7]'); 
+window.toggleProfileMenu = function(e) {
+    if(e) e.stopPropagation();
+    const menu = document.getElementById('profile-menu');
+    if(!menu) return;
+    const isHidden = menu.classList.contains('hidden');
+    window.closeAllMenus();
+    if(isHidden) menu.classList.remove('hidden');
+};
+
+window.toggleAssistantMenu = function(e) {
+    if(e) e.stopPropagation();
+    const menu = document.getElementById('assistant-menu');
+    if(!menu) return;
+    const isHidden = menu.classList.contains('hidden');
+    window.closeAllMenus();
+    if(isHidden) menu.classList.remove('hidden');
+};
+
+window.toggleAttachmentMenu = function(e) {
+    if(e) { e.preventDefault(); e.stopPropagation(); }
+    const menu = document.getElementById('attachment-menu');
+    if(!menu) return;
+    const isHidden = menu.classList.contains('hidden');
+    window.closeAllMenus();
+    if(isHidden) menu.classList.remove('hidden');
+};
+
+window.selectAssistant = function(spanId) {
+    const el = document.getElementById(spanId);
+    if(el) {
+        document.getElementById('current-assistant').innerText = el.innerText;
     }
-    
-    if (isCallActive && !isCallMuted && !window.isAyeshaRecording && !window.isAyeshaProcessing && window.AndroidBridge) {
-        window.AndroidBridge.toggleInlineMic(); 
+    window.closeAllMenus();
+};
+
+window.triggerCamera = function(e) {
+    if(e) e.stopPropagation();
+    window.closeAllMenus();
+    if(window.AndroidBridge && window.AndroidBridge.openCamera) {
+        window.AndroidBridge.openCamera();
+    } else {
+        window.copyToClipboard("کیمرہ فنکشن");
     }
 };
 
-window.stopAyeshaCompletely = function() {
-    window.AyeshaAudio.isPlaying = false;
-    if (window.AndroidBridge && window.AndroidBridge.stopSpeaking) {
-        window.AndroidBridge.stopSpeaking();
+window.triggerGallery = function(e) {
+    if(e) e.stopPropagation();
+    window.closeAllMenus();
+    if(window.AndroidBridge && window.AndroidBridge.openGallery) {
+        window.AndroidBridge.openGallery();
+    } else {
+        const fi = document.getElementById('hidden-file-input');
+        if(fi) fi.click();
     }
-    document.querySelectorAll('.gemini-speaker-btn').forEach(b => { 
-        b.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`; 
-        b.classList.remove('text-[#3a8ff7]'); 
-    });
 };
 
-window.copyToClipboard = function(encodedText) {
-    const text = decodeURIComponent(encodedText);
-    navigator.clipboard.writeText(text);
-    const toast = document.getElementById('top-toast');
-    if(toast) {
-        document.getElementById('toast-text').innerText = "Copied!";
-        toast.classList.remove('opacity-0', '-translate-y-10');
-        setTimeout(() => { toast.classList.add('opacity-0', '-translate-y-10'); }, 2000);
-    }
-};
+document.addEventListener('click', window.closeAllMenus);
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // 🚀 ہیڈر مینیو کا بلٹ پروف لاجک (اوریجنل .onclick اپروچ کے ساتھ) 🚀
-    const profileBtn = document.getElementById('profile-btn');
-    const profileMenu = document.getElementById('profile-menu');
-    const assistantBtn = document.getElementById('assistant-btn');
-    const assistantMenu = document.getElementById('assistant-menu');
-    const assistantArrow = document.getElementById('assistant-arrow');
-    const currentAssistant = document.getElementById('current-assistant');
-    const attachmentMenu = document.getElementById('attachment-menu');
+    // لینگویج اپلائی کرنا (try-catch کے ساتھ تاکہ اگر کوئی آئی ڈی مس ہو تو کریش نہ ہو)
+    try {
+        const userLang = (navigator.language || navigator.userLanguage).substring(0, 2);
+        const langData = translations[userLang] || translations['en']; 
+        
+        document.getElementById('ast-1').innerText = langData.a;
+        document.getElementById('ast-2').innerText = langData.r;
+        document.getElementById('ast-3').innerText = langData.s;
+        document.getElementById('ast-4').innerText = langData.x;
+        document.getElementById('current-assistant').innerText = langData.a; 
+        document.getElementById('welcome-title').innerText = langData.title;
+        document.getElementById('cam-text').innerText = langData.cam;
+        document.getElementById('gal-text').innerText = langData.gal;
+    } catch(e) { console.error(e); }
 
-    function closeAllMenus() {
-        if(profileMenu) profileMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-        if(assistantMenu) assistantMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-        if(attachmentMenu) attachmentMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-        if(assistantArrow) assistantArrow.classList.remove('rotate-180');
-    }
-
-    if(profileBtn) {
-        profileBtn.onclick = (e) => {
-            e.stopPropagation();
-            const isClosed = profileMenu.classList.contains('opacity-0');
-            closeAllMenus(); 
-            if (isClosed) profileMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-        };
-    }
-
-    if(assistantBtn) {
-        assistantBtn.onclick = (e) => {
-            e.stopPropagation();
-            const isClosed = assistantMenu.classList.contains('opacity-0');
-            closeAllMenus();
-            if (isClosed) {
-                assistantMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-                if(assistantArrow) assistantArrow.classList.add('rotate-180');
-            }
-        };
-    }
-
-    document.querySelectorAll('.asst-option').forEach(btn => {
-        btn.onclick = function(e) {
-            e.stopPropagation();
-            const asstName = this.innerText.trim();
-            if(currentAssistant) currentAssistant.innerText = asstName;
-            closeAllMenus();
-        };
-    });
-
-    document.onclick = () => closeAllMenus();
-
-    // 🚀 آپ کے اوریجنل بٹن بائنڈنگز (یہاں سے نیچے آپ کا سارا پرانا کوڈ ہے) 🚀
+    // پرانے ایلیمنٹس
     inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill'); inPlus = document.getElementById('in-plus'); 
     inSend = document.getElementById('in-send'); inMic = document.getElementById('in-mic'); inCall = document.getElementById('in-call'); 
@@ -174,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(inputNormal) inputNormal.addEventListener('input', (e) => { if(inputCall) inputCall.value = e.target.value; updateUIState(); });
     if(inputCall) inputCall.addEventListener('input', (e) => { if(inputNormal) inputNormal.value = e.target.value; updateUIState(); });
 
-    // کال بار میں ٹائپنگ اینیمیشن
+    // 🚀 کال بار میں ٹائپنگ اینیمیشن 🚀
     if(inputCall) {
         inputCall.addEventListener('focus', () => {
             if(cgMic) cgMic.classList.add('btn-collapse'); 
@@ -187,27 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 200); 
         });
     }
-
-    // 🚀 جمع (Plus) بٹن کا لاجک 🚀
-    const handlePlusClick = (e) => {
-        e.preventDefault(); e.stopPropagation();
-        if(attachmentMenu) {
-            const isClosed = attachmentMenu.classList.contains('opacity-0');
-            closeAllMenus(); 
-            if (isClosed) attachmentMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-        } else {
-            if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else fileIn.click();
-        }
-    };
-    if(outPlus) outPlus.onclick = handlePlusClick; 
-    if(inPlus) inPlus.onclick = handlePlusClick; 
-    if(cgPlus) cgPlus.onclick = handlePlusClick;
-
-    // کیمرہ اور گیلری کے بٹن
-    const btnCam = document.getElementById('btn-camera');
-    if(btnCam) btnCam.onclick = (e) => { e.stopPropagation(); closeAllMenus(); if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera(); };
-    const btnGal = document.getElementById('btn-gallery');
-    if(btnGal) btnGal.onclick = (e) => { e.stopPropagation(); closeAllMenus(); if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else if(fileIn) fileIn.click(); };
 
     if(fileIn) {
         fileIn.onchange = (e) => {
@@ -229,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if(cgMic) cgMic.onclick = () => { 
         isCallMuted = !isCallMuted; updateUIState(); 
-        if(window.AndroidBridge) window.AndroidBridge.muteCall(isCallMuted); 
+        if(window.AndroidBridge && window.AndroidBridge.muteCall) window.AndroidBridge.muteCall(isCallMuted); 
     };
 
     window.onInlineMicState = function(isRecording) {
@@ -241,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isCallActive && !isCallMuted) {
                 if (!window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
                     setTimeout(() => {
-                        if (isCallActive && !window.isAyeshaRecording && window.AndroidBridge) {
+                        if (isCallActive && !window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
                             window.AndroidBridge.toggleInlineMic();
                         }
                     }, 500); 
@@ -285,7 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if(window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(false); 
     };
 
-    // 🚀 سٹریمنگ کے دوران سادہ ٹیکسٹ، بغیر ببل کے 🚀
     window.onStreamStart = function() {
         const welcomeEl = document.getElementById('empty-chat-welcome');
         if(welcomeEl) welcomeEl.classList.add('hidden');
@@ -405,4 +381,33 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if(actionsContainer) {
                 actionsContainer.innerHTML = `
-                    <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path
+                    <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                    <button class="gemini-speaker-btn text-gray-500 hover:text-[#3a8ff7] transition flex items-center" data-text="${enc}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button>
+                `;
+                actionsContainer.classList.remove('opacity-0');
+                
+                let btn = actionsContainer.querySelector('.gemini-speaker-btn');
+                if(btn) {
+                    btn.onclick = function() {
+                        if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
+                        playNativeAudio(cleanText, this);
+                    };
+                }
+
+                if (!isCallActive && !isActionOnly) { playNativeAudio(cleanText, btn); }
+            }
+
+        } else {
+            let btn = addMessage(cleanText, 'assistant');
+            if (btn && !isCallActive && !isActionOnly) { playNativeAudio(cleanText, btn); }
+        }
+
+        if (isActionOnly) {
+            if (window.AndroidBridge && window.AndroidBridge.speakText) {
+                window.AyeshaAudio.isPlaying = true;
+                window.AndroidBridge.speakText(cleanText);
+            }
+        } else {
+            if (isCallActive && !isCallMuted && !window.AyeshaAudio.isPlaying && !window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
+                window.AndroidBridge.toggleInlineMic();
+    
