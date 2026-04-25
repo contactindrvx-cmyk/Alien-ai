@@ -110,7 +110,6 @@ public class MainActivity extends AppCompatActivity {
 
         webView.loadUrl("file:///android_asset/index.html");
         
-        // 🚀 اب چاروں پرمیشنز یہاں سے مانگی جائیں گی 🚀
         requestPermissions();
         
         initTextToSpeech();
@@ -197,7 +196,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // 🚀 سمارٹ پرمیشن ریکویسٹ (مائیک، کیمرہ، نوٹیفیکیشن، گیلری) 🚀
     private void requestPermissions() {
         List<String> perms = new ArrayList<>();
         perms.add(Manifest.permission.RECORD_AUDIO);
@@ -214,6 +212,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class WebAppInterface {
+
+        // 🚀 نیا فنکشن: کیمرہ اوپن کرنے کے لیے 🚀
+        @JavascriptInterface
+        public void openCamera() {
+            runOnUiThread(() -> {
+                if (webView != null) {
+                    String js = "var cam = document.getElementById('hidden-cam-input'); " +
+                                "if(!cam) { " +
+                                "cam = document.createElement('input'); " +
+                                "cam.type = 'file'; " +
+                                "cam.accept = 'image/*'; " +
+                                "cam.setAttribute('capture', 'environment'); " +
+                                "cam.id = 'hidden-cam-input'; " +
+                                "cam.style.display = 'none'; " +
+                                "cam.addEventListener('change', window.handleFileChange); " +
+                                "document.body.appendChild(cam); " +
+                                "} " +
+                                "cam.click();";
+                    webView.evaluateJavascript("javascript:" + js, null);
+                }
+            });
+        }
+
+        // 🚀 نیا فنکشن: گیلری اوپن کرنے کے لیے 🚀
+        @JavascriptInterface
+        public void openGallery() {
+            runOnUiThread(() -> {
+                if (webView != null) {
+                    webView.evaluateJavascript("javascript:var fi = document.getElementById('hidden-file-input'); if(fi) fi.click();", null);
+                }
+            });
+        }
+
         @JavascriptInterface
         public void toggleCall(boolean start) {
             isCallModeActive = start;
@@ -343,5 +374,5 @@ public class MainActivity extends AppCompatActivity {
         if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-            }
-        
+    }
+            
