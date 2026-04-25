@@ -31,14 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const userLang = (navigator.language || navigator.userLanguage || 'en').substring(0, 2);
         const langData = translations[userLang] || translations['en']; 
         
-        document.getElementById('ast-1').innerText = langData.a;
-        document.getElementById('ast-2').innerText = langData.r;
-        document.getElementById('ast-3').innerText = langData.s;
-        document.getElementById('ast-4').innerText = langData.x;
-        document.getElementById('current-assistant').innerText = langData.a; 
-        document.getElementById('welcome-title').innerText = langData.title;
-        document.getElementById('cam-text').innerText = langData.cam;
-        document.getElementById('gal-text').innerText = langData.gal;
+        if(document.getElementById('ast-1')) document.getElementById('ast-1').innerText = langData.a;
+        if(document.getElementById('ast-2')) document.getElementById('ast-2').innerText = langData.r;
+        if(document.getElementById('ast-3')) document.getElementById('ast-3').innerText = langData.s;
+        if(document.getElementById('ast-4')) document.getElementById('ast-4').innerText = langData.x;
+        if(document.getElementById('current-assistant')) document.getElementById('current-assistant').innerText = langData.a; 
+        if(document.getElementById('welcome-title')) document.getElementById('welcome-title').innerText = langData.title;
+        if(document.getElementById('cam-text')) document.getElementById('cam-text').innerText = langData.cam;
+        if(document.getElementById('gal-text')) document.getElementById('gal-text').innerText = langData.gal;
     } catch(e) { console.log(e); }
 
     // 🚀 بلٹ پروف مینیو کنٹرولز (JS Event Listeners) 🚀
@@ -90,12 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.asst-option').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            const asstName = this.querySelector('.ast-name').innerText;
-            if(currentAssistant) currentAssistant.innerText = asstName;
+            const asstNameElement = this.querySelector('.ast-name') || this;
+            if(currentAssistant) currentAssistant.innerText = asstNameElement.innerText;
             closeAllMenus();
         });
     });
 
+    // سکرین پر کہیں بھی کلک کرنے سے مینیو بند ہو جائیں گے
     document.addEventListener('click', () => { closeAllMenus(); });
 
     // 🚀 آپ کا اوریجنل کوڈ (نیچے کے بٹنز کے لیے) 🚀
@@ -175,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 🚀 جمع (Plus) بٹن کا لاجک 🚀
+    // 🚀 جمع (Plus) بٹن کا لاجک - اٹیچمنٹ مینیو کھولنا 🚀
     const handlePlusClick = (e) => {
         e.preventDefault(); e.stopPropagation();
         if(attachmentMenu) {
@@ -186,11 +187,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); else if(fileIn) fileIn.click();
         }
     };
+    
     if(outPlus) outPlus.addEventListener('click', handlePlusClick); 
     if(inPlus) inPlus.addEventListener('click', handlePlusClick); 
     if(cgPlus) cgPlus.addEventListener('click', handlePlusClick);
 
-    // کیمرہ اور گیلری کے بٹن
+    // کیمرہ اور گیلری کے بٹن کے کلکس
     const btnCam = document.getElementById('btn-camera');
     if(btnCam) {
         btnCam.addEventListener('click', (e) => {
@@ -212,7 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fileIn.onchange = (e) => {
             if(e.target.files[0]) {
                 pendingImg = e.target.files[0]; 
-                document.getElementById('preview-img').src = URL.createObjectURL(pendingImg);
+                const prevImg = document.getElementById('preview-img');
+                if(prevImg) prevImg.src = URL.createObjectURL(pendingImg);
                 if(preview) preview.classList.remove('hidden'); 
                 updateUIState();
             }
@@ -220,7 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const rmImgBtn = document.getElementById('remove-img-btn');
-    if(rmImgBtn) rmImgBtn.onclick = () => { pendingImg = null; if(preview) preview.classList.add('hidden'); if(fileIn) fileIn.value=''; updateUIState(); };
+    if(rmImgBtn) {
+        rmImgBtn.addEventListener('click', () => { 
+            pendingImg = null; 
+            if(preview) preview.classList.add('hidden'); 
+            if(fileIn) fileIn.value=''; 
+            updateUIState(); 
+        });
+    }
     
     if(inMic) {
         inMic.addEventListener('click', () => { 
@@ -240,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(isRecording) { 
             if(inputNormal) inputNormal.placeholder = "سن رہی ہوں..."; 
         } else { 
-            if(inputNormal) inputNormal.placeholder = "Ask something..."; 
+            if(inputNormal) inputNormal.placeholder = "کچھ پوچھیں..."; 
             if (isCallActive && !isCallMuted) {
                 if (!window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
                     setTimeout(() => {
@@ -404,12 +414,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (existingBubble) {
-            existingBubble.innerText = cleanText;
-            existingBubble.classList.remove('typing-cursor');
-            
-            const enc = encodeURIComponent(cleanText);
-            const actionsContainer = existingBubble.closest('.group').querySelector('.action-buttons-container');
-            
-            if(actionsContainer) {
-                actionsContainer.innerHTML = `
-                    <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+            e
