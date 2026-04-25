@@ -39,9 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('welcome-title').innerText = langData.title;
         document.getElementById('cam-text').innerText = langData.cam;
         document.getElementById('gal-text').innerText = langData.gal;
-    } catch(e) { console.log("Language setup error ignored."); }
+    } catch(e) { console.log(e); }
 
-    // 🚀 مینیو کنٹرولز (بلٹ پروف کلک ہینڈلنگ) 🚀
+    // 🚀 بلٹ پروف مینیو کنٹرولز (JS Event Listeners) 🚀
     const profileBtn = document.getElementById('profile-btn');
     const profileMenu = document.getElementById('profile-menu');
     const assistantBtn = document.getElementById('assistant-btn');
@@ -83,23 +83,22 @@ document.addEventListener('DOMContentLoaded', () => {
         btnUpgrade.addEventListener('click', (e) => {
             e.stopPropagation();
             closeAllMenus();
-            if(window.AndroidBridge && window.AndroidBridge.startPayment) {
-                window.AndroidBridge.startPayment();
-            }
+            if(window.AndroidBridge && window.AndroidBridge.startPayment) window.AndroidBridge.startPayment();
         });
     }
 
     document.querySelectorAll('.asst-option').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            if(currentAssistant) currentAssistant.innerText = this.querySelector('.ast-name').innerText;
+            const asstName = this.querySelector('.ast-name').innerText;
+            if(currentAssistant) currentAssistant.innerText = asstName;
             closeAllMenus();
         });
     });
 
     document.addEventListener('click', () => { closeAllMenus(); });
 
-    // 🚀 چیٹ بار اور اٹیچمنٹ کنٹرولز 🚀
+    // 🚀 آپ کا اوریجنل کوڈ (نیچے کے بٹنز کے لیے) 🚀
     inputNormal = document.getElementById('user-input'); outPlus = document.getElementById('out-plus'); 
     mainPill = document.getElementById('main-pill'); inPlus = document.getElementById('in-plus'); 
     inSend = document.getElementById('in-send'); inMic = document.getElementById('in-mic'); inCall = document.getElementById('in-call'); 
@@ -162,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(inputNormal) inputNormal.addEventListener('input', (e) => { if(inputCall) inputCall.value = e.target.value; updateUIState(); });
     if(inputCall) inputCall.addEventListener('input', (e) => { if(inputNormal) inputNormal.value = e.target.value; updateUIState(); });
 
-    // 🚀 کال بار میں ٹائپنگ اینیمیشن (مائیک اور اینڈ بٹن غائب کرنا) 🚀
+    // 🚀 کال بار میں ٹائپنگ اینیمیشن (مائیک اور اینڈ غائب) 🚀
     if(inputCall) {
         inputCall.addEventListener('focus', () => {
             if(cgMic) cgMic.classList.add('btn-collapse'); 
@@ -176,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 🚀 پلس (+) مینیو (کیمرہ/گیلری کے لیے) 🚀
+    // 🚀 جمع (Plus) بٹن کا لاجک 🚀
     const handlePlusClick = (e) => {
         e.preventDefault(); e.stopPropagation();
         if(attachmentMenu) {
@@ -191,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(inPlus) inPlus.addEventListener('click', handlePlusClick); 
     if(cgPlus) cgPlus.addEventListener('click', handlePlusClick);
 
-    // کیمرہ اور گیلری فنکشنز
+    // کیمرہ اور گیلری کے بٹن
     const btnCam = document.getElementById('btn-camera');
     if(btnCam) {
         btnCam.addEventListener('click', (e) => {
@@ -241,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(isRecording) { 
             if(inputNormal) inputNormal.placeholder = "سن رہی ہوں..."; 
         } else { 
-            if(inputNormal) inputNormal.placeholder = "کچھ پوچھیں..."; 
+            if(inputNormal) inputNormal.placeholder = "Ask something..."; 
             if (isCallActive && !isCallMuted) {
                 if (!window.AyeshaAudio.isPlaying && !window.isAyeshaProcessing) {
                     setTimeout(() => {
@@ -293,10 +292,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 🚀 سٹریمنگ ہینڈلنگ 🚀
+    // 🚀 سٹریمنگ کے دوران سادہ ٹیکسٹ، بغیر ببل کے 🚀
     window.onStreamStart = function() {
         const welcomeEl = document.getElementById('empty-chat-welcome');
-        if(welcomeEl) welcomeEl.classList.add('hidden'); // ویلکم ٹیکسٹ غائب
+        if(welcomeEl) welcomeEl.classList.add('hidden');
         
         const thinkInd = document.getElementById('thinking-indicator');
         if(thinkInd) thinkInd.classList.add('hidden');
@@ -309,14 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         msgDiv.innerHTML = `
             <div class="text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
-                <span class="streaming-text-target typing-cursor"></span>
+                <span id="streaming-text-target" class="typing-cursor"></span>
             </div>
             <div class="action-buttons-container flex items-center gap-4 mt-2 opacity-0 transition-opacity duration-500"></div>
         `;
         chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         
-        currentStreamBubble = msgDiv.querySelector('.streaming-text-target');
+        currentStreamBubble = msgDiv.querySelector('#streaming-text-target');
         fullStreamedText = "";
     };
 
@@ -413,4 +412,4 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if(actionsContainer) {
                 actionsContainer.innerHTML = `
-                    <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="cu
+                    <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
