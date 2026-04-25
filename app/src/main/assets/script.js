@@ -107,7 +107,6 @@ window.triggerPayment = function(e) {
 window.triggerCamera = function(e) {
     if(e) e.stopPropagation();
     window.closeAllMenus();
-    // 🚨 الرٹ ہٹا دیا گیا ہے، اب خاموشی سے سگنل جائے گا 🚨
     if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera();
 };
 
@@ -225,7 +224,7 @@ window.updateUIState = function() {
                 if(iMicStop) iMicStop.classList.remove('hidden');
             } else if (text.length > 0) {
                 if(outPlus) { outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand'); }
-                if(inSend) inSend.classList.remove('btn-collapse'); 
+                if(inSend) inSend.classList.remove('btn-collapse');
             } else if (pendingImg) {
                 if(outPlus) { outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand'); }
                 if(inMic) inMic.classList.remove('btn-collapse');
@@ -237,7 +236,7 @@ window.updateUIState = function() {
         }
     } catch (e) { console.error("UI Update Error:", e); }
 };
-    // ==========================================
+                                                                                     // ==========================================
 // 🚀 4. چیٹ اور کال ایکشنز (سینڈ، مائیک، کال) 🚀
 // ==========================================
 
@@ -254,7 +253,7 @@ window.handleSendClick = function(e) {
             const reader = new FileReader();
             reader.onloadend = function() {
                 currentB64 = reader.result.split(',')[1];
-                window.addMessage(text || "Image sent", 'user', imgUrl);
+                window.addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
                 window.clearInputsAndSend(text, currentB64);
             };
             reader.readAsDataURL(pendingImg);
@@ -282,7 +281,7 @@ window.clearInputsAndSend = function(text, b64) {
     if(thinkInd) thinkInd.classList.remove('hidden');
     window.isAyeshaProcessing = true;
     
-    // 🚨 یہ وہ فنکشن ہے جو آپ کا میسج عائشہ تک پہنچائے گا 🚨
+    // 🚨 یہ کمانڈ آپ کا میسج سیدھا عائشہ کو بھیجتی ہے 🚨
     if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) {
         window.AndroidBridge.sendNativeRequest(text, b64);
     }
@@ -290,12 +289,9 @@ window.clearInputsAndSend = function(text, b64) {
 
 window.handleMicClick = function(e) {
     if(e) e.preventDefault();
-    
-    // UI کو فوراً اپڈیٹ کریں تاکہ اینیمیشن شروع ہو
     window.isAyeshaRecording = !window.isAyeshaRecording;
     window.updateUIState();
 
-    // 🚨 جاوا کو سگنل بھیجیں کہ مائیک آن/آف کرو 🚨
     if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -306,8 +302,6 @@ window.handleCallClick = function(e) {
     isCallActive = true; 
     isCallMuted = false; 
     window.updateUIState(); 
-    
-    // جاوا کو کال سکرین کا سگنل
     if(window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(true); 
     if(!window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic();
@@ -536,6 +530,7 @@ window.processAIResponse = function(cleanText, existingBubble = null) {
 
             if (!isCallActive && !isActionOnly) { window.playNativeAudio(cleanText, btn); }
         }
+
     } else {
         if(window.addMessage) {
             let btn = window.addMessage(cleanText, 'assistant');
@@ -621,4 +616,4 @@ window.addMessage = function(text, sender, imgUrl = null) {
         return btn;
     }
 };
-    
+        
