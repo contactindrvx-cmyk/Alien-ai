@@ -9,7 +9,7 @@ let voiceTimeout;
 let currentStreamBubble = null;
 let fullStreamedText = "";
 
-// سمارٹ ملٹی لینگویج ڈکشنری
+// 🚀 سمارٹ ملٹی لینگویج ڈکشنری 🚀
 const translations = {
     'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں', cam: 'کیمرہ', gal: 'گیلری' },
     'en': { a: 'Ayesha', r: 'Raza', s: 'Sarah', x: 'Alex', title: 'Let\'s chat', cam: 'Camera', gal: 'Gallery' }
@@ -29,9 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if(document.getElementById('welcome-title')) document.getElementById('welcome-title').innerText = langData.title;
         if(document.getElementById('cam-text')) document.getElementById('cam-text').innerText = langData.cam;
         if(document.getElementById('gal-text')) document.getElementById('gal-text').innerText = langData.gal;
-    } catch(e) { console.error("Language Setup Error"); }
+    } catch(e) { console.error("Language Setup Error:", e); }
     
-    // ابتدائی UI سیٹ اپ
     window.updateUIState();
 });
 
@@ -77,7 +76,7 @@ window.toggleAttachmentMenu = function(e) {
     const menu = document.getElementById('attachment-menu');
     if(!menu) {
         if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery(); 
-        else document.getElementById('hidden-file-input').click();
+        else { const fi = document.getElementById('hidden-file-input'); if(fi) fi.click(); }
         return;
     }
     const isHidden = (menu.style.display === 'none' || menu.style.display === '');
@@ -87,9 +86,12 @@ window.toggleAttachmentMenu = function(e) {
 
 window.selectAssistant = function(id, e) {
     if(e) e.stopPropagation();
-    const nameStr = document.getElementById(id).innerText.trim().split(' ')[0];
-    const currAsst = document.getElementById('current-assistant');
-    if(currAsst) currAsst.innerText = nameStr;
+    const el = document.getElementById(id);
+    if(el) {
+        const nameStr = el.innerText.trim().split(' ')[0];
+        const currAsst = document.getElementById('current-assistant');
+        if(currAsst) currAsst.innerText = nameStr;
+    }
     window.closeAllMenus();
 };
 
@@ -105,15 +107,15 @@ window.triggerPayment = function(e) {
 window.triggerCamera = function(e) {
     if(e) e.stopPropagation();
     window.closeAllMenus();
+    // 🚨 الرٹ ہٹا دیا گیا ہے، اب خاموشی سے سگنل جائے گا 🚨
     if(window.AndroidBridge && window.AndroidBridge.openCamera) window.AndroidBridge.openCamera();
-    else alert("یہ فیچر ویب پر دستیاب نہیں، ایپ استعمال کریں۔");
 };
 
 window.triggerGallery = function(e) {
     if(e) e.stopPropagation();
     window.closeAllMenus();
     if(window.AndroidBridge && window.AndroidBridge.openGallery) window.AndroidBridge.openGallery();
-    else document.getElementById('hidden-file-input').click(); // Fallback for Web/GitHub
+    else { const fi = document.getElementById('hidden-file-input'); if(fi) fi.click(); }
 };
 
 window.handleFileChange = function(e) {
@@ -193,11 +195,13 @@ window.updateUIState = function() {
         if (isCallActive) {
             if(normalBar) { normalBar.classList.add('hidden'); normalBar.classList.remove('flex'); }
             if(callBar) { callBar.classList.remove('hidden'); callBar.classList.add('flex'); }
+            
             if (text.length > 0 || pendingImg) { 
                 if(cgSend) { cgSend.classList.remove('hidden'); cgSend.classList.add('flex'); }
             } else { 
                 if(cgSend) { cgSend.classList.add('hidden'); cgSend.classList.remove('flex'); }
             }
+            
             if(cgMicOn) cgMicOn.classList.toggle('hidden', isCallMuted); 
             if(cgMicOff) cgMicOff.classList.toggle('hidden', !isCallMuted);
         } else {
@@ -221,7 +225,7 @@ window.updateUIState = function() {
                 if(iMicStop) iMicStop.classList.remove('hidden');
             } else if (text.length > 0) {
                 if(outPlus) { outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand'); }
-                if(inSend) inSend.classList.remove('btn-collapse');
+                if(inSend) inSend.classList.remove('btn-collapse'); 
             } else if (pendingImg) {
                 if(outPlus) { outPlus.classList.remove('btn-collapse'); outPlus.classList.add('btn-expand'); }
                 if(inMic) inMic.classList.remove('btn-collapse');
@@ -233,10 +237,10 @@ window.updateUIState = function() {
         }
     } catch (e) { console.error("UI Update Error:", e); }
 };
+    // ==========================================
+// 🚀 4. چیٹ اور کال ایکشنز (سینڈ، مائیک، کال) 🚀
+// ==========================================
 
-// ==========================================
-// 🚀 4. چیٹ اور کال ایکشنز 🚀
-// ==========================================
 window.handleSendClick = function(e) {
     if(e) e.preventDefault(); 
     const activeInput = isCallActive ? document.getElementById('cg-input') : document.getElementById('user-input');
@@ -278,6 +282,7 @@ window.clearInputsAndSend = function(text, b64) {
     if(thinkInd) thinkInd.classList.remove('hidden');
     window.isAyeshaProcessing = true;
     
+    // 🚨 یہ وہ فنکشن ہے جو آپ کا میسج عائشہ تک پہنچائے گا 🚨
     if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) {
         window.AndroidBridge.sendNativeRequest(text, b64);
     }
@@ -286,10 +291,11 @@ window.clearInputsAndSend = function(text, b64) {
 window.handleMicClick = function(e) {
     if(e) e.preventDefault();
     
-    // فکس: مائیک پر کلک کرنے سے پہلے UI کو ٹوگل کریں تاکہ ویب پر بھی ریکارڈنگ ایفیکٹ شو ہو
+    // UI کو فوراً اپڈیٹ کریں تاکہ اینیمیشن شروع ہو
     window.isAyeshaRecording = !window.isAyeshaRecording;
     window.updateUIState();
 
+    // 🚨 جاوا کو سگنل بھیجیں کہ مائیک آن/آف کرو 🚨
     if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -300,6 +306,8 @@ window.handleCallClick = function(e) {
     isCallActive = true; 
     isCallMuted = false; 
     window.updateUIState(); 
+    
+    // جاوا کو کال سکرین کا سگنل
     if(window.AndroidBridge && window.AndroidBridge.toggleCall) window.AndroidBridge.toggleCall(true); 
     if(!window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic();
@@ -317,13 +325,16 @@ window.handleEndCall = function(e) {
     if(e) e.preventDefault();
     isCallActive = false; 
     window.stopAyeshaCompletely(); 
+    
     const inputNormal = document.getElementById('user-input');
     const inputCall = document.getElementById('cg-input');
     if(inputNormal) inputNormal.value = ''; 
     if(inputCall) inputCall.value = ''; 
+    
     pendingImg = null; 
     const previewCont = document.getElementById('image-preview-container');
     if(previewCont) previewCont.classList.add('hidden'); 
+    
     const fileIn = document.getElementById('hidden-file-input');
     if(fileIn) fileIn.value = '';
     
@@ -341,6 +352,7 @@ window.handleEndCall = function(e) {
 // ==========================================
 // 🚀 5. سٹریمنگ، ٹائپ رائٹر اور آڈیو کنٹرولز 🚀
 // ==========================================
+
 window.playNativeAudio = function(text, btn) {
     window.AyeshaAudio.isPlaying = true;
     window.AyeshaAudio.activeBtn = btn;
@@ -425,7 +437,7 @@ window.onStreamChunk = function(chunk) {
 
 window.onStreamEnd = function(fullText) {
     window.isAyeshaProcessing = false;
-    window.processAIResponse(fullText, currentStreamBubble); // Note: Make sure window.processAIResponse exists elsewhere or add it.
+    window.processAIResponse(fullText, currentStreamBubble);
     currentStreamBubble = null;
 };
 
@@ -433,7 +445,6 @@ window.onStreamError = function() {
     window.isAyeshaProcessing = false;
     const thinkInd = document.getElementById('thinking-indicator');
     if(thinkInd) thinkInd.classList.add('hidden');
-    // Note: Assuming window.addMessage is defined in your code.
     if(window.addMessage) window.addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant'); 
     currentStreamBubble = null;
 };
@@ -454,24 +465,160 @@ window.addMessageFromJava = function(text) {
     let cleanText = text.replace(/\[ACTION:.*?\]/gi, '').trim();
     if (cleanText.length > 0) {
         if(window.addMessage) {
-                    let btn = window.addMessage(cleanText, 'assistant');
-                if(btn && !isCallActive) { window.playNativeAudio(cleanText, btn); }
-            }
+            let btn = window.addMessage(cleanText, 'assistant');
+            if(btn && !isCallActive) { window.playNativeAudio(cleanText, btn); }
         }
-    };
+    }
+};
 
-    // فکس: یہاں فنکشن آدھا کٹا ہوا تھا، جس سے پوری سکرپٹ کام چھوڑ گئی تھی۔ اسے مکمل کر دیا ہے۔
-    window.analyzeScreen = function() {
-        let base64Image = ""; let screenText = "";
-        if (window.AndroidBridge) {
-            if (window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
-            if (window.AndroidBridge.pullScreenText) screenText = window.AndroidBridge.pullScreenText();
-            
-            // اگر ڈیٹا مل گیا ہے تو نیٹو جاوا کو بھیجیں
-            if (window.AndroidBridge.sendNativeRequest) {
-                window.AndroidBridge.sendNativeRequest("Please analyze this screen: " + screenText, base64Image);
-            }
-        } else {
-            console.warn("Screen analysis is only available on Android App.");
+window.analyzeScreen = function() {
+    let base64Image = ""; let screenText = "";
+    if (window.AndroidBridge) {
+        if (window.AndroidBridge.pullScreenshot) base64Image = window.AndroidBridge.pullScreenshot();
+        if (window.AndroidBridge.pullScreenText) screenText = window.AndroidBridge.pullScreenText();
+        
+        if (window.AndroidBridge.sendNativeRequest) {
+            window.isAyeshaProcessing = true;
+            const thinkInd = document.getElementById('thinking-indicator');
+            if(thinkInd) thinkInd.classList.remove('hidden');
+            window.AndroidBridge.sendNativeRequest("[سکرین کا ڈیٹا موصول ہوا]\nسکرین کا ٹیکسٹ: " + screenText + "\nاب اس ڈیٹا کی بنیاد پر صارف کو جواب دیں۔", base64Image);
         }
-    };
+    }
+};
+
+window.processAIResponse = function(cleanText, existingBubble = null) {
+    let cmdMatch = cleanText.match(/\[ACTION:\s*(.*?)(?:,\s*DATA:\s*(.*?))?\]/i);
+    let action = ""; let actionData = "none";
+    
+    if (cmdMatch) {
+        action = cmdMatch[1] ? cmdMatch[1].trim() : "";
+        actionData = cmdMatch[2] ? cmdMatch[2].trim() : "none";
+        if (action.includes("||") && !action.includes("MULTI_TASK")) { actionData = action; action = "MULTI_TASK"; }
+        if (window.AndroidBridge && window.AndroidBridge.sendAccessibilityCommand) {
+            window.AndroidBridge.sendAccessibilityCommand(action, actionData);
+        }
+    }
+    
+    cleanText = cleanText.replace(/\[ACTION:.*?\]/gi, '').trim();
+
+    if (action === "ANALYZE_SCREEN" || action === "TAKE_SCREENSHOT" || action === "READ_SCREEN") {
+        if (existingBubble) existingBubble.closest('.group').remove(); 
+        return; 
+    }
+
+    let isActionOnly = false;
+    if (cleanText === "") {
+        cleanText = "جی ٹھیک ہے، میں کر رہی ہوں۔";
+        isActionOnly = true; 
+    }
+
+    if (existingBubble) {
+        existingBubble.innerText = cleanText;
+        existingBubble.classList.remove('typing-cursor');
+        
+        const enc = encodeURIComponent(cleanText);
+        const actionsContainer = existingBubble.closest('.group').querySelector('.action-buttons-container');
+        
+        if(actionsContainer) {
+            actionsContainer.innerHTML = `
+                <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                <button class="gemini-speaker-btn text-gray-500 hover:text-[#3a8ff7] transition flex items-center" data-text="${enc}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button>
+            `;
+            actionsContainer.classList.remove('opacity-0');
+            
+            let btn = actionsContainer.querySelector('.gemini-speaker-btn');
+            if(btn) {
+                btn.onclick = function() {
+                    if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
+                    window.playNativeAudio(cleanText, this);
+                };
+            }
+
+            if (!isCallActive && !isActionOnly) { window.playNativeAudio(cleanText, btn); }
+        }
+    } else {
+        if(window.addMessage) {
+            let btn = window.addMessage(cleanText, 'assistant');
+            if (btn && !isCallActive && !isActionOnly) { window.playNativeAudio(cleanText, btn); }
+        }
+    }
+
+    if (isActionOnly) {
+        if (window.AndroidBridge && window.AndroidBridge.speakText) {
+            window.AyeshaAudio.isPlaying = true;
+            window.AndroidBridge.speakText(cleanText);
+        }
+    } else {
+        if (isCallActive && !isCallMuted && !window.AyeshaAudio.isPlaying && !window.isAyeshaRecording && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
+            window.AndroidBridge.toggleInlineMic();
+        }
+    }
+};
+
+window.addMessage = function(text, sender, imgUrl = null) {
+    const welcomeEl = document.getElementById('empty-chat-welcome');
+    if(welcomeEl) welcomeEl.style.display = 'none'; 
+    
+    const chatBox = document.getElementById('chat-box'); 
+    if(!chatBox) return null;
+
+    const msgDiv = document.createElement('div');
+    let imgHTML = imgUrl ? `<img src="${imgUrl}" class="w-48 h-48 object-cover rounded-xl mb-3 border-2 border-[#3a8ff7] shadow-sm">` : '';
+
+    if (sender === 'user') {
+        msgDiv.className = 'w-full flex justify-end mt-4 mb-2';
+        msgDiv.innerHTML = `<div class="chat-bubble bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end text-[1.05rem] text-gray-200 shadow-md" dir="rtl">${imgHTML}<p dir="auto">${text}</p></div>`;
+        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
+        chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        return null;
+    } else {
+        const enc = encodeURIComponent(text);
+        msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
+        
+        msgDiv.innerHTML = `
+            <div class="ai-text-container typing-cursor text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
+                ${imgHTML}<span id="text-node"></span>
+            </div>
+            <div class="action-buttons-container flex items-center gap-4 mt-2 opacity-0 transition-opacity duration-500">
+                <button onclick="window.copyToClipboard('${enc}')" class="text-gray-500 hover:text-[#3a8ff7] transition"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                <button class="gemini-speaker-btn text-gray-500 hover:text-[#3a8ff7] transition flex items-center" data-text="${enc}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></button>
+            </div>
+        `;
+        chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
+        
+        let textNode = msgDiv.querySelector('#text-node');
+        let actionsDiv = msgDiv.querySelector('.action-buttons-container');
+        let btn = msgDiv.querySelector('.gemini-speaker-btn');
+        
+        if(btn) {
+            btn.onclick = function() {
+                if (window.AyeshaAudio.isPlaying) { window.stopAyeshaCompletely(); return; }
+                window.playNativeAudio(text, this);
+            };
+        }
+
+        if(text === "جی ٹھیک ہے، میں کر رہی ہوں۔" || text.trim() === "") {
+            if(textNode) textNode.innerText = text;
+            const aiCont = msgDiv.querySelector('.ai-text-container');
+            if(aiCont) aiCont.classList.remove('typing-cursor');
+            if(actionsDiv) actionsDiv.classList.remove('opacity-0');
+        } else {
+            let i = 0;
+            function typeWriter() {
+                if (i < text.length) {
+                    if(textNode) textNode.innerText += text.charAt(i);
+                    i++;
+                    chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+                    setTimeout(typeWriter, 20); 
+                } else {
+                    const aiCont = msgDiv.querySelector('.ai-text-container');
+                    if(aiCont) aiCont.classList.remove('typing-cursor');
+                    if(actionsDiv) actionsDiv.classList.remove('opacity-0');
+                }
+            }
+            typeWriter();
+        }
+        return btn;
+    }
+};
+    
