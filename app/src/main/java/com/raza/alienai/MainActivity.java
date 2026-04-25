@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,6 +18,7 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.util.Base64;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -34,6 +36,8 @@ import androidx.core.content.ContextCompat;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -48,12 +52,12 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
 
-    // 🚨 یہ وہ چیزیں ہیں جو میں نے پچھلی بار اڑا دی تھیں! 🚨
     private SpeechRecognizer textModeRecognizer;
     private Intent textModeIntent;
     private boolean isTextModeRecording = false;
     private boolean isCallModeActive = false;
     private TextToSpeech tts;
+    private MediaPlayer mediaPlayer; // 🚀 کال کے دوران آڈیو چلانے کے لیے 🚀
 
     BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
@@ -61,13 +65,23 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             new Handler(Looper.getMainLooper()).post(() -> {
                 if (webView == null) return;
-                if ("NEW_MESSAGE_FROM_CALL".equals(action)) {
+                
+                // 🚀 فکس: صارف کی آواز سکرین پر پرنٹ کروانا 🚀
+                if ("USER_MESSAGE_FROM_CALL".equals(action)) {
+                    String msg = intent.getStringExtra("message");
+                    if (msg != null) {
+                        String safeMsg = msg.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                        webView.evaluateJavascript("javascript:if(window.addMessage) window.addMessage('" + safeMsg + "', 'user', null);", null);
+                    }
+                } 
+                else if ("NEW_MESSAGE_FROM_CALL".equals(action)) {
                     String msg = intent.getStringExtra("message");
                     if (msg != null) {
                         String safeMsg = msg.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
                         webView.evaluateJavascript("javascript:if(window.addMessageFromJava) window.addMessageFromJava('" + safeMsg + "');", null);
                     }
-                } else if ("SCREEN_ANALYZED".equals(action)) {
+                } 
+                else if ("SCREEN_ANALYZED".equals(action)) {
                     if (isCallModeActive) {
                         Intent callIntent = new Intent(MainActivity.this, AyeshaCallService.class);
                         callIntent.setAction("SCREEN_ANALYZED_WAKEUP");
@@ -127,13 +141,12 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("file:///android_asset/index.html");
         
         requestPermissions();
-        
-        // 🚨 یہ دو لائنیں نہ ہونے کی وجہ سے مائیک فریز ہو رہا تھا 🚨
         initTextToSpeech();
         setupTextModeRecognizer();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction("NEW_MESSAGE_FROM_CALL");
+        filter.addAction("USER_MESSAGE_FROM_CALL"); // 🚀 نیا فلٹر 🚀
         filter.addAction("SCREEN_ANALYZED");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.registerReceiver(this, messageReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
@@ -144,6 +157,33 @@ public class MainActivity extends AppCompatActivity {
         if (!isAccessibilityServiceEnabled(this, AyeshaAccessibilityService.class)) {
             Toast.makeText(this, "Accessibility سروس آن کریں", Toast.LENGTH_LONG).show();
             startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        }
+    }
+
+    private void playBase64Audio(String base64Audio) {
+        try {
+            byte[] audioBytes = Base64.decode(base64Audio, Base64.DEFAULT);
+            File tempAudioFile = File.createTempFile("gemini_audio_main", ".mp3", getCacheDir());
+            FileOutputStream fos = new FileOutputStream(tempAudioFile);
+            fos.write(audioBytes);
+            fos.close();
+            
+            runOnUiThread(() -> {
+                try {
+                    if (mediaPlayer != null) { mediaPlayer.release(); }
+                    mediaPlayer = new MediaPlayer();
+                    mediaPlayer.setDataSource(tempAudioFile.getAbsolutePath());
+                    mediaPlayer.prepare();
+                    mediaPlayer.setOnCompletionListener(mp -> {
+                        webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null);
+                    });
+                    mediaPlayer.start();
+                } catch (Exception e) {
+                    webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null);
+                }
+            });
+        } catch (Exception e) {
+            runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null));
         }
     }
 
@@ -217,14 +257,12 @@ public class MainActivity extends AppCompatActivity {
         List<String> perms = new ArrayList<>();
         perms.add(Manifest.permission.RECORD_AUDIO);
         perms.add(Manifest.permission.CAMERA);
-        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.POST_NOTIFICATIONS);
             perms.add(Manifest.permission.READ_MEDIA_IMAGES);
         } else {
             perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
         }
-        
         ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), 100);
     }
 
@@ -298,7 +336,9 @@ public class MainActivity extends AppCompatActivity {
                     JSONObject payload = new JSONObject();
                     payload.put("message", message);
                     payload.put("email", "alirazasabir007@gmail.com");
-                    payload.put("mode", "text");
+                    
+                    // 🚀 فکس: اگر کال موڈ ہے، تو آڈیو منگواؤ 🚀
+                    payload.put("mode", isCallModeActive ? "audio" : "text");
                     payload.put("assistant", assistantName); 
                     
                     if (base64Image != null && !base64Image.isEmpty()) payload.put("image", base64Image);
@@ -309,24 +349,45 @@ public class MainActivity extends AppCompatActivity {
                     
                     runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamStart) window.onStreamStart();", null));
                     
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    String line;
-                    StringBuilder fullResponse = new StringBuilder();
-                    
-                    while ((line = reader.readLine()) != null) {
-                        if (line.startsWith("data: ")) {
-                            String data = line.substring(6);
-                            if (data.trim().isEmpty() || data.equals("[DONE]")) continue;
-                            JSONObject json = new JSONObject(data);
-                            String chunkText = json.getString("text");
-                            fullResponse.append(chunkText);
-                            String safeChunk = chunkText.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
-                            runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamChunk) window.onStreamChunk('" + safeChunk + "');", null));
+                    if (isCallModeActive) {
+                        // 🚀 کال کے دوران ٹائپ کیے گئے میسج کا آڈیو ریسپانس ہینڈل کرنا 🚀
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        StringBuilder fullResponse = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) fullResponse.append(line);
+                        
+                        JSONObject jsonResp = new JSONObject(fullResponse.toString());
+                        String textResp = jsonResp.optString("text", "");
+                        String audioB64 = jsonResp.optString("audio", "");
+                        
+                        String safeText = textResp.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                        runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamEnd) window.onStreamEnd('" + safeText + "');", null));
+                        
+                        if (audioB64 != null && !audioB64.isEmpty()) {
+                            playBase64Audio(audioB64);
+                        } else {
+                            runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onSpeechDone) window.onSpeechDone();", null));
                         }
+                    } else {
+                        // 🚀 نارمل ٹیکسٹ چیٹ موڈ (اسٹریم) 🚀
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                        String line;
+                        StringBuilder fullResponse = new StringBuilder();
+                        
+                        while ((line = reader.readLine()) != null) {
+                            if (line.startsWith("data: ")) {
+                                String data = line.substring(6);
+                                if (data.trim().isEmpty() || data.equals("[DONE]")) continue;
+                                JSONObject json = new JSONObject(data);
+                                String chunkText = json.getString("text");
+                                fullResponse.append(chunkText);
+                                String safeChunk = chunkText.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                                runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamChunk) window.onStreamChunk('" + safeChunk + "');", null));
+                            }
+                        }
+                        String finalSafeResp = fullResponse.toString().replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
+                        runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamEnd) window.onStreamEnd('" + finalSafeResp + "');", null));
                     }
-                    
-                    String finalSafeResp = fullResponse.toString().replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
-                    runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamEnd) window.onStreamEnd('" + finalSafeResp + "');", null));
                     
                 } catch (Exception e) {
                     runOnUiThread(() -> webView.evaluateJavascript("javascript:if(window.onStreamError) window.onStreamError();", null));
@@ -336,19 +397,26 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface 
         public void speakText(String text) { 
-            if (tts != null) {
+            if (!isCallModeActive && tts != null) {
                 tts.speak(text, TextToSpeech.QUEUE_ADD, null, "AyeshaTTS_ID"); 
             }
         }
 
         @JavascriptInterface public void stopSpeaking() { 
             if (tts != null && tts.isSpeaking()) { tts.stop(); }
+            if (mediaPlayer != null && mediaPlayer.isPlaying()) { mediaPlayer.stop(); }
             Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); 
             intent.setAction(AyeshaCallService.ACTION_STOP_AUDIO); 
             startService(intent);
         }
 
-        @JavascriptInterface public void muteCall(boolean isMuted) { Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); intent.setAction("ACTION_MUTE_CALL"); intent.putExtra("isMuted", isMuted); startService(intent); }
+                @JavascriptInterface 
+        public void muteCall(boolean isMuted) { 
+            Intent intent = new Intent(MainActivity.this, AyeshaCallService.class); 
+            intent.setAction("ACTION_MUTE_CALL"); 
+            intent.putExtra("isMuted", isMuted); 
+            startService(intent); 
+        }
         
         @JavascriptInterface 
         public void sendAccessibilityCommand(String action, String data) { 
@@ -366,17 +434,8 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILECHOOSER_RESULTCODE && filePathCallback != null) {
-            Uri[] results = null;
-            if (resultCode == RESULT_OK && data != null) {
-                String dataString = data.getDataString();
-                if (dataString != null) {
-                    results = new Uri[]{Uri.parse(dataString)};
-                } else if (data.getData() != null) {
-                    results = new Uri[]{data.getData()};
-                }
-            }
-            filePathCallback.onReceiveValue(results); 
-            filePathCallback = null;
+            Uri[] results = (resultCode == RESULT_OK && data != null && data.getDataString() != null) ? new Uri[]{Uri.parse(data.getDataString())} : null;
+            filePathCallback.onReceiveValue(results); filePathCallback = null;
         } 
     }
 
@@ -384,7 +443,7 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         if (textModeRecognizer != null) textModeRecognizer.destroy();
         if (tts != null) { tts.stop(); tts.shutdown(); }
+        if (mediaPlayer != null) { mediaPlayer.release(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
-          }
+    }
 }
-                
