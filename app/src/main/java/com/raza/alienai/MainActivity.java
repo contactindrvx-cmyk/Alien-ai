@@ -6,17 +6,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -32,6 +35,7 @@ import androidx.core.content.ContextCompat;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -44,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILECHOOSER_RESULTCODE = 1001;
+    private final static int REQUEST_CAMERA = 1002; // 🚀 کیمرے کے لیے نیا کوڈ 🚀
 
     private SpeechRecognizer textModeRecognizer;
     private Intent textModeIntent;
@@ -213,29 +218,20 @@ public class MainActivity extends AppCompatActivity {
 
     public class WebAppInterface {
 
-        // 🚀 نیا فنکشن: کیمرہ اوپن کرنے کے لیے 🚀
+        // 🚀 1. نیٹو کیمرہ اوپن کرنے کا فنکشن 🚀
         @JavascriptInterface
         public void openCamera() {
             runOnUiThread(() -> {
-                if (webView != null) {
-                    String js = "var cam = document.getElementById('hidden-cam-input'); " +
-                                "if(!cam) { " +
-                                "cam = document.createElement('input'); " +
-                                "cam.type = 'file'; " +
-                                "cam.accept = 'image/*'; " +
-                                "cam.setAttribute('capture', 'environment'); " +
-                                "cam.id = 'hidden-cam-input'; " +
-                                "cam.style.display = 'none'; " +
-                                "cam.addEventListener('change', window.handleFileChange); " +
-                                "document.body.appendChild(cam); " +
-                                "} " +
-                                "cam.click();";
-                    webView.evaluateJavascript("javascript:" + js, null);
+                Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+                    startActivityForResult(takePictureIntent, REQUEST_CAMERA);
+                } else {
+                    Toast.makeText(MainActivity.this, "کیمرہ ایپ نہیں ملی", Toast.LENGTH_SHORT).show();
                 }
             });
         }
 
-        // 🚀 نیا فنکشن: گیلری اوپن کرنے کے لیے 🚀
+        // 🚀 2. گیلری اوپن کرنے کا فنکشن 🚀
         @JavascriptInterface
         public void openGallery() {
             runOnUiThread(() -> {
@@ -360,11 +356,50 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface public String pullScreenText() { String text = AyeshaAccessibilityService.latestScreenText; AyeshaAccessibilityService.latestScreenText = ""; return text != null ? text : ""; }
     }
 
+    // 🚀 3. رزلٹ ہینڈلنگ (گیلری اور کیمرہ دونوں کے لیے) 🚀
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        
+        // گیلری کا رزلٹ
         if (requestCode == FILECHOOSER_RESULTCODE && filePathCallback != null) {
-            Uri[] results = (resultCode == RESULT_OK && data != null && data.getDataString() != null) ? new Uri[]{Uri.parse(data.getDataString())} : null;
-            filePathCallback.onReceiveValue(results); filePathCallback = null;
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                String dataString = data.getDataString();
+                if (dataString != null) {
+                    results = new Uri[]{Uri.parse(dataString)};
+                } else if (data.getData() != null) {
+                    results = new Uri[]{data.getData()};
+                }
+            }
+            filePathCallback.onReceiveValue(results); 
+            filePathCallback = null;
+        } 
+        // کیمرے کا رزلٹ
+        else if (requestCode == REQUEST_CAMERA && resultCode == RESULT_OK) {
+            if (data != null && data.getExtras() != null) {
+                Bitmap imageBitmap = (Bitmap) data.getExtras().get("data");
+                if (imageBitmap != null) {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+                    byte[] imageBytes = baos.toByteArray();
+                    String base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
+                    
+                    // یہ جادوئی جاوا سکرپٹ تصویر کو سیدھا آپ کے چیٹ انٹرفیس میں فٹ کر دے گی
+                    String js = "fetch('data:image/jpeg;base64," + base64Image + "')" +
+                                ".then(res => res.blob())" +
+                                ".then(blob => { " +
+                                "  window.pendingImg = new File([blob], 'camera_capture.jpg', {type: 'image/jpeg'}); " +
+                                "  const preview = document.getElementById('preview-img');" +
+                                "  if(preview) preview.src = 'data:image/jpeg;base64," + base64Image + "'; " +
+                                "  const cont = document.getElementById('image-preview-container');" +
+                                "  if(cont) cont.classList.remove('hidden'); " +
+                                "  if(window.updateUIState) window.updateUIState(); " +
+                                "});";
+                    if (webView != null) {
+                        webView.evaluateJavascript("javascript:" + js, null);
+                    }
+                }
+            }
         }
     }
 
@@ -374,5 +409,5 @@ public class MainActivity extends AppCompatActivity {
         if (tts != null) { tts.stop(); tts.shutdown(); }
         try { unregisterReceiver(messageReceiver); } catch (Exception e) {}
     }
-    }
-            
+            }
+                                                   
