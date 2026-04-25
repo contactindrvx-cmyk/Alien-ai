@@ -10,6 +10,7 @@ let pendingImg = null;
 let voiceTimeout;
 let currentStreamBubble = null;
 let fullStreamedText = "";
+window.localVideoStream = null; // لائیو کیمرے کے لیے
 
 const translations = {
     'ur': { a: 'عائشہ', r: 'رضا', s: 'سارہ', x: 'ایلکس', title: 'آئیں بات کریں', cam: 'کیمرہ', gal: 'گیلری' },
@@ -136,7 +137,46 @@ window.removeImage = function(e) {
 };
 
 // ==========================================
-// 🚀 3. UI اور ان پٹ اپڈیٹ لاجک 🚀
+// 🚀 3. لائیو ویڈیو کال کیمرہ (Gemini Live) 🚀
+// ==========================================
+window.startLiveCamera = async function() {
+    try {
+        if (window.localVideoStream) return; // اگر پہلے سے چل رہا ہے تو دوبارہ نہ چلاؤ
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        
+        let camContainer = document.getElementById('live-cam-container');
+        if (!camContainer) {
+            camContainer = document.createElement('div');
+            camContainer.id = 'live-cam-container';
+            // سکرین کے اوپر دائیں طرف پریمیم ویڈیو فیڈ
+            camContainer.className = 'absolute top-20 right-4 z-[9999] shadow-[0_0_20px_rgba(58,143,247,0.5)] rounded-2xl overflow-hidden border-2 border-[#3a8ff7] bg-black';
+            camContainer.innerHTML = `
+                <video id="live-cam-video" class="w-32 h-48 object-cover" autoplay playsinline></video>
+                <button onclick="window.stopLiveCamera()" class="absolute top-1 right-1 bg-red-500/80 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center cursor-pointer outline-none transition backdrop-blur-md">✕</button>
+                <div class="absolute bottom-1 left-1 bg-red-500 text-center text-[10px] font-bold text-white rounded px-1.5 py-0.5 uppercase tracking-wider animate-pulse">Live</div>
+            `;
+            document.body.appendChild(camContainer);
+        }
+        document.getElementById('live-cam-video').srcObject = stream;
+        window.localVideoStream = stream;
+    } catch (err) {
+        console.error("Camera Error:", err);
+        alert("کیمرہ آن نہیں ہو سکا۔ پرمیشن چیک کریں۔");
+    }
+};
+
+window.stopLiveCamera = function() {
+    if (window.localVideoStream) {
+        window.localVideoStream.getTracks().forEach(track => track.stop());
+        window.localVideoStream = null;
+    }
+    const camContainer = document.getElementById('live-cam-container');
+    if (camContainer) camContainer.remove();
+};
+
+
+// ==========================================
+// 🚀 4. UI اور ان پٹ اپڈیٹ لاجک 🚀
 // ==========================================
 window.syncInputs = function(val) {
     const inputNormal = document.getElementById('user-input');
@@ -227,10 +267,12 @@ window.updateUIState = function() {
 };
 
 // ==========================================
-// 🚀 4. چیٹ اور ایکشنز (سینڈ، مائیک، آٹو سینڈ) 🚀
+// 🚀 5. چیٹ اور ایکشنز (سینڈ، مائیک، آٹو سینڈ) 🚀
 // ==========================================
 window.handleSendClick = function(e) {
     if(e) e.preventDefault(); 
+    if (window.isAyeshaProcessing) return; // ڈبل کلک فکس
+    
     const activeInput = isCallActive ? document.getElementById('cg-input') : document.getElementById('user-input');
     const text = activeInput ? activeInput.value.trim() : "";
     
@@ -280,13 +322,15 @@ window.clearInputsAndSend = function(text, b64, hasImg) {
     if(thinkInd) thinkInd.classList.remove('hidden');
     window.isAyeshaProcessing = true;
     
+    // 🚨 یہ وہ لائن ہے جو پچھلی بار مسنگ تھی! اب 3 آرگومنٹس جا رہے ہیں 🚨
     if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) {
-        window.AndroidBridge.sendNativeRequest(text, b64);
+        window.AndroidBridge.sendNativeRequest(text, b64, asstName);
     }
 };
 
 window.handleMicClick = function(e) {
     if(e) e.preventDefault();
+    if(window.isAyeshaProcessing) return; // اگر سرور بزی ہے تو مائیک آن نہ ہو
     if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -294,6 +338,7 @@ window.handleMicClick = function(e) {
 
 window.handleCallClick = function(e) {
     if(e) e.preventDefault();
+    if(window.isAyeshaProcessing) return;
     isCallActive = true; 
     isCallMuted = false; 
     window.updateUIState(); 
@@ -314,6 +359,8 @@ window.handleEndCall = function(e) {
     if(e) e.preventDefault();
     isCallActive = false; 
     window.stopAyeshaCompletely(); 
+    window.stopLiveCamera(); // کال کٹنے پر کیمرہ بھی بند
+    
     const inputNormal = document.getElementById('user-input');
     const inputCall = document.getElementById('cg-input');
     if(inputNormal) inputNormal.value = ''; 
@@ -351,7 +398,7 @@ window.updateInputFromJava = function(text, finalResult) {
     if(inputCall) inputCall.value = text; 
     window.updateUIState();
     
-    if(finalResult) {
+    if(finalResult && !window.isAyeshaProcessing) {
         clearTimeout(window.voiceTimeout);
         window.voiceTimeout = setTimeout(() => { 
             const activeInput = isCallActive ? inputCall : inputNormal;
@@ -369,7 +416,7 @@ window.updateInputFromJava = function(text, finalResult) {
 };
 
 // ==========================================
-// 🚀 5. آڈیو اور سٹریمنگ کنٹرولز 🚀
+// 🚀 6. آڈیو اور سٹریمنگ کنٹرولز 🚀
 // ==========================================
 window.playNativeAudio = function(text, btn) {
     window.AyeshaAudio.isPlaying = true;
@@ -424,7 +471,6 @@ window.onStreamStart = function() {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
-    // 🚨 ڈاٹ کو جڑ سے اکھاڑ دیا گیا ہے 🚨
     msgDiv.innerHTML = `
         <div class="ai-text-container text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
             <span id="streaming-text-target"></span> 
@@ -449,12 +495,14 @@ window.onStreamChunk = function(chunk) {
 
 window.onStreamEnd = function(fullText) {
     window.isAyeshaProcessing = false;
+    window.updateUIState(); // UI کو واپس نارمل کرنے کے لیے
     window.processAIResponse(fullText, currentStreamBubble);
     currentStreamBubble = null;
 };
 
 window.onStreamError = function() {
     window.isAyeshaProcessing = false;
+    window.updateUIState();
     const thinkInd = document.getElementById('thinking-indicator');
     if(thinkInd) thinkInd.classList.add('hidden');
     if(window.addMessage) window.addMessage("سرور سے رابطہ ٹوٹ گیا ہے۔", 'assistant'); 
@@ -477,7 +525,9 @@ window.addMessageFromJava = function(text) {
         if(thinkInd) thinkInd.classList.remove('hidden');
 
         let promptMsg = "صارف کی سکرین پر اس وقت یہ سب لکھا ہے:\n" + screenData + "\n\n[SYSTEM WARNING: اب کوئی ایکشن کمانڈ مت دینا، صرف یہ پڑھ کر یوزر کو جواب دو کہ سکرین پر کیا ہے۔]";
-        if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) window.AndroidBridge.sendNativeRequest(promptMsg, "");
+        
+        // 🚨 یہاں بھی 3 آرگومنٹس 🚨
+        if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) window.AndroidBridge.sendNativeRequest(promptMsg, "", asstName);
         return;
     }
 
@@ -509,7 +559,8 @@ window.analyzeScreen = function() {
             const thinkInd = document.getElementById('thinking-indicator');
             if(thinkInd) thinkInd.classList.remove('hidden');
             
-            window.AndroidBridge.sendNativeRequest("[سکرین کا ڈیٹا موصول ہوا]\nسکرین کا ٹیکسٹ: " + screenText + "\nاب اس ڈیٹا کی بنیاد پر صارف کو جواب دیں۔", base64Image);
+            // 🚨 یہاں بھی 3 آرگومنٹس 🚨
+            window.AndroidBridge.sendNativeRequest("[سکرین کا ڈیٹا موصول ہوا]\nسکرین کا ٹیکسٹ: " + screenText + "\nاب اس ڈیٹا کی بنیاد پر صارف کو جواب دیں۔", base64Image, asstName);
         }
     }
 };
@@ -593,7 +644,6 @@ window.addMessage = function(text, sender, imgUrl = null) {
     } else {
         const enc = encodeURIComponent(text);
         msgDiv.className = 'w-full flex flex-col items-end mt-4 mb-2 group pr-2';
-        // 🚨 یہاں سے بھی ڈاٹ ہٹا دیا گیا ہے 🚨
         msgDiv.innerHTML = `
             <div class="ai-text-container text-right text-[1.1rem] leading-relaxed text-gray-100 max-w-[90%]" dir="rtl">
                 ${imgHTML}<span id="text-node"></span>
@@ -636,3 +686,4 @@ window.addMessage = function(text, sender, imgUrl = null) {
         return btn;
     }
 };
+       
