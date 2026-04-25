@@ -48,7 +48,6 @@ public class AyeshaCallService extends Service {
     public static final String ACTION_MUTE_CALL = "MUTE_AYESHA_CALL";
     public static final String ACTION_STOP_AUDIO = "ACTION_STOP_AUDIO";
 
-    // 🚀 گٹ ہب کے سیکیورٹی گارڈ کا بائی پاس (کٹی ہوئی کیز) 🚀
     private static final String[] GROQ_KEYS = {
         "gsk_f4y3" + "anqbNY97L" + "jeVtgdfWGdyb3" + "FYQb6CYeik6yWBK8N0ARERzqLh",
         "gsk_xyyT" + "zTpqyfcDE" + "sKLm3OEWGdyb3" + "FYQMGQGg4tWculx68JMgaMjEDK",
@@ -70,7 +69,6 @@ public class AyeshaCallService extends Service {
     private Handler mainHandler;
 
     private static final int SAMPLE_RATE = 16000;
-    // 🚀 سمارٹ مائیک سینسر (شور کو اگنور کرے گا) 🚀
     private static final int SILENCE_THRESHOLD = 800; 
     private static final int SILENCE_DURATION_MS = 1000; 
 
@@ -105,7 +103,6 @@ public class AyeshaCallService extends Service {
             
             httpClient = new OkHttpClient();
             startDirectMic();
-            // 🚀 تمام ٹیسٹنگ نوٹیفکیشن (Toasts) اور Beeps ختم کر دی گئی ہیں 🚀
         }
         return START_STICKY;
     }
@@ -128,7 +125,6 @@ public class AyeshaCallService extends Service {
             short[] audioData = new short[2048];
             
             while (isRecording) {
-                // 🚀 ایکو کینسلیشن: عائشہ بولے تو مائیک سائلنٹ رہے 🚀
                 if (isAyeshaSpeaking || isMutedByUser) { 
                     pcmBuffer.reset(); 
                     continue; 
@@ -147,7 +143,6 @@ public class AyeshaCallService extends Service {
                     } else if (hasSpoken) {
                         if (silenceStartTime == 0) silenceStartTime = System.currentTimeMillis();
                         if (System.currentTimeMillis() - silenceStartTime > SILENCE_DURATION_MS) {
-                            // 🚀 آواز مکمل ہوئی، گروک کو بھیجو 🚀
                             sendToGroqWithRetry(pcmBuffer.toByteArray(), 0);
                             pcmBuffer.reset(); 
                             hasSpoken = false; 
@@ -160,9 +155,7 @@ public class AyeshaCallService extends Service {
         recordingThread.start();
     }
 
-    // 🚀 گروک کا الٹرا آٹو ری ٹرائی (Auto-Retry) سسٹم 🚀
     private void sendToGroqWithRetry(byte[] pcmData, int retryCount) {
-        // اگر تمام کیز فیل ہو جائیں تو مزید ری ٹرائی نہ کرو
         if (retryCount >= GROQ_KEYS.length) return;
 
         RequestBody requestBody = new MultipartBody.Builder().setType(MultipartBody.FORM)
@@ -184,22 +177,21 @@ public class AyeshaCallService extends Service {
                         }
                     } catch (Exception e) {}
                 } else if (response.code() == 429) { 
-                    // 🚀 کی لیمٹ ختم! فوراً نئی کی لگاؤ اور دوبارہ آڈیو بھیجو (یوزر کو پتہ بھی نہیں چلے گا) 🚀
                     currentKeyIndex = (currentKeyIndex + 1) % GROQ_KEYS.length; 
                     sendToGroqWithRetry(pcmData, retryCount + 1);
                 }
             }
-            @Override public void onFailure(Call call, IOException e) {
-                // انٹرنیٹ کا مسئلہ ہو سکتا ہے
-            }
+            @Override public void onFailure(Call call, IOException e) {}
         });
     }
 
-    // 🚀 گروک کا ٹیکسٹ کسٹم سرور (AWS) کو بھیجنا 🚀
     private void sendToAyeshaServer(String userText) {
         try {
             JSONObject json = new JSONObject(); 
             json.put("message", userText);
+            json.put("email", "alirazasabir007@gmail.com");
+            // 🚀 پائتھن سرور کو بتائیں کہ کال موڈ ہے، آڈیو جنریٹ کرے 🚀
+            json.put("mode", "audio"); 
             
             RequestBody body = RequestBody.create(json.toString(), MediaType.parse("application/json; charset=utf-8"));
             Request request = new Request.Builder().url("https://ayesha.aigrowthbox.com/chat").post(body).build();
@@ -215,13 +207,11 @@ public class AyeshaCallService extends Service {
                             String replyText = jsonResponse.optString("text", "");
                             String audioBase64 = jsonResponse.optString("audio", "");
                             
-                            // 🚀 ایکشن پروسیس کریں اور سکرین پر ٹیکسٹ دکھائیں 🚀
                             if (!replyText.isEmpty()) {
                                 processActions(replyText);
                                 sendBroadcast(new Intent("NEW_MESSAGE_FROM_CALL").putExtra("message", replyText));
                             }
                             
-                            // 🚀 سرور سے آئی ہوئی Base64 آڈیو کو پلے کریں 🚀
                             if (!audioBase64.isEmpty()) {
                                 playAudioFromBase64(audioBase64);
                             }
@@ -229,14 +219,11 @@ public class AyeshaCallService extends Service {
                         } catch (Exception e) {}
                     }
                 }
-                @Override public void onFailure(Call call, IOException e) { 
-                    // سائلنٹ فیلئر
-                }
+                @Override public void onFailure(Call call, IOException e) {}
             });
         } catch (Exception e) {}
     }
 
-    // 🚀 بیس 64 آڈیو کو کنورٹ کر کے اصلی آواز میں پلے کرنے والا الٹیمیٹ فنکشن 🚀
     private void playAudioFromBase64(String base64Audio) {
         try {
             byte[] audioData = Base64.decode(base64Audio, Base64.DEFAULT);
@@ -338,4 +325,5 @@ public class AyeshaCallService extends Service {
     
     @Override public void onDestroy() { endCallCompletely(); super.onDestroy(); }
     @Override public IBinder onBind(Intent i) { return null; }
-}
+                            }
+                
