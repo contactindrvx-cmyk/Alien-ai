@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 🚀 2. مینیو کنٹرولز (100% کریش پروف) 🚀
+// 🚀 2. مینیو کنٹرولز اور اسسٹنٹ سلیکشن 🚀
 // ==========================================
 window.closeAllMenus = function() {
     const profileMenu = document.getElementById('profile-menu');
@@ -139,7 +139,7 @@ window.removeImage = function(e) {
 };
 
 // ==========================================
-// 🚀 4. UI اور ان پٹ اپڈیٹ (جہاز لانے کا لاجک) 🚀
+// 🚀 4. UI اور ان پٹ اپڈیٹ (جہاز اور مائیک) 🚀
 // ==========================================
 window.syncInputs = function(val) {
     const inputNormal = document.getElementById('user-input');
@@ -236,7 +236,7 @@ window.updateUIState = function() {
         }
     } catch (e) { console.error("UI Update Error:", e); }
 };
-        // ==========================================
+    // ==========================================
 // 🚀 5. چیٹ، مائیک اور کال ایکشنز (سینڈ، آٹو سینڈ) 🚀
 // ==========================================
 
@@ -254,17 +254,17 @@ window.handleSendClick = function(e) {
             reader.onloadend = function() {
                 currentB64 = reader.result.split(',')[1];
                 window.addMessage(text || "تصویر بھیجی گئی", 'user', imgUrl);
-                window.clearInputsAndSend(text, currentB64);
+                window.clearInputsAndSend(text, currentB64, true); // true for image
             };
             reader.readAsDataURL(pendingImg);
         } else {
             window.addMessage(text, 'user', null);
-            window.clearInputsAndSend(text, "");
+            window.clearInputsAndSend(text, "", false); // false for no image
         }
     }
 };
 
-window.clearInputsAndSend = function(text, b64) {
+window.clearInputsAndSend = function(text, b64, hasImg) {
     const inputNormal = document.getElementById('user-input');
     const inputCall = document.getElementById('cg-input');
     if(inputNormal) inputNormal.value = ''; 
@@ -277,11 +277,23 @@ window.clearInputsAndSend = function(text, b64) {
     window.isAyeshaRecording = false; 
     window.updateUIState();
     
+    // 🚀 ڈائنیمک نام اور جینڈر کے حساب سے انڈیکیٹر ٹیکسٹ 🚀
+    const currAsstEl = document.getElementById('current-assistant');
+    const asstName = currAsstEl ? currAsstEl.innerText.trim() : 'Ayesha';
+    const isMale = (asstName === 'Raza' || asstName === 'Alex' || asstName === 'رضا' || asstName === 'ایلکس');
+    
+    const thinkEl = document.getElementById('thinking-text');
+    if(thinkEl) {
+        let actionText = hasImg ? " تصویر دیکھ " : " سوچ ";
+        actionText += isMale ? "رہا ہے..." : "رہی ہے...";
+        thinkEl.innerText = asstName + actionText;
+    }
+
     const thinkInd = document.getElementById('thinking-indicator');
     if(thinkInd) thinkInd.classList.remove('hidden');
     window.isAyeshaProcessing = true;
     
-    // 🚨 یہ کمانڈ آپ کا میسج سیدھا عائشہ کو بھیجتی ہے 🚨
+    // 🚨 سیدھا عائشہ/اسسٹنٹ کو سگنل بھیجیں 🚨
     if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) {
         window.AndroidBridge.sendNativeRequest(text, b64);
     }
@@ -289,7 +301,6 @@ window.clearInputsAndSend = function(text, b64) {
 
 window.handleMicClick = function(e) {
     if(e) e.preventDefault();
-    // 🚨 مائیک کا کنٹرول اب جاوا (Android) کے پاس ہے، ڈبل ٹوگل کا مسئلہ ختم 🚨
     if(!isCallActive && window.AndroidBridge && window.AndroidBridge.toggleInlineMic) {
         window.AndroidBridge.toggleInlineMic(); 
     }
@@ -359,7 +370,6 @@ window.onInlineMicState = function(isRecording) {
     window.updateUIState();
 };
 
-// 🚨 لائیو ریکارڈنگ سکرین پر دکھانے اور آٹو سینڈ کرنے کا جادو 🚨
 window.updateInputFromJava = function(text, finalResult) {
     const inputNormal = document.getElementById('user-input');
     const inputCall = document.getElementById('cg-input');
@@ -367,7 +377,6 @@ window.updateInputFromJava = function(text, finalResult) {
     if(inputCall) inputCall.value = text; 
     window.updateUIState();
     
-    // جب بولنا بند کریں، تو خود بخود سینڈ ہو جائے
     if(finalResult) {
         clearTimeout(window.voiceTimeout);
         window.voiceTimeout = setTimeout(() => { 
@@ -488,10 +497,19 @@ window.onStreamError = function() {
 window.addMessageFromJava = function(text) {
     if (text.startsWith("SCREEN_DATA||")) {
         let screenData = text.replace("SCREEN_DATA||", "");
+        
+        window.isAyeshaProcessing = true;
+        const currAsstEl = document.getElementById('current-assistant');
+        const asstName = currAsstEl ? currAsstEl.innerText.trim() : 'Ayesha';
+        const isMale = (asstName === 'Raza' || asstName === 'Alex' || asstName === 'رضا' || asstName === 'ایلکس');
+        
+        const thinkEl = document.getElementById('thinking-text');
+        if(thinkEl) thinkEl.innerText = asstName + (isMale ? " سکرین دیکھ رہا ہے..." : " سکرین دیکھ رہی ہے...");
+
         const thinkInd = document.getElementById('thinking-indicator');
         if(thinkInd) thinkInd.classList.remove('hidden');
+
         let promptMsg = "صارف کی سکرین پر اس وقت یہ سب لکھا ہے:\n" + screenData + "\n\n[SYSTEM WARNING: اب کوئی ایکشن کمانڈ مت دینا، صرف یہ پڑھ کر یوزر کو جواب دو کہ سکرین پر کیا ہے۔]";
-        window.isAyeshaProcessing = true;
         if (window.AndroidBridge && window.AndroidBridge.sendNativeRequest) window.AndroidBridge.sendNativeRequest(promptMsg, "");
         return;
     }
@@ -515,8 +533,17 @@ window.analyzeScreen = function() {
         
         if (window.AndroidBridge.sendNativeRequest) {
             window.isAyeshaProcessing = true;
+            
+            const currAsstEl = document.getElementById('current-assistant');
+            const asstName = currAsstEl ? currAsstEl.innerText.trim() : 'Ayesha';
+            const isMale = (asstName === 'Raza' || asstName === 'Alex' || asstName === 'رضا' || asstName === 'ایلکس');
+            
+            const thinkEl = document.getElementById('thinking-text');
+            if(thinkEl) thinkEl.innerText = asstName + (isMale ? " سکرین دیکھ رہا ہے..." : " سکرین دیکھ رہی ہے...");
+
             const thinkInd = document.getElementById('thinking-indicator');
             if(thinkInd) thinkInd.classList.remove('hidden');
+            
             window.AndroidBridge.sendNativeRequest("[سکرین کا ڈیٹا موصول ہوا]\nسکرین کا ٹیکسٹ: " + screenText + "\nاب اس ڈیٹا کی بنیاد پر صارف کو جواب دیں۔", base64Image);
         }
     }
@@ -604,7 +631,6 @@ window.addMessage = function(text, sender, imgUrl = null) {
 
     if (sender === 'user') {
         msgDiv.className = 'w-full flex justify-end mt-4 mb-2';
-        // 🚨 یہ لائن اب کال اور نارمل دونوں موڈز میں چیٹ شو کرے گی 🚨
         msgDiv.innerHTML = `<div class="chat-bubble bg-[#2f3037] p-3 rounded-2xl max-w-[85%] flex flex-col items-end text-[1.05rem] text-gray-200 shadow-md" dir="rtl">${imgHTML}<p dir="auto">${text}</p></div>`;
         chatBox.insertBefore(msgDiv, document.getElementById('thinking-indicator')); 
         chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
@@ -640,7 +666,7 @@ window.addMessage = function(text, sender, imgUrl = null) {
             const aiCont = msgDiv.querySelector('.ai-text-container');
             if(aiCont) aiCont.classList.remove('typing-cursor');
             if(actionsDiv) actionsDiv.classList.remove('opacity-0');
-        } else {
+         } else {
             let i = 0;
             function typeWriter() {
                 if (i < text.length) {
@@ -659,4 +685,3 @@ window.addMessage = function(text, sender, imgUrl = null) {
         return btn;
     }
 };
-        
